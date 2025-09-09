@@ -38,6 +38,7 @@ export const Route = createRootRoute({
         rel: 'stylesheet',
         href: '/styles.css',
       },
+
       // fonts from https://fontawesome.com/
       {
         rel: 'stylesheet',
