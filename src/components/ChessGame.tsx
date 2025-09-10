@@ -86,50 +86,75 @@ export function ChessGame() {
         <p>"Kasparov's Immortal" - Navigate through this famous game</p>
       </header>
       
-      <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div>
+      <div style={{ 
+        display: 'flex', 
+        gap: '1rem', 
+        flexWrap: 'wrap', 
+        alignItems: 'flex-start',
+        maxHeight: '90vh',
+        overflow: 'hidden'
+      }}>
+        <div style={{ flex: '0 0 auto' }}>
           <ChessBoard 
             key={currentMoveIndex}
             game={game} 
             onMove={onMove}
-            boardWidth={400}
+            boardSize="60vh"
             showCoordinates={true}
           />
         </div>
         
-        <div style={{ minWidth: '300px' }}>
-          <div style={{ marginBottom: '1rem' }}>
+        <div style={{ 
+          minWidth: '280px', 
+          flex: '1 1 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: '90vh'
+        }}>
+          <div style={{ marginBottom: '0.5rem' }}>
             <button 
               onClick={goToStart}
               disabled={currentMoveIndex === 0}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
             >
               ⏮ Start
             </button>
             <button 
               onClick={goToPreviousMove}
               disabled={currentMoveIndex === 0}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
             >
               ◀ Previous
             </button>
             <button 
               onClick={goToNextMove}
               disabled={currentMoveIndex === gameHistory.length - 1}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
             >
               Next ▶
             </button>
             <button 
               onClick={goToEnd}
               disabled={currentMoveIndex === gameHistory.length - 1}
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
             >
               End ⏭
             </button>
           </div>
           
-          <p><small>Move {currentMoveIndex} of {gameHistory.length - 1}</small></p>
+          <p style={{ margin: '0.5rem 0' }}><small>Move {currentMoveIndex} of {gameHistory.length - 1}</small></p>
           
-          <details open>
+          <details open style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
             <summary>Move History</summary>
-            <div style={{ maxHeight: '300px', overflowY: 'auto', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}>
+            <div style={{ 
+              flex: '1 1 auto',
+              overflowY: 'auto', 
+              padding: '0.5rem', 
+              border: '1px solid #ccc', 
+              borderRadius: '4px',
+              minHeight: '200px',
+              maxHeight: 'calc(90vh - 200px)'
+            }}>
               {moveHistory.map((move, index) => {
                 const moveNumber = Math.floor(index / 2) + 1;
                 const isWhiteMove = index % 2 === 0;

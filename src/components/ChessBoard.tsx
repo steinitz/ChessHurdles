@@ -5,14 +5,14 @@ import { Chess } from 'chess.js';
 interface ChessBoardProps {
   game: Chess;
   onMove?: (move: string) => void;
-  boardWidth?: number;
+  boardSize?: string;
   showCoordinates?: boolean;
 }
 
 export function ChessBoard({ 
   game, 
   onMove, 
-  boardWidth = 400, 
+  boardSize = '60vh', 
   showCoordinates = true 
 }: ChessBoardProps) {
   const [moveFrom, setMoveFrom] = useState<string>('');
@@ -111,7 +111,15 @@ export function ChessBoard({
   );
 
   return (
-    <div className="chess-board-container">
+    <div 
+      className="chess-board-container"
+      style={{ 
+        width: boardSize,
+        height: boardSize,
+        maxWidth: '100%',
+        maxHeight: '80vh'
+      }}
+    >
       <Chessboard
         options={{
           position: game.fen(),
