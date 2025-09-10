@@ -80,9 +80,9 @@ export function ChessGame() {
     console.log('Move made:', move);
   }, []);
 
-  const chessboardHeight = '75vh'
-  const containerWidth = `${chessboardHeight}`
-  const chessgameTransportHeight = '8vh'
+  const chessboardHeight = '75vh' // allows game nav buttons to be comfortably on screen
+  const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
+  const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
 
   return (
     <section>
@@ -155,10 +155,10 @@ export function ChessGame() {
         <p>Move {currentMoveIndex} of {gameHistory.length - 1}</p>
 
         <details open >
-          <summary>Move History</summary>
+          <summary>Moves</summary>
           <div style={{
             padding: '0.5rem',
-            border: '1px solid #ccc',
+            border: '1px solid var(--color-accent)',
             borderRadius: '4px',
           }}>
             {moveHistory.map((move, index) => {
