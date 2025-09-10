@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Chess } from 'chess.js';
+import React, {useState, useCallback, useEffect} from 'react';
+import {Chess} from 'chess.js';
 import ChessBoard from './ChessBoard';
+import {Spacer} from '~stzUtils/components/Spacer'
 
 // Famous game: Kasparov vs Topalov, Wijk aan Zee 1999 (Kasparov's Immortal)
 const SAMPLE_GAME_MOVES = [
@@ -79,108 +80,112 @@ export function ChessGame() {
     console.log('Move made:', move);
   }, []);
 
+  const chessboardHeight = '75vh'
+  const containerWidth = `${chessboardHeight}`
+  const chessgameTransportHeight = '8vh'
+
   return (
     <section>
       <header>
         <h2>Kasparov vs Topalov, Wijk aan Zee 1999</h2>
         <p>"Kasparov's Immortal" - Navigate through this famous game</p>
       </header>
-      
-      <div style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        flexWrap: 'wrap', 
-        alignItems: 'flex-start',
-        maxHeight: '90vh',
-        overflow: 'hidden'
+      <div style={{
+        width: containerWidth,
+        margin: '0 auto'
       }}>
-        <div style={{ flex: '0 0 auto' }}>
-          <ChessBoard 
-            key={currentMoveIndex}
-            game={game} 
-            onMove={onMove}
-            boardSize="60vh"
-            showCoordinates={true}
-          />
-        </div>
-        
-        <div style={{ 
-          minWidth: '280px', 
-          flex: '1 1 auto',
+        <div style={{
           display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh'
+          gap: '1rem',
+          flexWrap: 'wrap',
+          alignItems: 'flex-start',
+          height: `calc(${chessboardHeight} + ${chessgameTransportHeight})`,
+          overflow: 'hidden'
         }}>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <button 
-              onClick={goToStart}
-              disabled={currentMoveIndex === 0}
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-            >
-              ⏮ Start
-            </button>
-            <button 
-              onClick={goToPreviousMove}
-              disabled={currentMoveIndex === 0}
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-            >
-              ◀ Previous
-            </button>
-            <button 
-              onClick={goToNextMove}
-              disabled={currentMoveIndex === gameHistory.length - 1}
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-            >
-              Next ▶
-            </button>
-            <button 
-              onClick={goToEnd}
-              disabled={currentMoveIndex === gameHistory.length - 1}
-              style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}
-            >
-              End ⏭
-            </button>
+          <div>
+            <ChessBoard
+              key={currentMoveIndex}
+              game={game}
+              onMove={onMove}
+              boardSize={chessboardHeight}
+              showCoordinates={true}
+            />
           </div>
-          
-          <p style={{ margin: '0.5rem 0' }}><small>Move {currentMoveIndex} of {gameHistory.length - 1}</small></p>
-          
-          <details open style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column' }}>
-            <summary>Move History</summary>
-            <div style={{ 
-              flex: '1 1 auto',
-              overflowY: 'auto', 
-              padding: '0.5rem', 
-              border: '1px solid #ccc', 
-              borderRadius: '4px',
-              minHeight: '200px',
-              maxHeight: 'calc(90vh - 200px)'
+          {/* <Spacer /> */}
+          <div style={{
+            minWidth: '280px',
+            flex: '1 1 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            height: chessgameTransportHeight
+          }}>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginBottom: '0.5rem'
             }}>
-              {moveHistory.map((move, index) => {
-                const moveNumber = Math.floor(index / 2) + 1;
-                const isWhiteMove = index % 2 === 0;
-                const isCurrentMove = index + 1 === currentMoveIndex;
-                
-                return (
-                  <span 
-                    key={index}
-                    style={{
-                      cursor: 'pointer',
-                      padding: '2px 4px',
-                      borderRadius: '2px',
-                      backgroundColor: isCurrentMove ? '#007bff' : 'transparent',
-                      color: isCurrentMove ? 'white' : 'inherit'
-                    }}
-                    onClick={() => goToMove(index + 1)}
-                  >
-                    {isWhiteMove && `${moveNumber}. `}{move}{' '}
-                  </span>
-                );
-              })}
+              <button
+                onClick={goToStart}
+                disabled={currentMoveIndex === 0}
+              >
+                ⏮ Start
+              </button>
+              <button
+                onClick={goToPreviousMove}
+                disabled={currentMoveIndex === 0}
+              >
+                ◀ Prev
+              </button>
+              <button
+                onClick={goToNextMove}
+                disabled={currentMoveIndex === gameHistory.length - 1}
+              >
+                Next ▶
+              </button>
+              <button
+                onClick={goToEnd}
+                disabled={currentMoveIndex === gameHistory.length - 1}
+              >
+                &nbsp;&nbsp;End ⏭
+              </button>
             </div>
-          </details>
+          </div>
         </div>
+        <p>Move {currentMoveIndex} of {gameHistory.length - 1}</p>
+
+        <details open >
+          <summary>Move History</summary>
+          <div style={{
+            padding: '0.5rem',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+          }}>
+            {moveHistory.map((move, index) => {
+              const moveNumber = Math.floor(index / 2) + 1;
+              const isWhiteMove = index % 2 === 0;
+              const isCurrentMove = index + 1 === currentMoveIndex;
+
+              return (
+                <span
+                  key={index}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: '2px',
+                    backgroundColor: isCurrentMove ? 'var(--color-accent)' : 'transparent',
+                    color: isCurrentMove ? 'white' : 'inherit'
+                  }}
+                  onClick={() => goToMove(index + 1)}
+                >
+                  {isWhiteMove && `${moveNumber}. `}{move}{' '}
+                </span>
+              );
+            })}
+          </div>
+        </details>
       </div>
-    </section>
+    </section >
   );
 }
 
