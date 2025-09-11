@@ -2,6 +2,7 @@ import React, {useState, useCallback, useEffect} from 'react';
 import {Chess} from 'chess.js';
 import ChessBoard from './ChessBoard';
 import {Spacer} from '~stzUtils/components/Spacer'
+import {StockfishEngine} from './StockfishEngine';
 
 // Famous game: Kasparov vs Topalov, Wijk aan Zee 1999 (Kasparov's Immortal)
 const SAMPLE_GAME_MOVES = [
@@ -21,6 +22,13 @@ export function ChessGame() {
   const [gameHistory, setGameHistory] = useState<Chess[]>([new Chess()]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [analysisDepth, setAnalysisDepth] = useState(10);
+  const [engineEvaluation, setEngineEvaluation] = useState<{
+    evaluation: number;
+    bestMove: string;
+    pv: string;
+    calculationTime?: number;
+  } | null>(null);
 
   // Initialize the sample game
   useEffect(() => {
@@ -79,6 +87,30 @@ export function ChessGame() {
     // This callback could be used for interactive play in the future
     console.log('Move made:', move);
   }, []);
+
+  // Initialize Stockfish engine
+  const stockfishEngine = StockfishEngine({
+    fen: game.fen(),
+    depth: analysisDepth,
+    onEvaluation: (evaluation, bestMove, pv) => {
+      console.log('ChessGame received evaluation:', { evaluation, bestMove, pv });
+      setEngineEvaluation({ evaluation, bestMove, pv });
+    },
+    onCalculationTime: (timeMs) => {
+      setEngineEvaluation(prev => prev ? { ...prev, calculationTime: timeMs } : null);
+    }
+  });
+
+  const handleAnalyzePosition = useCallback(() => {
+    stockfishEngine.analyzePosition();
+  }, [stockfishEngine]);
+
+  const formatEvaluation = (evaluation: number) => {
+    if (Math.abs(evaluation) > 5000) {
+      return evaluation > 0 ? 'White mates' : 'Black mates';
+    }
+    return (evaluation / 100).toFixed(1);
+  };
 
   const chessboardHeight = '75vh' // allows game nav buttons to be comfortably on screen
   const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
@@ -152,6 +184,52 @@ export function ChessGame() {
             </div>
           </div>
         </div>
+        
+        {/* Engine Analysis Section - Moved outside constrained height container */}
+        <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid var(--color-bg-secondary)', borderRadius: '4px', maxWidth: containerWidth }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <button
+              onClick={handleAnalyzePosition}
+              disabled={stockfishEngine.isAnalyzing}
+            >
+              {stockfishEngine.isAnalyzing ? 'Analyzing...' : 'Analyze Position'}
+            </button>
+            <label>
+              Depth:
+              <input
+                type="range"
+                min="1"
+                max="15"
+                value={analysisDepth}
+                onChange={(e) => setAnalysisDepth(parseInt(e.target.value))}
+                style={{ marginLeft: '0.5rem', width: '80px' }}
+              />
+              <span style={{ marginLeft: '0.5rem' }}>{analysisDepth}</span>
+            </label>
+          </div>
+          
+          {stockfishEngine.error && (
+            <p style={{ color: 'var(--color-error)', fontSize: '0.9rem' }}>
+              Error: {stockfishEngine.error}
+            </p>
+          )}
+          
+          {engineEvaluation && (
+            <div style={{ fontSize: '0.9rem' }}>
+              <p><strong>Evaluation:</strong> {formatEvaluation(engineEvaluation.evaluation)}</p>
+              {engineEvaluation.bestMove && (
+                <p><strong>Best Move:</strong> {engineEvaluation.bestMove}</p>
+              )}
+              {engineEvaluation.calculationTime && (
+                <p><strong>Time:</strong> {engineEvaluation.calculationTime}ms</p>
+              )}
+              {engineEvaluation.pv && (
+                <p><strong>Principal Variation:</strong> {engineEvaluation.pv}</p>
+              )}
+            </div>
+          )}
+        </div>
+        
         <p>Move {currentMoveIndex} of {gameHistory.length - 1}</p>
 
         <details open >
