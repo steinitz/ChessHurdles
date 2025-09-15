@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { uciToAlgebraic, uciSequenceToAlgebraic, formatPrincipalVariation } from './chess-utils';
+import { uciToAlgebraic, uciSequenceToAlgebraic, formatPrincipalVariation, formatMoveWithNumber } from './chess-utils';
 
 describe('chess-utils', () => {
   const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -51,11 +51,34 @@ describe('chess-utils', () => {
     });
   });
 
+  describe('formatMoveWithNumber', () => {
+    it('should format white moves with move number', () => {
+      expect(formatMoveWithNumber('e4', startingFen)).toBe('1.e4');
+    });
+
+    it('should format black moves with ellipsis', () => {
+      const blackToMoveFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+      expect(formatMoveWithNumber('e5', blackToMoveFen)).toBe('1...e5');
+    });
+
+    it('should handle different move numbers', () => {
+      const midGameFen = 'r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3';
+      expect(formatMoveWithNumber('Bb5', midGameFen)).toBe('3.Bb5');
+    });
+  });
+
   describe('formatPrincipalVariation', () => {
-    it('should format a principal variation string', () => {
+    it('should format a principal variation string with move numbers', () => {
       const pvString = 'e2e4 e7e5 g1f3 b8c6';
-      const expected = 'e4 e5 Nf3 Nc6';
+      const expected = '1.e4 e5 2.Nf3 Nc6';
       expect(formatPrincipalVariation(pvString, startingFen)).toBe(expected);
+    });
+
+    it('should handle variations starting with black moves', () => {
+      const blackToMoveFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1';
+      const pvString = 'e7e5 g1f3 b8c6';
+      const expected = '1...e5 2.Nf3 Nc6';
+      expect(formatPrincipalVariation(pvString, blackToMoveFen)).toBe(expected);
     });
 
     it('should handle empty strings', () => {
@@ -64,9 +87,9 @@ describe('chess-utils', () => {
     });
 
     it('should handle single moves', () => {
-      expect(formatPrincipalVariation('e2e4', startingFen)).toBe('e4');
-    });
-  });
+       expect(formatPrincipalVariation('e2e4', startingFen)).toBe('1.e4');
+     });
+   });
 
   describe('FEN mismatch scenarios', () => {
     it('should fail to convert UCI move when using wrong FEN', () => {

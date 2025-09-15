@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { uciToAlgebraic, formatPrincipalVariation } from '../lib/chess-utils';
+import { uciToAlgebraic, formatPrincipalVariation, formatMoveWithNumber } from '../lib/chess-utils';
 
 interface StockfishEngineProps {
   fen: string;
@@ -89,13 +89,14 @@ export function StockfishEngine({
           // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
           const firstMoveUci = pv.split(' ')[0] || '';
           const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFenRef.current) || firstMoveUci : '';
+          const bestMoveFormatted = firstMoveAlgebraic ? formatMoveWithNumber(firstMoveAlgebraic, analyzingFenRef.current) : '';
           
           // Convert the entire principal variation to algebraic notation
           const pvAlgebraic = formatPrincipalVariation(pv, analyzingFenRef.current);
           
           const newEvaluation: EngineEvaluation = {
             evaluation: scoreMatch[0].includes('mate') ? (score > 0 ? 10000 : -10000) : score,
-            bestMove: firstMoveAlgebraic,
+            bestMove: bestMoveFormatted,
             principalVariation: pvAlgebraic,
             depth: currentDepth,
             calculationTime

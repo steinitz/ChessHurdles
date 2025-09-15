@@ -55,14 +55,64 @@ export function uciSequenceToAlgebraic(
 }
 
 /**
- * Formats a principal variation (PV) from UCI to algebraic notation
+ * Formats a single move with proper chess notation numbering
+ * @param move - Move in algebraic notation (e.g., 'e4', 'Nf3')
+ * @param fen - Current position to determine move number and turn
+ * @returns Formatted move with number (e.g., '1.e4', '1...e5')
+ */
+export function formatMoveWithNumber(move: string, fen: string): string {
+  const fenParts = fen.split(' ');
+  const isWhiteToMove = fenParts[1] === 'w';
+  const fullMoveNumber = parseInt(fenParts[5]) || 1;
+  
+  if (isWhiteToMove) {
+    return `${fullMoveNumber}.${move}`;
+  } else {
+    return `${fullMoveNumber}...${move}`;
+  }
+}
+
+/**
+ * Formats a principal variation (PV) from UCI to algebraic notation with proper move numbering
  * @param pvString - Space-separated UCI moves
  * @param fen - Current position
- * @returns Formatted algebraic notation string
+ * @returns Formatted algebraic notation string with move numbers
  */
 export function formatPrincipalVariation(pvString: string, fen: string): string {
   if (!pvString.trim()) return '';
   
   const algebraicMoves = uciSequenceToAlgebraic(pvString, fen);
-  return algebraicMoves.join(' ');
+  if (algebraicMoves.length === 0) return '';
+  
+  // Parse the FEN to get the current move number and whose turn it is
+  const fenParts = fen.split(' ');
+  const isWhiteToMove = fenParts[1] === 'w';
+  const fullMoveNumber = parseInt(fenParts[5]) || 1;
+  
+  const formattedMoves: string[] = [];
+  let currentMoveNumber = fullMoveNumber;
+  let isWhiteTurn = isWhiteToMove;
+  
+  for (let i = 0; i < algebraicMoves.length; i++) {
+    const move = algebraicMoves[i];
+    
+    if (isWhiteTurn) {
+      // White's move: show move number
+      formattedMoves.push(`${currentMoveNumber}.${move}`);
+    } else {
+      // Black's move
+      if (i === 0) {
+        // First move is black's move, use ellipsis notation
+        formattedMoves.push(`${currentMoveNumber}...${move}`);
+      } else {
+        // Subsequent black moves
+        formattedMoves.push(move);
+      }
+      currentMoveNumber++;
+    }
+    
+    isWhiteTurn = !isWhiteTurn;
+  }
+  
+  return formattedMoves.join(' ');
 }
