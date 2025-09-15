@@ -10,32 +10,8 @@ export function uciToAlgebraic(uciMove: string, fen: string): string | null {
   try {
     const game = new Chess(fen);
     
-    // Parse UCI move format (e.g., 'e2e4', 'e7e8q')
-    if (uciMove.length < 4) return null;
-    
-    const from = uciMove.slice(0, 2);
-    const to = uciMove.slice(2, 4);
-    const promotionPiece = uciMove.length > 4 ? uciMove.slice(4) : undefined;
-    
-    // Check if the move is legal before attempting it
-    const legalMoves = game.moves({ verbose: true });
-    const isLegalMove = legalMoves.some(move => 
-      move.from === from && move.to === to && 
-      (!promotionPiece || move.promotion === promotionPiece)
-    );
-    
-    if (!isLegalMove) {
-      // Silently return null for illegal moves - this is expected during analysis
-      return null;
-    }
-    
-    // Make the move and get the SAN notation
-    const moveOptions: any = { from, to };
-    if (promotionPiece) {
-      moveOptions.promotion = promotionPiece;
-    }
-    
-    const move = game.move(moveOptions);
+    // Chess.js can handle UCI moves directly
+    const move = game.move(uciMove);
     
     return move ? move.san : null;
   } catch (error) {
