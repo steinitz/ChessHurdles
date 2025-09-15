@@ -67,4 +67,36 @@ describe('chess-utils', () => {
       expect(formatPrincipalVariation('e2e4', startingFen)).toBe('e4');
     });
   });
+
+  describe('FEN mismatch scenarios', () => {
+    it('should fail to convert UCI move when using wrong FEN', () => {
+      // Simulate the Stockfish engine scenario:
+      // Stockfish analyzes a position after some moves, but we try to convert
+      // the UCI move using the starting position FEN
+      
+      // Position after 1.e4 e5 - now the white bishop can move to c4
+      const actualPosition = 'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2';
+      
+      // A move that's valid in the actual position: bishop to c4
+      const validUciMove = 'f1c4'; // Bishop moves to c4
+      
+      // This should work with the correct FEN
+      expect(uciToAlgebraic(validUciMove, actualPosition)).toBe('Bc4');
+      
+      // But should fail with the starting position FEN (the bug scenario)
+      expect(uciToAlgebraic(validUciMove, startingFen)).toBe(null);
+    });
+
+    it('should demonstrate the b3a5 scenario from our logs', () => {
+      // Create a position where b3a5 would be a valid move
+      // This requires a knight on b3 that can move to a5
+      const positionWithKnightOnB3 = 'rnbqkbnr/pppppppp/8/8/8/1N6/PPPPPPPP/R1BQKBNR w KQkq - 0 1';
+      
+      // This move should work in the correct position
+      expect(uciToAlgebraic('b3a5', positionWithKnightOnB3)).toBe('Na5');
+      
+      // But fail in the starting position (our bug scenario)
+      expect(uciToAlgebraic('b3a5', startingFen)).toBe(null);
+    });
+  });
 });

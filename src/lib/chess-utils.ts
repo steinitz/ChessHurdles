@@ -40,9 +40,9 @@ export function uciSequenceToAlgebraic(
       algebraicMoves.push(algebraic);
       // Make the move to update the position for the next conversion
       try {
-        game.move(algebraic);
+        game.move(uciMove);
       } catch (error) {
-        console.warn('Failed to make move during sequence conversion:', algebraic);
+        console.warn('Failed to make move during sequence conversion:', uciMove);
         break;
       }
     } else {

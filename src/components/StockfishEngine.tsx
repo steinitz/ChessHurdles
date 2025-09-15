@@ -22,11 +22,12 @@ export function StockfishEngine({
   onEvaluation, 
   onCalculationTime 
 }: StockfishEngineProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [evaluation, setEvaluation] = useState<EngineEvaluation | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const startTimeRef = useRef<number>(0);
+  const analyzingFenRef = useRef<string>('');
 
   // Initialize Stockfish worker
   useEffect(() => {
@@ -87,10 +88,10 @@ export function StockfishEngine({
           // Extract the first move from the principal variation and convert to algebraic
           // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
           const firstMoveUci = pv.split(' ')[0] || '';
-          const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, fen) || firstMoveUci : '';
+          const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFenRef.current) || firstMoveUci : '';
           
           // Convert the entire principal variation to algebraic notation
-          const pvAlgebraic = formatPrincipalVariation(pv, fen);
+          const pvAlgebraic = formatPrincipalVariation(pv, analyzingFenRef.current);
           
           const newEvaluation: EngineEvaluation = {
             evaluation: scoreMatch[0].includes('mate') ? (score > 0 ? 10000 : -10000) : score,
@@ -130,6 +131,11 @@ export function StockfishEngine({
     startTimeRef.current = Date.now();
     
     // Set position and start analysis
+    // Store the FEN being analyzed for move conversion
+    analyzingFenRef.current = fen;
+    // Send 'stop' first to ensure clean state, then set new position
+    workerRef.current.postMessage('stop');
+    workerRef.current.postMessage('ucinewgame');
     workerRef.current.postMessage(`position fen ${fen}`);
     workerRef.current.postMessage(`go depth ${depth}`);
   }, [fen, depth, isAnalyzing]);

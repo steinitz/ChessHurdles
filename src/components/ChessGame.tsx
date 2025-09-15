@@ -85,7 +85,6 @@ export function ChessGame() {
   const onMove = useCallback((move: string) => {
     // For now, we're just displaying a pre-loaded game
     // This callback could be used for interactive play in the future
-    console.log('Move made:', move);
   }, []);
 
   // Initialize Stockfish engine
@@ -93,7 +92,6 @@ export function ChessGame() {
     fen: game.fen(),
     depth: analysisDepth,
     onEvaluation: (evaluation, bestMove, pv) => {
-      console.log('ChessGame received evaluation:', { evaluation, bestMove, pv });
       setEngineEvaluation({ evaluation, bestMove, pv });
     },
     onCalculationTime: (timeMs) => {
