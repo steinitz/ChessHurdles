@@ -3,6 +3,8 @@ import {Chess} from 'chess.js';
 import ChessBoard from './ChessBoard';
 import {Spacer} from '~stzUtils/components/Spacer'
 import {StockfishEngine} from './StockfishEngine';
+import PgnInput from './PgnInput';
+import { pgnToGameHistory } from '../lib/chess-utils';
 
 // Famous game: Kasparov vs Topalov, Wijk aan Zee 1999 (Kasparov's Immortal)
 const SAMPLE_GAME_MOVES = [
@@ -29,9 +31,11 @@ export function ChessGame() {
     pv: string;
     calculationTime?: number;
   } | null>(null);
+  const [gameTitle, setGameTitle] = useState('Kasparov vs Topalov, Wijk aan Zee 1999');
+  const [gameDescription, setGameDescription] = useState('"Kasparov\'s Immortal" - Navigate through this famous game');
 
   // Initialize the sample game
-  useEffect(() => {
+  const loadSampleGame = useCallback(() => {
     const newGame = new Chess();
     const history: Chess[] = [new Chess()];
     const moves: string[] = [];
@@ -53,7 +57,40 @@ export function ChessGame() {
     setMoveHistory(moves);
     setGame(new Chess()); // Start at initial position
     setCurrentMoveIndex(0);
+    setGameTitle('Kasparov vs Topalov, Wijk aan Zee 1999');
+    setGameDescription('"Kasparov\'s Immortal" - Navigate through this famous game');
   }, []);
+
+  // Load sample game on mount
+  useEffect(() => {
+    loadSampleGame();
+  }, [loadSampleGame]);
+
+  // Handle PGN loading
+  const handlePgnLoad = useCallback((pgnString: string) => {
+    const result = pgnToGameHistory(pgnString);
+    
+    if (result.isValid) {
+      setGameHistory(result.history);
+      setMoveHistory(result.moves);
+      setGame(new Chess()); // Start at initial position
+      setCurrentMoveIndex(0);
+      
+      // Try to extract game info from PGN headers
+      const white = result.headers?.White || 'Unknown';
+      const black = result.headers?.Black || 'Unknown';
+      const event = result.headers?.Event || 'Chess Game';
+      const date = result.headers?.Date || '';
+      
+      setGameTitle(`${white} vs ${black}`);
+      setGameDescription(`${event}${date ? ` (${date})` : ''} - Loaded from PGN`);
+    }
+  }, []);
+
+  // Handle clearing PGN and returning to sample game
+  const handlePgnClear = useCallback(() => {
+    loadSampleGame();
+  }, [loadSampleGame]);
 
   const goToMove = useCallback((moveIndex: number) => {
     if (moveIndex >= 0 && moveIndex < gameHistory.length) {
@@ -117,9 +154,11 @@ export function ChessGame() {
   return (
     <section>
       <header>
-        <h2>Kasparov vs Topalov, Wijk aan Zee 1999</h2>
-        <p>"Kasparov's Immortal" - Navigate through this famous game</p>
+        <h2>{gameTitle}</h2>
+        <p>{gameDescription}</p>
       </header>
+      
+      <PgnInput onPgnLoad={handlePgnLoad} onClear={handlePgnClear} />
       <div style={{
         width: containerWidth,
         margin: '0 auto'

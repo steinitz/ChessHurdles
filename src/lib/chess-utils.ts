@@ -1,6 +1,128 @@
 import { Chess } from 'chess.js';
 
 /**
+ * Parses a PGN string and returns the moves and game information
+ * @param pgnString - PGN string to parse
+ * @returns Object with moves array, headers, and validation status
+ */
+export function parsePgn(pgnString: string): {
+  moves: string[];
+  headers: Record<string, string>;
+  isValid: boolean;
+  error?: string;
+} {
+  try {
+    const game = new Chess();
+    
+    // Load the PGN - chess.js will parse it automatically
+    try {
+      game.loadPgn(pgnString.trim());
+    } catch (pgnError) {
+      return {
+        moves: [],
+        headers: {},
+        isValid: false,
+        error: pgnError instanceof Error ? pgnError.message : 'PGN parsing failed'
+      };
+    }
+    
+    // Check if any moves were loaded
+    if (game.history().length === 0 && !pgnString.includes('[')) {
+      return {
+        moves: [],
+        headers: {},
+        isValid: false,
+        error: 'Invalid PGN format'
+      };
+    }
+    
+    // Get the move history
+    const moves = game.history();
+    
+    // Get headers (chess.js extracts these automatically)
+    const rawHeaders = game.header();
+    const headers: Record<string, string> = {};
+    
+    // Filter out null values from headers
+    Object.entries(rawHeaders).forEach(([key, value]) => {
+      if (value !== null) {
+        headers[key] = value;
+      }
+    });
+    
+    return {
+      moves,
+      headers,
+      isValid: true
+    };
+  } catch (error) {
+    return {
+      moves: [],
+      headers: {},
+      isValid: false,
+      error: error instanceof Error ? error.message : 'Unknown parsing error'
+    };
+  }
+}
+
+/**
+ * Creates a game history from PGN moves
+ * @param pgnString - PGN string to convert
+ * @returns Array of Chess instances representing each position
+ */
+export function pgnToGameHistory(pgnString: string): {
+  history: Chess[];
+  moves: string[];
+  headers: Record<string, string>;
+  isValid: boolean;
+  error?: string;
+} {
+  const parseResult = parsePgn(pgnString);
+  
+  if (!parseResult.isValid) {
+    return {
+      history: [new Chess()],
+      moves: [],
+      headers: {},
+      isValid: false,
+      error: parseResult.error
+    };
+  }
+  
+  // Recreate the game step by step to build history
+  const game = new Chess();
+  const history: Chess[] = [new Chess()]; // Start with initial position
+  const moves: string[] = [];
+  
+  // Load PGN again to get the moves in order
+  game.loadPgn(pgnString.trim());
+  const pgnMoves = game.history();
+  
+  // Reset and replay moves to build history
+  game.reset();
+  
+  for (const move of pgnMoves) {
+    try {
+      const moveResult = game.move(move);
+      if (moveResult) {
+        moves.push(moveResult.san);
+        history.push(new Chess(game.fen()));
+      }
+    } catch (error) {
+      console.warn('Failed to replay move:', move, error);
+      break;
+    }
+  }
+  
+  return {
+    history,
+    moves,
+    headers: parseResult.headers,
+    isValid: true
+  };
+}
+
+/**
  * Converts UCI notation to Standard Algebraic Notation (SAN)
  * @param uciMove - Move in UCI format (e.g., 'e2e4', 'g1f3')
  * @param fen - Current position in FEN notation
@@ -89,6 +211,7 @@ export function formatPrincipalVariation(pvString: string, fen: string): string 
   const isWhiteToMove = fenParts[1] === 'w';
   const fullMoveNumber = parseInt(fenParts[5]) || 1;
   
+  // Loop variables that track state as we iterate through moves
   const formattedMoves: string[] = [];
   let currentMoveNumber = fullMoveNumber;
   let isWhiteTurn = isWhiteToMove;
