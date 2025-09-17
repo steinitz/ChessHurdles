@@ -27,6 +27,75 @@ function parseBestMoveMessage(message: string): boolean {
   return message.includes('bestmove');
 }
 
+// Message handling functions
+/**
+ * Processes UCI messages from Stockfish engine and updates evaluation state.
+ * Handles engine initialization, depth analysis updates, and analysis completion.
+ * Converts UCI notation to algebraic notation and formats principal variations.
+ */
+function handleEngineMessage(
+  message: string,
+  depth: number,
+  startTime: number,
+  analyzingFen: string,
+  callbacks: {
+    setEvaluation: (evaluation: EngineEvaluation) => void;
+    setIsAnalyzing: (analyzing: boolean) => void;
+    onEvaluation?: (evaluation: number, bestMove: string, pv: string) => void;
+    onCalculationTime?: (timeMs: number) => void;
+  }
+): void {
+  console.log('Engine message:', message);
+
+  if (parseUciOkMessage(message)) {
+    // Engine is ready
+    console.log('Stockfish engine initialized');
+  } else {
+    const depthInfo = parseDepthInfo(message);
+    if (depthInfo) {
+      // Only update if we've reached the target depth or higher
+      if (depthInfo.depth >= depth) {
+        const calculationTime = Date.now() - startTime;
+        
+        // Extract the first move from the principal variation and convert to algebraic
+        // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
+        const firstMoveUci = depthInfo.pv.split(' ')[0] || '';
+        const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFen) || firstMoveUci : '';
+        const bestMoveFormatted = firstMoveAlgebraic ? formatMoveWithNumber(firstMoveAlgebraic, analyzingFen) : '';
+        
+        // Convert the entire principal variation to algebraic notation
+        const pvAlgebraic = formatPrincipalVariation(depthInfo.pv, analyzingFen);
+        
+        const newEvaluation: EngineEvaluation = {
+          evaluation: depthInfo.isMate ? (depthInfo.score > 0 ? 10000 : -10000) : depthInfo.score,
+          bestMove: bestMoveFormatted,
+          principalVariation: pvAlgebraic,
+          depth: depthInfo.depth,
+          calculationTime
+        };
+        
+        callbacks.setEvaluation(newEvaluation);
+        
+        if (callbacks.onEvaluation) {
+          callbacks.onEvaluation(newEvaluation.evaluation, newEvaluation.bestMove, newEvaluation.principalVariation);
+        }
+        
+        if (callbacks.onCalculationTime) {
+          callbacks.onCalculationTime(calculationTime);
+        }
+      }
+    } else if (parseBestMoveMessage(message)) {
+      // Analysis complete
+      callbacks.setIsAnalyzing(false);
+      const calculationTime = Date.now() - startTime;
+      
+      if (callbacks.onCalculationTime) {
+        callbacks.onCalculationTime(calculationTime);
+      }
+    }
+  }
+}
+
 // Worker management functions
 function initializeStockfishWorker(onMessage: (event: MessageEvent) => void, onError: (error: string) => void): Worker | null {
   try {
@@ -129,62 +198,24 @@ export function StockfishEngine({
   const startTimeRef = useRef<number>(0);
   const analyzingFenRef = useRef<string>('');
 
-  const handleEngineMessage = useCallback((event: MessageEvent) => {
-    const message = event.data;
-    console.log('Engine message:', message);
-
-    if (parseUciOkMessage(message)) {
-      // Engine is ready
-      console.log('Stockfish engine initialized');
-    } else {
-      const depthInfo = parseDepthInfo(message);
-      if (depthInfo) {
-        // Only update if we've reached the target depth or higher
-        if (depthInfo.depth >= depth) {
-          const calculationTime = Date.now() - startTimeRef.current;
-          
-          // Extract the first move from the principal variation and convert to algebraic
-          // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
-          const firstMoveUci = depthInfo.pv.split(' ')[0] || '';
-          const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFenRef.current) || firstMoveUci : '';
-          const bestMoveFormatted = firstMoveAlgebraic ? formatMoveWithNumber(firstMoveAlgebraic, analyzingFenRef.current) : '';
-          
-          // Convert the entire principal variation to algebraic notation
-          const pvAlgebraic = formatPrincipalVariation(depthInfo.pv, analyzingFenRef.current);
-          
-          const newEvaluation: EngineEvaluation = {
-            evaluation: depthInfo.isMate ? (depthInfo.score > 0 ? 10000 : -10000) : depthInfo.score,
-            bestMove: bestMoveFormatted,
-            principalVariation: pvAlgebraic,
-            depth: depthInfo.depth,
-            calculationTime
-          };
-          
-          setEvaluation(newEvaluation);
-          
-          if (onEvaluation) {
-            onEvaluation(newEvaluation.evaluation, newEvaluation.bestMove, newEvaluation.principalVariation);
-          }
-          
-          if (onCalculationTime) {
-            onCalculationTime(calculationTime);
-          }
-        }
-      } else if (parseBestMoveMessage(message)) {
-        // Analysis complete
-        setIsAnalyzing(false);
-        const calculationTime = Date.now() - startTimeRef.current;
-        
-        if (onCalculationTime) {
-          onCalculationTime(calculationTime);
-        }
+  const handleEngineMessageWrapper = useCallback((event: MessageEvent) => {
+    handleEngineMessage(
+      event.data,
+      depth,
+      startTimeRef.current,
+      analyzingFenRef.current,
+      {
+        setEvaluation,
+        setIsAnalyzing,
+        onEvaluation,
+        onCalculationTime
       }
-    }
+    );
   }, [depth, onEvaluation, onCalculationTime]);
 
   // Initialize Stockfish worker
   useEffect(() => {
-    workerRef.current = initializeStockfishWorker(handleEngineMessage, setError);
+    workerRef.current = initializeStockfishWorker(handleEngineMessageWrapper, setError);
 
     return () => {
       cleanupWorker(workerRef.current);
