@@ -1,6 +1,68 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { uciToAlgebraic, formatPrincipalVariation, formatMoveWithNumber } from '../lib/chess-utils';
 
+// Message parsing functions
+function parseUciOkMessage(message: string): boolean {
+  return message.includes('uciok');
+}
+
+function parseDepthInfo(message: string) {
+  if (!message.includes('info depth')) return null;
+  
+  const depthMatch = message.match(/depth (\d+)/);
+  const scoreMatch = message.match(/score cp (-?\d+)/) || message.match(/score mate (-?\d+)/);
+  const pvMatch = message.match(/\bpv ([a-h1-8qrnbk\s]+)/i);
+  
+  if (!depthMatch || !scoreMatch) return null;
+  
+  return {
+    depth: parseInt(depthMatch[1]),
+    score: parseInt(scoreMatch[1]),
+    pv: pvMatch ? pvMatch[1].trim() : '',
+    isMate: scoreMatch[0].includes('mate')
+  };
+}
+
+function parseBestMoveMessage(message: string): boolean {
+  return message.includes('bestmove');
+}
+
+// Worker management functions
+function initializeStockfishWorker(onMessage: (event: MessageEvent) => void, onError: (error: string) => void): Worker | null {
+  try {
+    // Check if we're in a browser environment
+    if (typeof window === 'undefined') return null;
+
+    // Create worker with stockfish.js
+    const wasmSupported = typeof WebAssembly === 'object' && 
+      WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+    
+    // For now, we'll use the basic stockfish.js (not WASM) to avoid CORS issues
+    const worker = new Worker('/node_modules/stockfish.js/stockfish.js');
+    
+    worker.addEventListener('message', onMessage);
+    worker.addEventListener('error', (e) => {
+      console.error('Stockfish worker error:', e);
+      onError('Engine initialization failed');
+    });
+
+    // Initialize UCI protocol
+    worker.postMessage('uci');
+    
+    return worker;
+  } catch (err) {
+    console.error('Failed to initialize Stockfish:', err);
+    onError('Failed to initialize chess engine');
+    return null;
+  }
+}
+
+function cleanupWorker(worker: Worker | null): void {
+  if (worker) {
+    worker.terminate();
+  }
+}
+
 interface StockfishEngineProps {
   fen: string;
   depth?: number;
@@ -29,76 +91,34 @@ export function StockfishEngine({
   const startTimeRef = useRef<number>(0);
   const analyzingFenRef = useRef<string>('');
 
-  // Initialize Stockfish worker
-  useEffect(() => {
-    try {
-      // Check if we're in a browser environment
-      if (typeof window === 'undefined') return;
-
-      // Create worker with stockfish.js
-      const wasmSupported = typeof WebAssembly === 'object' && 
-        WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
-      
-      // For now, we'll use the basic stockfish.js (not WASM) to avoid CORS issues
-      workerRef.current = new Worker('/node_modules/stockfish.js/stockfish.js');
-      
-      workerRef.current.addEventListener('message', handleEngineMessage);
-      workerRef.current.addEventListener('error', (e) => {
-        console.error('Stockfish worker error:', e);
-        setError('Engine initialization failed');
-      });
-
-      // Initialize UCI protocol
-      workerRef.current.postMessage('uci');
-      
-    } catch (err) {
-      console.error('Failed to initialize Stockfish:', err);
-      setError('Failed to initialize chess engine');
-    }
-
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-    };
-  }, []);
-
   const handleEngineMessage = useCallback((event: MessageEvent) => {
     const message = event.data;
     console.log('Engine message:', message);
 
-    if (message.includes('uciok')) {
+    if (parseUciOkMessage(message)) {
       // Engine is ready
       console.log('Stockfish engine initialized');
-    } else if (message.includes('info depth')) {
-      // Parse evaluation info
-      const depthMatch = message.match(/depth (\d+)/);
-      const scoreMatch = message.match(/score cp (-?\d+)/) || message.match(/score mate (-?\d+)/);
-      const pvMatch = message.match(/\bpv ([a-h1-8qrnbk\s]+)/i);
-      
-      if (depthMatch && scoreMatch) {
-        const currentDepth = parseInt(depthMatch[1]);
-        const score = parseInt(scoreMatch[1]);
-        const pv = pvMatch ? pvMatch[1].trim() : '';
-        
+    } else {
+      const depthInfo = parseDepthInfo(message);
+      if (depthInfo) {
         // Only update if we've reached the target depth or higher
-        if (currentDepth >= depth) {
+        if (depthInfo.depth >= depth) {
           const calculationTime = Date.now() - startTimeRef.current;
           
           // Extract the first move from the principal variation and convert to algebraic
           // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
-          const firstMoveUci = pv.split(' ')[0] || '';
+          const firstMoveUci = depthInfo.pv.split(' ')[0] || '';
           const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFenRef.current) || firstMoveUci : '';
           const bestMoveFormatted = firstMoveAlgebraic ? formatMoveWithNumber(firstMoveAlgebraic, analyzingFenRef.current) : '';
           
           // Convert the entire principal variation to algebraic notation
-          const pvAlgebraic = formatPrincipalVariation(pv, analyzingFenRef.current);
+          const pvAlgebraic = formatPrincipalVariation(depthInfo.pv, analyzingFenRef.current);
           
           const newEvaluation: EngineEvaluation = {
-            evaluation: scoreMatch[0].includes('mate') ? (score > 0 ? 10000 : -10000) : score,
+            evaluation: depthInfo.isMate ? (depthInfo.score > 0 ? 10000 : -10000) : depthInfo.score,
             bestMove: bestMoveFormatted,
             principalVariation: pvAlgebraic,
-            depth: currentDepth,
+            depth: depthInfo.depth,
             calculationTime
           };
           
@@ -112,17 +132,26 @@ export function StockfishEngine({
             onCalculationTime(calculationTime);
           }
         }
-      }
-    } else if (message.includes('bestmove')) {
-      // Analysis complete
-      setIsAnalyzing(false);
-      const calculationTime = Date.now() - startTimeRef.current;
-      
-      if (onCalculationTime) {
-        onCalculationTime(calculationTime);
+      } else if (parseBestMoveMessage(message)) {
+        // Analysis complete
+        setIsAnalyzing(false);
+        const calculationTime = Date.now() - startTimeRef.current;
+        
+        if (onCalculationTime) {
+          onCalculationTime(calculationTime);
+        }
       }
     }
   }, [depth, onEvaluation, onCalculationTime]);
+
+  // Initialize Stockfish worker
+  useEffect(() => {
+    workerRef.current = initializeStockfishWorker(handleEngineMessage, setError);
+
+    return () => {
+      cleanupWorker(workerRef.current);
+    };
+  }, []);
 
   const analyzePosition = useCallback(() => {
     if (!workerRef.current || isAnalyzing) return;
