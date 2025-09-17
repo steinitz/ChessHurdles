@@ -63,6 +63,44 @@ function cleanupWorker(worker: Worker | null): void {
   }
 }
 
+// Analysis functions
+function analyzePosition(
+  worker: Worker | null,
+  fen: string,
+  depth: number,
+  isAnalyzing: boolean,
+  setIsAnalyzing: (analyzing: boolean) => void,
+  setError: (error: string | null) => void,
+  startTimeRef: React.MutableRefObject<number>,
+  analyzingFenRef: React.MutableRefObject<string>
+): void {
+  if (!worker || isAnalyzing) return;
+  
+  setIsAnalyzing(true);
+  setError(null);
+  startTimeRef.current = Date.now();
+  
+  // Set position and start analysis
+  // Store the FEN being analyzed for move conversion
+  analyzingFenRef.current = fen;
+  // Send 'stop' first to ensure clean state, then set new position
+  worker.postMessage('stop');
+  worker.postMessage('ucinewgame');
+  worker.postMessage(`position fen ${fen}`);
+  worker.postMessage(`go depth ${depth}`);
+}
+
+function stopAnalysis(
+  worker: Worker | null,
+  isAnalyzing: boolean,
+  setIsAnalyzing: (analyzing: boolean) => void
+): void {
+  if (worker && isAnalyzing) {
+    worker.postMessage('stop');
+    setIsAnalyzing(false);
+  }
+}
+
 interface StockfishEngineProps {
   fen: string;
   depth?: number;
@@ -153,36 +191,29 @@ export function StockfishEngine({
     };
   }, []);
 
-  const analyzePosition = useCallback(() => {
-    if (!workerRef.current || isAnalyzing) return;
-    
-    setIsAnalyzing(true);
-    setError(null);
-    startTimeRef.current = Date.now();
-    
-    // Set position and start analysis
-    // Store the FEN being analyzed for move conversion
-    analyzingFenRef.current = fen;
-    // Send 'stop' first to ensure clean state, then set new position
-    workerRef.current.postMessage('stop');
-    workerRef.current.postMessage('ucinewgame');
-    workerRef.current.postMessage(`position fen ${fen}`);
-    workerRef.current.postMessage(`go depth ${depth}`);
+  const handleAnalyzePosition = useCallback(() => {
+    analyzePosition(
+      workerRef.current,
+      fen,
+      depth,
+      isAnalyzing,
+      setIsAnalyzing,
+      setError,
+      startTimeRef,
+      analyzingFenRef
+    );
   }, [fen, depth, isAnalyzing]);
 
-  const stopAnalysis = useCallback(() => {
-    if (workerRef.current && isAnalyzing) {
-      workerRef.current.postMessage('stop');
-      setIsAnalyzing(false);
-    }
+  const handleStopAnalysis = useCallback(() => {
+    stopAnalysis(workerRef.current, isAnalyzing, setIsAnalyzing);
   }, [isAnalyzing]);
 
   return {
     isAnalyzing,
     evaluation,
     error,
-    analyzePosition,
-    stopAnalysis
+    analyzePosition: handleAnalyzePosition,
+    stopAnalysis: handleStopAnalysis
   };
 }
 
