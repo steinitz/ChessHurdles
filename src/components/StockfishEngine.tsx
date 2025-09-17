@@ -30,7 +30,10 @@ function parseBestMoveMessage(message: string): boolean {
 // Message handling functions
 /**
  * Processes UCI messages from Stockfish engine and updates evaluation state.
- * Handles engine initialization, depth analysis updates, and analysis completion.
+ * Handles three types of UCI messages:
+ * • uciok - Engine initialization confirmation
+ * • info depth X ... - Ongoing analysis updates with evaluation, depth, and principal variation
+ * • bestmove - Analysis completion signal
  * Converts UCI notation to algebraic notation and formats principal variations.
  */
 function handleEngineMessage(
@@ -45,8 +48,6 @@ function handleEngineMessage(
     onCalculationTime?: (timeMs: number) => void;
   }
 ): void {
-  console.log('Engine message:', message);
-
   if (parseUciOkMessage(message)) {
     // Engine is ready
     console.log('Stockfish engine initialized');
@@ -55,6 +56,7 @@ function handleEngineMessage(
     if (depthInfo) {
       // Only update if we've reached the target depth or higher
       if (depthInfo.depth >= depth) {
+        console.log('Engine message (target depth reached):', message);
         const calculationTime = Date.now() - startTime;
         
         // Extract the first move from the principal variation and convert to algebraic
@@ -86,6 +88,7 @@ function handleEngineMessage(
       }
     } else if (parseBestMoveMessage(message)) {
       // Analysis complete
+      console.log('Engine message (analysis complete):', message);
       callbacks.setIsAnalyzing(false);
       const calculationTime = Date.now() - startTime;
       
