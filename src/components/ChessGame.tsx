@@ -2,7 +2,6 @@ import React, {useState, useCallback, useEffect, useRef} from 'react';
 import {Chess} from 'chess.js';
 import ChessBoard from './ChessBoard';
 import {Spacer} from '~stzUtils/components/Spacer'
-import {StockfishEngine} from './StockfishEngine';
 import PgnInput from './PgnInput';
 import { pgnToGameHistory } from '../lib/chess-utils';
 import { 
@@ -43,11 +42,16 @@ export function ChessGame() {
   const [gameDescription, setGameDescription] = useState('"Kasparov\'s Immortal" - Navigate through this famous game');
   const [moveAnalysisResults, setMoveAnalysisResults] = useState<string>('');
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Stockfish analysis refs
   const analysisWorkerRef = useRef<Worker | null>(null);
+  const positionWorkerRef = useRef<Worker | null>(null);
   const startTimeRef = useRef<number>(0);
   const analyzingFenRef = useRef<string>('');
+  const positionStartTimeRef = useRef<number>(0);
+  const positionAnalyzingFenRef = useRef<string>('');
   const targetMovesRef = useRef<string[]>([]);
   const targetPositionsRef = useRef<Chess[]>([]);
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
@@ -85,11 +89,14 @@ export function ChessGame() {
     loadSampleGame();
   }, [loadSampleGame]);
 
-  // Cleanup Stockfish worker on unmount
+  // Cleanup Stockfish workers on unmount
   useEffect(() => {
     return () => {
       if (analysisWorkerRef.current) {
         cleanupWorker(analysisWorkerRef.current);
+      }
+      if (positionWorkerRef.current) {
+        cleanupWorker(positionWorkerRef.current);
       }
     };
   }, []);
@@ -152,21 +159,57 @@ export function ChessGame() {
     // This callback could be used for interactive play in the future
   }, []);
 
-  // Initialize Stockfish engine
-  const stockfishEngine = StockfishEngine({
-    fen: game.fen(),
-    depth: analysisDepth,
-    onEvaluation: (evaluation, bestMove, pv) => {
-      setEngineEvaluation({ evaluation, bestMove, pv });
-    },
-    onCalculationTime: (timeMs) => {
-      setEngineEvaluation(prev => prev ? { ...prev, calculationTime: timeMs } : null);
-    }
-  });
-
   const handleAnalyzePosition = useCallback(() => {
-    stockfishEngine.analyzePosition();
-  }, [stockfishEngine]);
+    // Initialize position worker if not already done
+    if (!positionWorkerRef.current) {
+      positionWorkerRef.current = initializeStockfishWorker(
+        (event: MessageEvent) => {
+          const message = event.data;
+          const callbacks: EngineCallbacks = {
+            setEvaluation: (evaluation: EngineEvaluation) => {
+              setEngineEvaluation({
+                evaluation: evaluation.evaluation,
+                bestMove: evaluation.bestMove,
+                pv: evaluation.principalVariation,
+                calculationTime: evaluation.calculationTime
+              });
+            },
+            setIsAnalyzing,
+            onEvaluation: (evaluation, bestMove, pv) => {
+              setEngineEvaluation({ evaluation, bestMove, pv });
+            },
+            onCalculationTime: (timeMs) => {
+              setEngineEvaluation(prev => prev ? { ...prev, calculationTime: timeMs } : null);
+            }
+          };
+          
+          handleEngineMessage(
+            message,
+            analysisDepth,
+            positionStartTimeRef.current,
+            positionAnalyzingFenRef.current,
+            callbacks
+          );
+        },
+        (errorMsg: string) => {
+          setError(errorMsg);
+          setIsAnalyzing(false);
+        }
+      );
+    }
+
+    // Analyze current position
+    analyzePosition(
+      positionWorkerRef.current,
+      game.fen(),
+      analysisDepth,
+      isAnalyzing,
+      setIsAnalyzing,
+      setError,
+      positionStartTimeRef,
+      positionAnalyzingFenRef
+    );
+  }, [game, analysisDepth, isAnalyzing]);
 
   const handleAnalyzeMoves15to20 = useCallback(() => {
     if (moveHistory.length < 20) {
@@ -376,9 +419,9 @@ export function ChessGame() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <button
               onClick={handleAnalyzePosition}
-              disabled={stockfishEngine.isAnalyzing}
+              disabled={isAnalyzing}
             >
-              {stockfishEngine.isAnalyzing ? 'Analyzing...' : 'Analyze Position'}
+              {isAnalyzing ? 'Analyzing...' : 'Analyze Position'}
             </button>
             <label>
               Depth:
@@ -394,9 +437,9 @@ export function ChessGame() {
             </label>
           </div>
           
-          {stockfishEngine.error && (
+          {error && (
             <p style={{ color: 'var(--color-error)', fontSize: '0.9rem' }}>
-              Error: {stockfishEngine.error}
+              Error: {error}
             </p>
           )}
           

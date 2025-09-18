@@ -1,7 +1,10 @@
-import React from 'react';
 import { uciToAlgebraic, formatPrincipalVariation, formatMoveWithNumber } from './chess-utils';
 
 // Types
+interface MutableRefObject<T> {
+  current: T;
+}
+
 export interface EngineEvaluation {
   evaluation: number;
   bestMove: string;
@@ -46,10 +49,16 @@ export function parseBestMoveMessage(message: string): boolean {
 // Message handling functions
 /**
  * Processes UCI messages from Stockfish engine and updates evaluation state.
+ * 
+ * **Message Flow**: This function is automatically called by the Web Worker's 'message' event
+ * handler (set up in initializeStockfishWorker). When Stockfish sends any message, the worker
+ * triggers the onMessage callback, which calls this function with the message content.
+ * 
  * Handles three types of UCI messages:
  * • uciok - Engine initialization confirmation
  * • info depth X ... - Ongoing analysis updates with evaluation, depth, and principal variation
  * • bestmove - Analysis completion signal
+ * 
  * Converts UCI notation to algebraic notation and formats principal variations.
  */
 export function handleEngineMessage(
@@ -154,8 +163,8 @@ export function analyzePosition(
   isAnalyzing: boolean,
   setIsAnalyzing: (analyzing: boolean) => void,
   setError: (error: string | null) => void,
-  startTimeRef: React.MutableRefObject<number>,
-  analyzingFenRef: React.MutableRefObject<string>
+  startTimeRef: MutableRefObject<number>,
+  analyzingFenRef: MutableRefObject<string>
 ): void {
   if (!worker || isAnalyzing) return;
   
