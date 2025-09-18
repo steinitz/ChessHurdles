@@ -3,6 +3,7 @@ import {Chess} from 'chess.js';
 import ChessBoard from './ChessBoard';
 import {Spacer} from '~stzUtils/components/Spacer'
 import PgnInput from './PgnInput';
+import EvaluationGraph from './EvaluationGraph';
 import { pgnToGameHistory } from '../lib/chess-utils';
 import { 
   initializeStockfishWorker, 
@@ -470,6 +471,38 @@ export function ChessGame() {
               {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Moves 15-20 (Depth 3)'}
             </button>
           </div>
+          
+          {/* Evaluation Graph */}
+          {analysisResultsRef.current.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <EvaluationGraph 
+                evaluations={analysisResultsRef.current.map((result, index) => {
+                  // Get the position that was analyzed to determine whose turn it was
+                  const position = targetPositionsRef.current[index];
+                  const isBlackToMove = position && position.turn() === 'b';
+                  
+                  // Convert evaluation to White's perspective
+                  // Stockfish returns evaluation from the perspective of the side to move
+                  // For chess evaluation graphs, we want consistent White perspective
+                  const whiteEvaluation = isBlackToMove ? -result.evaluation : result.evaluation;
+                  
+                  return {
+                    evaluation: whiteEvaluation,
+                    moveNumber: 15 + index,
+                    isMate: Math.abs(result.evaluation) > 5000,
+                    severity: Math.abs(whiteEvaluation) > 300 ? 'high' : 
+                             Math.abs(whiteEvaluation) > 100 ? 'medium' : 'low'
+                  };
+                })}
+                onMoveClick={(moveIndex) => {
+                  // Navigate to the clicked move (moves 15-20 are indices 14-19)
+                  const actualMoveIndex = 15 + moveIndex;
+                  goToMove(actualMoveIndex);
+                }}
+              />
+            </div>
+          )}
+          
           <textarea
             rows={10}
             cols={50}
