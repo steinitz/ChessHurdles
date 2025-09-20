@@ -95,26 +95,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
             const barHeight = Math.abs(scaleY(evaluation.evaluation) - zeroY);
             const y = evaluation.evaluation >= 0 ? scaleY(evaluation.evaluation) : zeroY;
             
-            // Determine bar color using CSS custom properties
-            // Use consistent colors regardless of evaluation sign
-            let fillColor = 'var(--color-text-secondary)';
-            if (evaluation.isMate) {
-              fillColor = 'var(--color-accent)';
-            } else {
-              const absEval = Math.abs(evaluation.evaluation);
-              if (absEval > 300) {
-                fillColor = 'var(--color-accent)';
-              } else if (absEval > 100) {
-                fillColor = 'var(--color-accent-secondary)';
-              } else {
-                fillColor = 'var(--color-text-secondary)';
-              }
-            }
+            // Use single color for all bars
+            let fillColor = 'var(--color-link)';
             
-            // Highlight current move
-            if (index === currentMoveIndex) {
-              fillColor = 'var(--color-link)';
-            }
+            // Highlight current move with different opacity or stroke
+            const isCurrentMove = index === currentMoveIndex;
             
             return (
               <g key={index}>
@@ -125,11 +110,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                   width={barWidth}
                   height={barHeight}
                   fill={fillColor}
-                  stroke={index === currentMoveIndex ? 'var(--color-link)' : 'none'}
-                  strokeWidth={index === currentMoveIndex ? 2 : 0}
+                  stroke={isCurrentMove ? 'var(--color-text)' : 'none'}
+                  strokeWidth={isCurrentMove ? 2 : 0}
                   style={{ 
                     cursor: onMoveClick ? 'pointer' : 'default',
-                    opacity: hoveredIndex === index ? 0.8 : 1,
+                    opacity: hoveredIndex === index ? 0.8 : (isCurrentMove ? 1 : 0.7),
                     transition: 'opacity 0.2s ease'
                   }}
                   onClick={() => onMoveClick?.(index)}

@@ -212,6 +212,103 @@ export function ChessGame() {
     );
   }, [game, analysisDepth, isAnalyzing]);
 
+  const handleAnalyzeEntireGame = useCallback(() => {
+    if (moveHistory.length === 0) {
+      setMoveAnalysisResults('No moves in the game to analyze.');
+      return;
+    }
+
+    if (isAnalyzingMoves) {
+      setMoveAnalysisResults('Analysis already in progress...');
+      return;
+    }
+
+    // Analyze all moves in the game
+    const targetMoves = moveHistory.slice();
+    const targetPositions = gameHistory.slice(1); // Skip initial position, analyze positions after each move
+
+    setMoveAnalysisResults(`Starting analysis of entire game (${targetMoves.length} moves)...\n\nInitializing Stockfish engine...`);
+
+    // Store in refs for sequential analysis
+    targetMovesRef.current = targetMoves;
+    targetPositionsRef.current = targetPositions;
+    analysisResultsRef.current = [];
+    currentAnalysisIndexRef.current = 0;
+
+    setIsAnalyzingMoves(true);
+
+    // Initialize Stockfish worker if not already done
+    if (!analysisWorkerRef.current) {
+      analysisWorkerRef.current = initializeStockfishWorker(
+        (event: MessageEvent) => {
+          const message = event.data;
+          const callbacks: EngineCallbacks = {
+            setEvaluation: (evaluation: EngineEvaluation) => {
+              // Store this evaluation result
+              analysisResultsRef.current[currentAnalysisIndexRef.current] = evaluation;
+              
+              // Update progress
+              const progress = currentAnalysisIndexRef.current + 1;
+              const total = targetPositionsRef.current.length;
+              setMoveAnalysisResults(`Analyzing move ${progress} of ${total}...\n\nProgress: ${Math.round((progress / total) * 100)}%`);
+              
+              // Move to next position or finish
+              currentAnalysisIndexRef.current++;
+              if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
+                // Analyze next position
+                const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
+                if (nextPosition) {
+                  analyzePosition(
+                    analysisWorkerRef.current,
+                    nextPosition.fen(),
+                    3, // depth
+                    false,
+                    () => {}, // setIsAnalyzing - we manage this ourselves
+                    () => {}, // setError
+                    startTimeRef,
+                    analyzingFenRef
+                  );
+                }
+              } else {
+                // All positions analyzed, display results
+                displayAnalysisResults();
+              }
+            },
+            setIsAnalyzing: () => {}, // We manage this ourselves
+          };
+
+          handleEngineMessage(
+            message,
+            3, // depth
+            startTimeRef.current,
+            analyzingFenRef.current,
+            callbacks
+          );
+        },
+        (error: string) => {
+          setMoveAnalysisResults(`Error initializing Stockfish: ${error}`);
+          setIsAnalyzingMoves(false);
+        }
+      );
+    }
+
+    // Start analyzing the first position
+    if (targetPositions.length > 0 && targetPositions[0]) {
+      setTimeout(() => {
+        analyzePosition(
+          analysisWorkerRef.current,
+          targetPositions[0].fen(),
+          3, // depth
+          false,
+          () => {}, // setIsAnalyzing - we manage this ourselves
+          () => {}, // setError
+          startTimeRef,
+          analyzingFenRef
+        );
+      }, 1000); // Give Stockfish time to initialize
+    }
+  }, [moveHistory, gameHistory, isAnalyzingMoves]);
+
   const handleAnalyzeMoves15to20 = useCallback(() => {
     if (moveHistory.length < 20) {
       setMoveAnalysisResults('Not enough moves in the game. Need at least 20 moves to analyze moves 15-20.');
@@ -307,10 +404,18 @@ export function ChessGame() {
     const targetMoves = targetMovesRef.current;
     const results = analysisResultsRef.current;
     
-    let analysisText = 'Move Analysis Results (Moves 15-20):\n\n';
+    // Determine what was analyzed based on the moves
+    const isFullGame = targetMoves.length === moveHistory.length;
+    const startMoveNumber = isFullGame ? 1 : 15;
+    const analysisType = isFullGame ? 'Entire Game' : 'Moves 15-20';
+    
+    // Get depth from first result (all moves analyzed at same depth)
+    const analysisDepth = results.length > 0 ? results[0].depth : 3;
+    
+    let analysisText = `Move Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
     
     targetMoves.forEach((move, index) => {
-      const moveNumber = 15 + index;
+      const moveNumber = startMoveNumber + index;
       const result = results[index];
       
       analysisText += `Move ${moveNumber}: ${move}\n`;
@@ -320,7 +425,6 @@ export function ChessGame() {
           : (result.evaluation / 100).toFixed(2);
         analysisText += `  Evaluation: ${evalStr}\n`;
         analysisText += `  Best Move: ${result.bestMove}\n`;
-        analysisText += `  Depth: ${result.depth}\n`;
         analysisText += `  Time: ${result.calculationTime}ms\n`;
       } else {
         analysisText += `  Analysis: Failed\n`;
@@ -331,7 +435,7 @@ export function ChessGame() {
     analysisText += 'Analysis complete!';
     setMoveAnalysisResults(analysisText);
     setIsAnalyzingMoves(false);
-  }, []);
+  }, [moveHistory.length]);
 
   const formatEvaluation = (evaluation: number) => {
     if (Math.abs(evaluation) > 5000) {
@@ -462,8 +566,14 @@ export function ChessGame() {
         
         {/* Move Analysis Section */}
         <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid var(--color-bg-secondary)', borderRadius: '4px', maxWidth: containerWidth }}>
-          <h3>Move Analysis (Moves 15-20)</h3>
-          <div style={{ marginBottom: '0.5rem' }}>
+          <h3>Move Analysis</h3>
+          <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button 
+              onClick={handleAnalyzeEntireGame}
+              disabled={isAnalyzingMoves}
+            >
+              {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game (Depth 3)'}
+            </button>
             <button 
               onClick={handleAnalyzeMoves15to20}
               disabled={isAnalyzingMoves}
@@ -486,17 +596,23 @@ export function ChessGame() {
                   // For chess evaluation graphs, we want consistent White perspective
                   const whiteEvaluation = isBlackToMove ? -result.evaluation : result.evaluation;
                   
+                  // Determine move number based on analysis type
+                  const isFullGame = targetMovesRef.current.length === moveHistory.length;
+                  const startMoveNumber = isFullGame ? 1 : 15;
+                  
                   return {
                     evaluation: whiteEvaluation,
-                    moveNumber: 15 + index,
+                    moveNumber: startMoveNumber + index,
                     isMate: Math.abs(result.evaluation) > 5000,
                     severity: Math.abs(whiteEvaluation) > 300 ? 'high' : 
                              Math.abs(whiteEvaluation) > 100 ? 'medium' : 'low'
                   };
                 })}
                 onMoveClick={(moveIndex) => {
-                  // Navigate to the clicked move (moves 15-20 are indices 14-19)
-                  const actualMoveIndex = 15 + moveIndex;
+                  // Navigate to the clicked move
+                  const isFullGame = targetMovesRef.current.length === moveHistory.length;
+                  const startMoveNumber = isFullGame ? 1 : 15;
+                  const actualMoveIndex = startMoveNumber + moveIndex;
                   goToMove(actualMoveIndex);
                 }}
               />
