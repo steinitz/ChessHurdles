@@ -1,30 +1,7 @@
 'use server'
 
 import { auth } from './auth'
-import { appDatabase } from './database'
-
-// Extended user type with role information
-interface UserWithRole {
-  id: string
-  name: string
-  email: string
-  emailVerified: boolean
-  image: string | null
-  createdAt: Date
-  updatedAt: Date
-  role: string | null
-  banned: boolean | null
-  banReason: string | null
-  banExpires: Date | null
-}
-
-// Better Auth listUsers response structure
-interface ListUsersResponse {
-  users: UserWithRole[]
-  total: number
-  limit: number | undefined
-  offset: number | undefined
-}
+import { appDatabase, UserWithRole, ListUsersResponse } from './database'
 
 export async function getAllUsers(headers: Headers): Promise<UserWithRole[]> {
   try {
@@ -155,4 +132,5 @@ export async function updateEmailVerificationStatus(data: { userId: string; emai
   }
 }
 
+// Export the UserWithRole type as User for backward compatibility
 export type User = UserWithRole
