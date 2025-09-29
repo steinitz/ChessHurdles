@@ -1,7 +1,66 @@
 'use server'
 
 import { auth } from './auth'
-import { appDatabase, UserWithRole, ListUsersResponse } from './database'
+import { appDatabase, UserWithRole, ListUsersResponse, db } from './database'
+
+/**
+ * Query users directly from the database using Kysely
+ * This function bypasses the Better Auth API and queries the user table directly
+ */
+export async function queryUsersWithKysely(): Promise<UserWithRole[]> {
+  try {
+    const basicUsers = await db
+      .selectFrom('user')
+      .selectAll()
+      .execute()
+    
+    // Convert string dates to Date objects and add role-related fields
+    return basicUsers.map(user => ({ 
+      ...user,
+      createdAt: new Date(user.createdAt),
+      updatedAt: new Date(user.updatedAt), 
+      role: null, 
+      banned: null, 
+      banReason: null, 
+      banExpires: null 
+    })) as UserWithRole[]
+  } catch (dbError) {
+    console.error('Database query failed:', dbError)
+    return []
+  }
+}
+
+/**
+ * Query a single user by email directly from the database using Kysely
+ * This function bypasses the Better Auth API and queries the user table directly
+ */
+export async function queryUserWithKysely(email: string): Promise<UserWithRole | null> {
+  try {
+    const user = await db
+      .selectFrom('user')
+      .selectAll()
+      .where('email', '=', email)
+      .executeTakeFirst()
+    
+    if (!user) {
+      return null
+    }
+    
+    // Convert string dates to Date objects and add role-related fields
+    return {
+      ...user,
+      createdAt: new Date(user.createdAt),
+      updatedAt: new Date(user.updatedAt),
+      role: null,
+      banned: null,
+      banReason: null,
+      banExpires: null
+    } as UserWithRole
+  } catch (dbError) {
+    console.error('Database query failed:', dbError)
+    return null
+  }
+}
 
 export async function getAllUsers(headers: Headers): Promise<UserWithRole[]> {
   try {
@@ -15,29 +74,8 @@ export async function getAllUsers(headers: Headers): Promise<UserWithRole[]> {
     return result.users || []
   } catch (error) {
     console.error('Error fetching users from Better Auth API:', error)
-    // Fallback to basic user data from database
-    try {
-      const stmt = appDatabase.prepare('SELECT * FROM user')
-      const basicUsers = stmt.all() as Array<{
-        id: string
-        name: string
-        email: string
-        emailVerified: boolean
-        image: string | null
-        createdAt: Date
-        updatedAt: Date
-      }>
-      return basicUsers.map(user => ({ 
-        ...user, 
-        role: null, 
-        banned: null, 
-        banReason: null, 
-        banExpires: null 
-      })) as UserWithRole[]
-    } catch (dbError) {
-      console.error('Database fallback failed:', dbError)
-      return []
-    }
+    // Fallback to basic user data from database using Kysely
+    return queryUsersWithKysely()
   }
 }
 
@@ -117,11 +155,14 @@ export async function updateEmailVerificationStatus(data: { userId: string; emai
       throw new Error('Not authenticated')
     }
     
-    // Update email verification status directly in the database
-    const stmt = appDatabase.prepare('UPDATE user SET emailVerified = ? WHERE id = ?')
-    const result = stmt.run(data.emailVerified ? 1 : 0, data.userId)
+    // Update email verification status using Kysely
+    const result = await db
+      .updateTable('user')
+      .set({ emailVerified: data.emailVerified })
+      .where('id', '=', data.userId)
+      .executeTakeFirst()
     
-    if (result.changes === 0) {
+    if (!result || result.numUpdatedRows === 0n) {
       throw new Error('User not found or no changes made')
     }
     

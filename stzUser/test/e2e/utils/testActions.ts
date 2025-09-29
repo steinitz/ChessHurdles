@@ -8,13 +8,63 @@ import type { Page, Locator } from '@playwright/test';
  */
 export async function signInUser(page: Page, email: string, password: string): Promise<void> {
   await page.goto('/auth/signin');
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"]');
+  
+  // Wait for form elements to be visible and interactive before attempting to fill
+  const emailInput = page.locator('input[type="email"]');
+  const passwordInput = page.locator('input[type="password"]');
+  const submitButton = page.locator('button[type="submit"]');
+  
+  // Use waitForElementVisible to ensure elements are ready before interaction
+  await waitForElementVisible(emailInput, { 
+    errorMessage: 'Email input not visible',
+    maxAttempts: 5,
+    baseWaitMs: 1000
+  });
+  
+  await waitForElementVisible(passwordInput, {
+    errorMessage: 'Password input not visible',
+    maxAttempts: 5,
+    baseWaitMs: 1000
+  });
+
+  // Without this wait, the signup form gets cleared after filling in the values, below.
+  // Maybe related to validatedInput being an "uncontrolled" input field?
+  await page.waitForTimeout(1000);
+  
+  // Fill form fields with exponential backoff
+  await waitWithExponentialBackoff(
+    async () => {
+      await emailInput.fill(email);
+      await passwordInput.fill(password);
+    },
+    {
+      errorMessage: 'Failed to fill sign-in form fields',
+      maxAttempts: 5,
+      baseWaitMs: 1000
+    }
+  );
+  
+  // Wait for submit button and click with exponential backoff
+  await waitForElementVisible(submitButton, {
+    errorMessage: 'Submit button not visible',
+    maxAttempts: 5,
+    baseWaitMs: 1000
+  });
+  
+  await waitWithExponentialBackoff(
+    async () => {
+      await submitButton.click();
+    },
+    {
+      errorMessage: 'Failed to click submit button',
+      maxAttempts: 3,
+      baseWaitMs: 1000
+    }
+  );
   
   // Wait for either successful navigation or error message
   try {
-    await page.waitForURL(url => !url.toString().includes('/auth/signin'), { timeout: 3000 });
+    await page.waitForURL(url => !url.toString().includes('/auth/signin'), { timeout: 5000 });
   } catch (timeoutError) {
     // Check if there's an error message on the page
     const errorMessage = await page.locator('[role="alert"], .error, .text-red-500').textContent().catch(() => null);
@@ -22,7 +72,7 @@ export async function signInUser(page: Page, email: string, password: string): P
       throw new Error(`Sign in failed with error: ${errorMessage}`);
     }
     // If no error message, the signin might just be slow
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
     const currentUrl = page.url();
     if (currentUrl.includes('/auth/signin')) {
       throw new Error(`Sign in failed - still on signin page: ${currentUrl}`);

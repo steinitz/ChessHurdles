@@ -8,6 +8,12 @@ import {fieldsFromFormData} from "~stzUser/lib/form";
 import {Spacer} from "~stzUtils/components/Spacer";
 import {requiredPasswordValidation} from '~stzUser/lib/password-validation';
 
+// exported for the E2E signup test
+export const accountCreatedText = {
+  announce: "We've sent an email-confirmation link to",
+  instruction: "Please check your email inbox and follow the instructions"
+}
+
 // TypeScript - sugggested by Valibot docs, and comes in handy later
 type SignupData = {
   email: string;

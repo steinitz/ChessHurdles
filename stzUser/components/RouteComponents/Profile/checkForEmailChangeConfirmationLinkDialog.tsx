@@ -1,5 +1,7 @@
 import {Dialog, DialogRefType} from "~stzUtils/components/Dialog";
 
+export const checkForEmailChangeConfirmationDialogText = "Check your email for a link to confirm your email-address change";
+
 export const CheckForEmailChangeConfirmationLinkDialog = ({
   onClick,
   ref
@@ -14,7 +16,7 @@ export const CheckForEmailChangeConfirmationLinkDialog = ({
 
   return (
     <Dialog ref={ref}>
-      <h3 style={{maxWidth: "17rem"}}>Check your email for a link to confirm your email-address change</h3>
+      <h3 style={{maxWidth: "17rem"}}>{checkForEmailChangeConfirmationDialogText}</h3>
       <div
         style={{
           display: "flex",

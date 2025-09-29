@@ -31,9 +31,7 @@ export const profileStructuralSelectors = {
   emailInput: 'input[type="email"]',
   currentPasswordInput: 'input[name="currentPassword"]',
   newPasswordInput: 'input[name="newPassword"]',
-  spinnerContainer: 'div:has(> div > svg)',
-  dialog: 'dialog',
-  modalDialog: '[role="dialog"]'
+  spinnerContainer: '.spinner'
 } as const;
 
 export const profileStrings = {

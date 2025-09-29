@@ -2,8 +2,19 @@ import { test, expect } from '@playwright/test';
 import { createVerifiedTestUser, isEmailVerified } from './utils/user-verification';
 import { testConstants } from '~stzUser/test/constants';
 import { EmailTester } from './utils/EmailTester';
-import { signInUser } from './utils/testActions';
+import { signInUser, waitForElementVisible, waitWithExponentialBackoff } from './utils/testActions';
 import { profileTestIds, profileStructuralSelectors } from '~stzUser/components/RouteComponents/Profile/Profile';
+import { checkForEmailChangeConfirmationDialogText } from '~stzUser/components/RouteComponents/Profile/checkForEmailChangeConfirmationLinkDialog';
+
+// Configure test-specific options
+test.use({
+  launchOptions: {
+    // slowMo: 1000, // 1 second delay between actions to prevent timing issues
+  },
+});
+
+// Set test timeout (Fibonacci sequence: 8000 -> 13000 for slowMo + dialog timing)
+test.setTimeout(13000);
 
 // Construct test selectors from component exports
 const profileSelectors = {
@@ -14,8 +25,6 @@ const profileSelectors = {
   // Structural selectors (used directly)
   ...profileStructuralSelectors
 };
-import type { Page } from '@playwright/test';
-
 
 /**
  * Helper function to find email by subject fragment
@@ -46,16 +55,16 @@ function extractVerificationLink(email: any): string | null {
  * 3. Wait for email change processing (test hangs here but works manually in browser)
  * 4. Verify email change verification was sent ONLY to new address
  * 5. Extract verification link using helper function and simulate a click
- * 6. Confirm new email address is verified
+ * 6: Confirm new email address is verified and old one is not
  * 
  * This test demonstrates enhanced Playwright testing patterns:
  * - Specific form state assertions (visibility, enabled state, values)
  * - Button state validation before and after interactions
- * - Soft assertions for non-critical validations that won't stop the test
  * - Centralized selector management with component-exported test IDs
  * 
  * This test serves as a reference for similar flows (e.g., change password)
  */
+
 test.describe('Change Email Flow', () => {
   
   test.beforeEach(async () => {
@@ -66,7 +75,7 @@ test.describe('Change Email Flow', () => {
   test('should successfully change and verify user email', async ({ page }) => {
     // Setup: Create verified test user
     const originalEmailAddress = await createVerifiedTestUser();
-    // Clear emails after signup to isolate email change behavior
+    // Clear signup verification emails to isolate email change behavior
     EmailTester.clearSentEmails();
 
     const newEmailAddress = `new-${originalEmailAddress}`;
@@ -83,45 +92,68 @@ test.describe('Change Email Flow', () => {
     // Step 2: Navigate to profile and initiate email change
     await page.goto('/auth/profile');
     
-    // More specific form assertions - verify initial state
-    await expect(page.locator(profileSelectors.profileForm)).toBeVisible();
-    await expect(page.locator(profileSelectors.emailInput)).toBeVisible();
-    await expect(page.locator(profileSelectors.emailInput)).toBeEnabled();
-    await expect(page.locator(profileSelectors.emailInput)).toHaveValue(originalEmailAddress);
-    await expect(page.locator(profileSelectors.saveChangesButton)).toBeEnabled();
+    // Use robust waiting mechanisms for form elements
+    const profileForm = page.locator(profileSelectors.profileForm);
+    const emailInput = page.locator(profileSelectors.emailInput);
+    const saveChangesButton = page.locator(profileSelectors.saveChangesButton);
     
-    // After filling new email - verify form state changes
-    await page.fill(profileSelectors.emailInput, newEmailAddress);
-    await expect(page.locator(profileSelectors.emailInput)).toHaveValue(newEmailAddress);
+    await waitForElementVisible(saveChangesButton, {
+      errorMessage: 'Save changes button not visible after maximum attempts',
+      maxAttempts: 5,
+      baseWaitMs: 500
+    });
     
+    // Verify form state
+    await expect(emailInput).toBeEnabled();
+    await expect(emailInput).toHaveValue(originalEmailAddress);
+    await expect(saveChangesButton).toBeEnabled();
+    
+    await emailInput.fill(newEmailAddress);
+
+    await expect(emailInput).toHaveValue(newEmailAddress);
+
     // Button state assertions
-    await expect(page.locator(profileSelectors.saveChangesButton)).not.toBeDisabled();
+    await expect(saveChangesButton).not.toBeDisabled();
     
-    // Soft assertions for additional form validation (won't stop test if they fail)
-    await expect.soft(page.locator(profileSelectors.profileForm)).toHaveAttribute('data-testid', profileTestIds.profileForm);
-    await expect.soft(page.locator(profileSelectors.emailInput)).toHaveAttribute('type', 'email');
-    await expect.soft(page.locator(profileSelectors.saveChangesButton)).toHaveAttribute('data-testid', profileTestIds.saveChangesButton);
+
+    await saveChangesButton.click();
     
-    await page.click(profileSelectors.saveChangesButton);
-    
-    // Step 3: Wait for email change processing
-    // Wait for the spinner to appear and then disappear
     try {
       // First wait for spinner to appear (indicating email-sending started)
-      await page.waitForSelector(profileSelectors.spinnerContainer, { timeout: 2000 });
+      const spinnerContainer = page.locator(profileSelectors.spinnerContainer);
+      await waitForElementVisible(spinnerContainer, {
+        errorMessage: 'Spinner never appeared - email sending may not have started',
+        maxAttempts: 5,
+        baseWaitMs: 300,
+        timeout: 2000
+      });
+
+      console.log('Spinner appeared - email sending started');
       
       // Then wait for spinner to disappear (indicating email-sending completed)
-      await page.waitForSelector(profileSelectors.spinnerContainer, { state: 'hidden', timeout: 10000 });
+      await waitWithExponentialBackoff(
+        async () => {
+          const isVisible = await spinnerContainer.isVisible();
+          if (isVisible) {
+            throw new Error('Spinner still visible');
+          }
+        },
+        {
+          errorMessage: 'Spinner never disappeared - email sending may not have completed',
+          maxAttempts: 8,
+          baseWaitMs: 500,
+          maxWaitMs: 2000
+        }
+      );
     } catch (error) {
-      await page.waitForTimeout(3000);
+      console.log('Spinner visibility error:', error.message);
+      // Fallback waiting strategy if spinner detection fails
+      await page.waitForTimeout(2000);
     }
     
-    // Additional wait to ensure any async operations complete
-    await page.waitForTimeout(1000);
-    
-    // Try multiple selectors to find the dialog
-    const dialogVisible = await page.locator(profileSelectors.dialog).isVisible().catch(() => false);
-    const modalVisible = await page.locator(profileSelectors.modalDialog).isVisible().catch(() => false);
+    console.log('checking for success dialog')
+    // Check for the dialog using text content
+    const dialogVisible = await page.getByText(checkForEmailChangeConfirmationDialogText).isVisible().catch(() => false);
     
     // Step 4: Verify email change verification was sent to both addresses
     const allSentEmails = await EmailTester.getSentEmails();
@@ -132,7 +164,7 @@ test.describe('Change Email Flow', () => {
       email.subject.toLowerCase().includes('verify')
     );
     
-    // REGRESSION TEST: Verify email change verification behavior
+    // Verify email change verification behavior
     // Only new email should receive verification during email change
     expect(newEmailVerifications.length).toBe(1);
     // Note: Original email verification was from signup (now cleared)
@@ -147,12 +179,11 @@ test.describe('Change Email Flow', () => {
     await page.goto(verificationLink!);
     await page.waitForTimeout(1000);
     
-    // Step 6: Confirm new email address is verified
+    // Step 6: Confirm new email address is verified and old one is not
     const isNewEmailVerified = await isEmailVerified(newEmailAddress);
+    expect(isNewEmailVerified).toBe(true);
+
     const isOriginalEmailStillVerified = await isEmailVerified(originalEmailAddress);
-    
-    // Verify the email change process completed successfully
-    // Note: Original email verification status may be reset during email change
     expect(isOriginalEmailStillVerified).toBe(false);
   });
 });

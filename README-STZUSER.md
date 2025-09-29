@@ -70,6 +70,7 @@ This project follows a modular architecture:
 - **Framework**: TanStack Start (React-based full-stack framework)
 - **Authentication**: Better Auth with role-based permissions
 - **Database**: SQLite (development) / PostgreSQL (production)
+  - **Note**: The project uses Kysely for database queries with SQLite-specific date handling (stored as strings). When migrating to PostgreSQL, date types will need adjustment.
 - **Styling**: MVP.css with custom overrides
 - **Type Safety**: TypeScript with strict configuration
 - **Testing**: Vitest with React Testing Library

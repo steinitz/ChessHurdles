@@ -1,4 +1,4 @@
-import { appDatabase } from '~stzUser/lib/database';
+import { appDatabase, db } from '~stzUser/lib/database';
 import { newTestUser, EmailTester } from './EmailTester';
 import { testConstants } from '~stzUser/test/constants';
 import { signUp } from '~stzUser/lib/auth-client';
@@ -16,8 +16,11 @@ import { expect } from '@playwright/test';
  */
 export async function isEmailVerified(email: string): Promise<boolean> {
   try {
-    const stmt = appDatabase.prepare('SELECT emailVerified FROM user WHERE email = ?');
-    const result = stmt.get(email) as { emailVerified: number } | undefined;
+    const result = await db
+      .selectFrom('user')
+      .select('emailVerified')
+      .where('email', '=', email)
+      .executeTakeFirst();
     
     // SQLite stores boolean as 0/1, convert to boolean
     return result ? Boolean(result.emailVerified) : false;
@@ -34,8 +37,11 @@ export async function isEmailVerified(email: string): Promise<boolean> {
  */
 export async function isEmailVerifiedById(userId: string): Promise<boolean> {
   try {
-    const stmt = appDatabase.prepare('SELECT emailVerified FROM user WHERE id = ?');
-    const result = stmt.get(userId) as { emailVerified: number } | undefined;
+    const result = await db
+      .selectFrom('user')
+      .select('emailVerified')
+      .where('id', '=', userId)
+      .executeTakeFirst();
     
     // SQLite stores boolean as 0/1, convert to boolean
     return result ? Boolean(result.emailVerified) : false;
@@ -59,14 +65,19 @@ export async function getUserByEmail(email: string): Promise<{
   updatedAt: Date;
 } | null> {
   try {
-    const stmt = appDatabase.prepare('SELECT * FROM user WHERE email = ?');
-    const result = stmt.get(email) as any;
+    const result = await db
+      .selectFrom('user')
+      .selectAll()
+      .where('email', '=', email)
+      .executeTakeFirst();
     
     if (!result) return null;
     
     return {
       ...result,
-      emailVerified: Boolean(result.emailVerified)
+      emailVerified: Boolean(result.emailVerified),
+      createdAt: new Date(result.createdAt),
+      updatedAt: new Date(result.updatedAt)
     };
   } catch (error) {
     console.error('Error getting user by email:', error);

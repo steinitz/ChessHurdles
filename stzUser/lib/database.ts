@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
+import { Kysely, SqliteDialect } from "kysely";
 
-// Database instance
+// Database instance (legacy)
 export const appDatabase = new Database("sqlite.db");
 
 /**
@@ -38,3 +39,31 @@ export interface ListUsersResponse {
   limit: number | undefined;
   offset: number | undefined;
 }
+
+// Kysely Database Interface
+export interface Database {
+  user: UserTable;
+  // Add other tables as needed
+}
+
+// Define the user table schema based on UserWithRole
+export interface UserTable {
+  id: string;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: string; // SQLite stores dates as strings
+  updatedAt: string; // SQLite stores dates as strings
+  role: string | null;
+  banned: number | null; // SQLite stores booleans as 0/1
+  banReason: string | null;
+  banExpires: string | null; // SQLite stores dates as strings
+}
+
+// Initialize Kysely instance
+export const db = new Kysely<Database>({
+  dialect: new SqliteDialect({
+    database: appDatabase
+  }),
+});

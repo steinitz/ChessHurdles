@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { newTestUser, EmailTester } from './utils/EmailTester';
 import { testConstants } from '~stzUser/test/constants';
 import { isEmailVerified } from './utils/user-verification';
+import {accountCreatedText} from '~stzUser/components/SignUp';
 
 // Configure test-specific options for debugging
 // See password-reset-flow.spec.ts for examples of more-specific 
@@ -77,9 +78,9 @@ test.describe('Signup Flow', () => {
     await expect(page.locator('h1')).toContainText('Account Created', {timeout: timeoutSeconds * 1000});
 
     // Verify the success message content
-    await expect(page.getByText('We\'ve sent an email-confirmation link to')).toBeVisible();
+    await expect(page.getByText(accountCreatedText.announce)).toBeVisible();
     await expect(page.getByText(uniqueEmail)).toBeVisible();
-    await expect(page.getByText('Please check your email inbox and follow the instructions')).toBeVisible();
+    await expect(page.getByText(accountCreatedText.instruction)).toBeVisible();
 
     // Verify the OK button is present
     await expect(page.getByRole('button', { name: 'Ok' })).toBeVisible();

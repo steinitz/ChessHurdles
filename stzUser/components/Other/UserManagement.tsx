@@ -50,7 +50,7 @@ export function UserManagement({users}) {
 
   const handleCleanTestUsers = async () => {
     const testUsers = users.filter(user => 
-      user.name === testConstants.defaultUserName && 
+      // user.name === testConstants.defaultUserName && // this prevented deletion of certain test users
       (user.email.endsWith('@example.com') || user.email.endsWith(`@${testConstants.defaultUserDomain}`))
     )
 
