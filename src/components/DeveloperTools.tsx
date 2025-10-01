@@ -6,6 +6,7 @@ import { useLoaderData, useRouter } from '@tanstack/react-router'
 import { Spacer } from '~stzUtils/components/Spacer'
 import { useEffect, useState, useRef } from 'react'
 import { getCount } from '~/lib/count'
+import { saveSampleGame, deleteGameById } from '~/lib/chess-server'
 import { admin, useSession } from '~stzUser/lib/auth-client'
 import { Link } from '@tanstack/react-router'
 import { CSSProperties } from 'react'
@@ -26,6 +27,8 @@ export const DeveloperTools = ({
   const router = useRouter()
   const { data: session } = useSession()
   const detailsRef = useRef<HTMLDetailsElement>(null)
+  const [savedGameId, setSavedGameId] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string>('')
 
 
   useEffect(() => {
@@ -101,6 +104,41 @@ export const DeveloperTools = ({
     setCount(await getCount())
   }
 
+  const handleSaveSampleGame = async () => {
+    try {
+      const saved = await saveSampleGame()
+      console.log('Saved sample game:', saved)
+      alert(`✅ Sample game saved with id ${saved?.id || '(unknown)'} and title "${saved?.title || ''}"`)
+      if (saved?.id) {
+        setSavedGameId(saved.id)
+        setDeleteTargetId(saved.id)
+      }
+    } catch (e: any) {
+      console.error('Exception saving sample game:', e)
+      alert(`Failed to save sample game: ${e?.message || e}`)
+    }
+  }
+
+  const handleDeleteGame = async () => {
+    const gameId = (deleteTargetId || savedGameId || '').trim()
+    if (!gameId) {
+      alert('Please enter a game id to delete.')
+      return
+    }
+    try {
+      const result = await deleteGameById({ data: gameId })
+      console.log('Delete result:', result)
+      const rows = result?.result?.numDeletedRows
+      alert(`🗑️ Deleted game ${gameId}. Rows affected: ${typeof rows !== 'undefined' ? String(rows) : '?'}`)
+      if (savedGameId === gameId) {
+        setSavedGameId(null)
+      }
+    } catch (e: any) {
+      console.error('Exception deleting game:', e)
+      alert(`Failed to delete game: ${e?.message || e}`)
+    }
+  }
+
   const testListUsers = async () => {
     const userEmail = session?.user?.email || 'current user'
 
@@ -144,6 +182,21 @@ export const DeveloperTools = ({
               <Spacer orientation={'horizontal'} />
               <button type="button" onClick={testListUsers}>
                 Test Admin Privilege
+              </button>
+              <Spacer orientation={'horizontal'} />
+              <button type="button" onClick={handleSaveSampleGame}>
+                Save Sample Game
+              </button>
+              <Spacer orientation={'horizontal'} />
+              <input
+                type="text"
+                placeholder="Game ID to delete"
+                value={deleteTargetId}
+                onChange={(e) => setDeleteTargetId(e.target.value)}
+                style={{ minWidth: '280px' }}
+              />
+              <button type="button" onClick={handleDeleteGame}>
+                Delete Game
               </button>
               <Spacer orientation={'horizontal'} />
               {session?.user && (

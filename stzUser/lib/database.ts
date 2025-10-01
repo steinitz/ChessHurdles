@@ -67,3 +67,42 @@ export const db = new Kysely<Database>({
     database: appDatabase
   }),
 });
+
+// ---
+// Database Field Adapters (tuned for SQLite idiosyncrasies)
+// Note: These adapters currently normalize values for SQLite binding/storage.
+// They may be relocated to a dedicated module and generalized per dialect.
+// Convert booleans to SQLite-friendly integers (0/1)
+export function asSqlBool(value: boolean): number {
+  return value ? 1 : 0
+}
+
+// Convert SQLite integers (0/1) back to JavaScript booleans
+export function fromSqlBool(value: number | boolean | null): boolean {
+  if (value === null) return false
+  if (typeof value === 'boolean') return value
+  return value === 1
+}
+
+// Safely stringify JSON values for storage in TEXT columns
+export function stringifyJson(value: unknown | null): string | null {
+  if (value === null || value === undefined) return null
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return null
+  }
+}
+
+// Safely parse JSON text from TEXT columns
+export function parseJson<T = unknown>(text: string | null): T | null {
+  if (!text) return null
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return null
+  }
+}
+
+// Utility helpers
+export const nowIso = () => new Date().toISOString()

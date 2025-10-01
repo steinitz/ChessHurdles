@@ -71,7 +71,9 @@ export class ChessGameDatabase {
         user_id: userId,
         created_at: now,
         updated_at: now,
-        ...gameData
+        // Spread other fields first, then override boolean to integer for SQLite
+        ...gameData,
+        is_favorite: (gameData.is_favorite ? 1 : 0) as unknown as boolean,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -120,15 +122,25 @@ export class ChessGameDatabase {
   }
 
   /**
-   * Delete a game
+   * Delete a game by ID, scoped to the current user.
+   * Also deletes associated hurdles to avoid orphaned records.
    */
   static async deleteGame(gameId: string, userId: string) {
+    // First delete related hurdles for this game and user
+    await chessDb
+      .deleteFrom('hurdles')
+      .where('game_id', '=', gameId)
+      .where('user_id', '=', userId)
+      .execute();
+
+    // Then delete the game itself
     return await chessDb
       .deleteFrom('games')
       .where('id', '=', gameId)
       .where('user_id', '=', userId)
       .executeTakeFirst();
   }
+
 
   // ===== HURDLE OPERATIONS =====
 

@@ -13,6 +13,7 @@ import {
   EngineEvaluation,
   EngineCallbacks
 } from '../lib/stockfish-engine';
+import { useSession } from '~stzUser/lib/auth-client';
 
 // Famous game: Kasparov vs Topalov, Wijk aan Zee 1999 (Kasparov's Immortal)
 const SAMPLE_GAME_MOVES = [
@@ -45,6 +46,14 @@ export function ChessGame() {
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Save functionality state
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [savedGameId, setSavedGameId] = useState<string | null>(null);
+  
+  // Authentication
+  const { data: session } = useSession();
   
   // Stockfish analysis refs
   const analysisWorkerRef = useRef<Worker | null>(null);
@@ -444,6 +453,139 @@ export function ChessGame() {
     return (evaluation / 100).toFixed(1);
   };
 
+  // Save game to database
+  const handleSaveGame = useCallback(async () => {
+    if (!session?.user?.id) {
+      setSaveMessage('Please sign in to save games');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      // Generate PGN from current game history
+      const tempGame = new Chess();
+      const moves = moveHistory;
+      
+      // Reconstruct the game to generate PGN
+      for (const move of moves) {
+        tempGame.move(move);
+      }
+      
+      const pgn = tempGame.pgn();
+      
+      // Prepare game data
+      const gameData = {
+        title: gameTitle,
+        description: gameDescription,
+        pgn: pgn,
+        game_type: 'game' as const,
+        difficulty_rating: null,
+        tags: JSON.stringify(['imported']),
+        is_favorite: false
+      };
+
+      let result;
+      if (savedGameId) {
+        // Update existing game
+        const response = await fetch(`/api/chess/games`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ gameId: savedGameId, ...gameData })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to update game');
+        }
+        
+        result = await response.json();
+        setSaveMessage('Game updated successfully!');
+      } else {
+        // Save new game
+        const response = await fetch('/api/chess/games', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(gameData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save game');
+        }
+        
+        result = await response.json();
+        setSavedGameId(result.id);
+        setSaveMessage('Game saved successfully!');
+      }
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setSaveMessage(null), 3000);
+      
+    } catch (error) {
+      console.error('Error saving game:', error);
+      setSaveMessage('Failed to save game. Please try again.');
+      setTimeout(() => setSaveMessage(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [session?.user?.id, gameTitle, gameDescription, moveHistory, savedGameId]);
+
+  // Save current position as a hurdle
+  const handleSaveHurdle = useCallback(async () => {
+    if (!session?.user?.id) {
+      setSaveMessage('Please sign in to save hurdles');
+      return;
+    }
+
+    if (currentMoveIndex === 0) {
+      setSaveMessage('Cannot save starting position as hurdle');
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const currentPosition = game.fen();
+      const currentMove = moveHistory[currentMoveIndex - 1];
+      
+      const hurdleData = {
+        game_id: savedGameId, // Optional reference to parent game
+        fen: currentPosition,
+        title: `${gameTitle} - Move ${currentMoveIndex}`,
+        notes: `Position after ${currentMove}`,
+        move_number: currentMoveIndex,
+        evaluation: engineEvaluation?.evaluation || null,
+        best_move: engineEvaluation?.bestMove || null,
+        difficulty_level: null,
+        last_practiced: null
+      };
+
+      const response = await fetch('/api/chess/hurdles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(hurdleData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save hurdle');
+      }
+      
+      await response.json();
+      setSaveMessage('Position saved as hurdle!');
+      
+      // Clear message after 3 seconds
+      setTimeout(() => setSaveMessage(null), 3000);
+      
+    } catch (error) {
+      console.error('Error saving hurdle:', error);
+      setSaveMessage('Failed to save hurdle. Please try again.');
+      setTimeout(() => setSaveMessage(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [session?.user?.id, game, gameTitle, currentMoveIndex, moveHistory, engineEvaluation, savedGameId]);
+
   const chessboardHeight = '75vh' // allows game nav buttons to be comfortably on screen
   const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
@@ -456,6 +598,57 @@ export function ChessGame() {
       </header>
       
       <PgnInput onPgnLoad={handlePgnLoad} onClear={handlePgnClear} />
+      
+      {/* Save functionality section */}
+      {session?.user && (
+        <div style={{ 
+          marginBottom: '1rem', 
+          padding: '0.5rem', 
+          border: '1px solid var(--color-bg-secondary)', 
+          borderRadius: '4px',
+          maxWidth: containerWidth 
+        }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleSaveGame}
+              disabled={isSaving}
+            >
+              {isSaving ? 'Saving...' : (savedGameId ? 'Update Game' : 'Save Game')}
+            </button>
+            <button
+              onClick={handleSaveHurdle}
+              disabled={isSaving || currentMoveIndex === 0}
+            >
+              {isSaving ? 'Saving...' : 'Save Position as Hurdle'}
+            </button>
+            {saveMessage && (
+              <span style={{ 
+                color: saveMessage.includes('Failed') || saveMessage.includes('Please sign in') 
+                  ? 'var(--color-error)' 
+                  : 'var(--color-success, green)',
+                fontSize: '0.9rem'
+              }}>
+                {saveMessage}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {!session?.user && (
+        <div style={{ 
+          marginBottom: '1rem', 
+          padding: '0.5rem', 
+          border: '1px solid var(--color-bg-secondary)', 
+          borderRadius: '4px',
+          maxWidth: containerWidth,
+          textAlign: 'center'
+        }}>
+          <p style={{ margin: '0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
+            <a href="/auth/signin">Sign in</a> to save games and positions
+          </p>
+        </div>
+      )}
       <div style={{
         width: containerWidth,
         margin: '0 auto'
