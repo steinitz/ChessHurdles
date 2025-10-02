@@ -2,38 +2,28 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Spacer } from '~stzUtils/components/Spacer'
 import ChessGame from '../components/ChessGame'
 import { getGameById } from '~/lib/chess-server'
-import { useEffect, useState } from 'react'
 
 export const Route = createFileRoute('/')({
+  loaderDeps: ({ search }) => ({ gameId: typeof (search as any)?.gameId === 'string' ? (search as any).gameId : undefined }),
+  loader: async ({ deps }) => {
+    let initialPGN: string | undefined = undefined
+    const gameId = deps?.gameId
+    if (typeof gameId === 'string' && gameId.length) {
+      try {
+        const game = await getGameById({ data: gameId })
+        initialPGN = game?.pgn || undefined
+      } catch (e) {
+        console.error('Failed to load game by id:', e)
+        initialPGN = undefined
+      }
+    }
+    return { initialPGN }
+  },
   component: Home,
 })
 
 function Home() {
-  const search = Route.useSearch() as { gameId?: string }
-  const [initialPGN, setInitialPGN] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    const loadGame = async () => {
-      const gameId = search?.gameId
-      if (typeof gameId === 'string' && gameId.length) {
-        try {
-          const game = await getGameById({ data: gameId })
-          if (game?.pgn) {
-            setInitialPGN(game.pgn)
-          } else {
-            setInitialPGN(undefined)
-          }
-        } catch (e) {
-          console.error('Failed to load game by id:', e)
-          setInitialPGN(undefined)
-        }
-      } else {
-        setInitialPGN(undefined)
-      }
-    }
-
-    loadGame()
-  }, [search?.gameId])
+  const { initialPGN } = Route.useLoaderData() as { initialPGN?: string }
 
   return (
     <main>

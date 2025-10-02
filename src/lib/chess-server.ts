@@ -18,8 +18,16 @@ export const saveSampleGame = createServerFn({ method: 'POST' })
 
     const userId = session.user.id
 
-    // Simple, hard-coded PGN to test saving
-    const pgn = '1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7'
+    // Simple, hard-coded PGN to test saving (now with headers)
+    const pgn = `[Event "Sample Saved Game"]
+[Site "Chess Hurdles"]
+[Date "2024.10.01"]
+[Round "?"]
+[White "Sample White"]
+[Black "Sample Black"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 Nb8 10. d4 Nbd7 *`
 
     const saved = await ChessGameDatabase.saveGame(userId, {
       title: 'Sample Game Save',
