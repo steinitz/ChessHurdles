@@ -72,3 +72,22 @@ export const getGames = createServerFn({ method: 'GET' })
     const games = await ChessGameDatabase.getUserGames(userId)
     return games
   })
+
+// Fetch a specific game by ID for the authenticated user
+export const getGameById = createServerFn({ method: 'POST' })
+  .validator((gameId: string) => gameId)
+  .handler(async ({ data: gameId }) => {
+    const request = getWebRequest()
+    if (!request?.headers) {
+      throw new Error('Request headers not available')
+    }
+
+    const session = await auth.api.getSession({ headers: request.headers })
+    if (!session?.user?.id) {
+      throw new Error('Not authenticated')
+    }
+
+    const userId = session.user.id
+    const game = await ChessGameDatabase.getGame(gameId, userId)
+    return game || null
+  })

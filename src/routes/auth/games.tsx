@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useSession } from '~stzUser/lib/auth-client'
 import { Spacer } from '~stzUtils/components/Spacer'
 import { getGames } from '~/lib/chess-server'
+import { Link } from '@tanstack/react-router'
 
 function GamesPage() {
   const { data: session } = useSession()
@@ -37,7 +38,11 @@ function GamesPage() {
         <ul>
           {games.map((g) => (
             <li key={g.id}>
-              <strong>{g.title || 'Untitled Game'}</strong>
+              <strong>
+                <Link to="/" search={{ gameId: g.id }}>
+                  {g.title || 'Untitled Game'}
+                </Link>
+              </strong>
               <div>ID: {g.id}</div>
               {g.description ? <div>{g.description}</div> : null}
               <small>Saved: {new Date(g.created_at).toLocaleString()}</small>

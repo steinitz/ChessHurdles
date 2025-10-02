@@ -28,7 +28,7 @@ const SAMPLE_GAME_MOVES = [
   'Qa4+', 'Ke1', 'f4', 'f5', 'Kc1', 'Rd2', 'Qa7'
 ];
 
-export function ChessGame() {
+export function ChessGame({ initialPGN }: { initialPGN?: string }) {
   const [game, setGame] = useState(() => new Chess());
   const [gameHistory, setGameHistory] = useState<Chess[]>([new Chess()]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
@@ -67,7 +67,7 @@ export function ChessGame() {
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
   const currentAnalysisIndexRef = useRef<number>(0);
 
-  // Initialize the sample game
+  // Initialize the sample game or a provided PGN
   const loadSampleGame = useCallback(() => {
     const newGame = new Chess();
     const history: Chess[] = [new Chess()];
@@ -94,24 +94,7 @@ export function ChessGame() {
     setGameDescription('"Kasparov\'s Immortal" - Navigate through this famous game');
   }, []);
 
-  // Load sample game on mount
-  useEffect(() => {
-    loadSampleGame();
-  }, [loadSampleGame]);
-
-  // Cleanup Stockfish workers on unmount
-  useEffect(() => {
-    return () => {
-      if (analysisWorkerRef.current) {
-        cleanupWorker(analysisWorkerRef.current);
-      }
-      if (positionWorkerRef.current) {
-        cleanupWorker(positionWorkerRef.current);
-      }
-    };
-  }, []);
-
-  // Handle PGN loading
+  // Load PGN string into the game
   const handlePgnLoad = useCallback((pgnString: string) => {
     const result = pgnToGameHistory(pgnString);
     
@@ -128,8 +111,32 @@ export function ChessGame() {
       const date = result.headers?.Date || '';
       
       setGameTitle(`${white} vs ${black}`);
-      setGameDescription(`${event}${date ? ` (${date})` : ''} - Loaded from PGN`);
+      setGameDescription(event + (date ? `, ${date}` : ''));
+      setError(null);
+    } else {
+      setError(result.error || 'Invalid PGN format');
     }
+  }, []);
+
+  // Load initial PGN if provided, otherwise load sample game on mount
+  useEffect(() => {
+    if (initialPGN && initialPGN.trim().length > 0) {
+      handlePgnLoad(initialPGN);
+    } else {
+      loadSampleGame();
+    }
+  }, [initialPGN, handlePgnLoad, loadSampleGame]);
+
+  // Cleanup Stockfish workers on unmount
+  useEffect(() => {
+    return () => {
+      if (analysisWorkerRef.current) {
+        cleanupWorker(analysisWorkerRef.current);
+      }
+      if (positionWorkerRef.current) {
+        cleanupWorker(positionWorkerRef.current);
+      }
+    };
   }, []);
 
   // Handle clearing PGN and returning to sample game
