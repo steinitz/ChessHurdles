@@ -1,20 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { getCount } from '~/lib/count'
 import { Spacer } from '~stzUtils/components/Spacer'
 import ChessGame from '../components/ChessGame'
 import { getGameById } from '~/lib/chess-server'
 import { useEffect, useState } from 'react'
 
-export const Route = createFileRoute('/')({  
+export const Route = createFileRoute('/')({
   component: Home,
-  loader: async () => {
-    const count = await getCount()
-    return { count }
-  },
 })
 
 function Home() {
-  const { count } = Route.useLoaderData()
   const search = Route.useSearch() as { gameId?: string }
   const [initialPGN, setInitialPGN] = useState<string | undefined>(undefined)
 
