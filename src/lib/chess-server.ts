@@ -53,3 +53,22 @@ export const deleteGameById = createServerFn({ method: 'POST' })
     const result = await ChessGameDatabase.deleteGame(gameId, userId)
     return { success: true, gameId, result }
   })
+
+export const getGames = createServerFn({ method: 'GET' })
+  .handler(async () => {
+    const request = getWebRequest()
+    if (!request?.headers) {
+      throw new Error('Request headers not available')
+    }
+
+    const session = await auth.api.getSession({ headers: request.headers })
+    const userId = session?.user?.id
+
+    // If not authenticated, return an empty list for a nicer UX
+    if (!userId) {
+      return []
+    }
+
+    const games = await ChessGameDatabase.getUserGames(userId)
+    return games
+  })

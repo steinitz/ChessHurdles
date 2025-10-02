@@ -20,6 +20,7 @@ import { Route as AuthSigninRouteImport } from './routes/auth/signin'
 import { Route as AuthSetNewPasswordRouteImport } from './routes/auth/setNewPassword'
 import { Route as AuthRequestPasswordResetRouteImport } from './routes/auth/requestPasswordReset'
 import { Route as AuthProfileRouteImport } from './routes/auth/profile'
+import { Route as AuthGamesRouteImport } from './routes/auth/games'
 import { Route as AuthForRouteTroubleshootingRouteImport } from './routes/auth/forRouteTroubleshooting'
 import { ServerRoute as ApiTestEnvServerRouteImport } from './routes/api/test-env'
 import { ServerRoute as ApiAuthSplatServerRouteImport } from './routes/api/auth/$'
@@ -72,6 +73,11 @@ const AuthProfileRoute = AuthProfileRouteImport.update({
   path: '/auth/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthGamesRoute = AuthGamesRouteImport.update({
+  id: '/auth/games',
+  path: '/auth/games',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthForRouteTroubleshootingRoute =
   AuthForRouteTroubleshootingRouteImport.update({
     id: '/auth/forRouteTroubleshooting',
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
+  '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
   '/auth/requestPasswordReset': typeof AuthRequestPasswordResetRoute
   '/auth/setNewPassword': typeof AuthSetNewPasswordRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
+  '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
   '/auth/requestPasswordReset': typeof AuthRequestPasswordResetRoute
   '/auth/setNewPassword': typeof AuthSetNewPasswordRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/contact': typeof ContactRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
+  '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
   '/auth/requestPasswordReset': typeof AuthRequestPasswordResetRoute
   '/auth/setNewPassword': typeof AuthSetNewPasswordRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contact'
     | '/auth/forRouteTroubleshooting'
+    | '/auth/games'
     | '/auth/profile'
     | '/auth/requestPasswordReset'
     | '/auth/setNewPassword'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contact'
     | '/auth/forRouteTroubleshooting'
+    | '/auth/games'
     | '/auth/profile'
     | '/auth/requestPasswordReset'
     | '/auth/setNewPassword'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contact'
     | '/auth/forRouteTroubleshooting'
+    | '/auth/games'
     | '/auth/profile'
     | '/auth/requestPasswordReset'
     | '/auth/setNewPassword'
@@ -169,6 +181,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ContactRoute: typeof ContactRoute
   AuthForRouteTroubleshootingRoute: typeof AuthForRouteTroubleshootingRoute
+  AuthGamesRoute: typeof AuthGamesRoute
   AuthProfileRoute: typeof AuthProfileRoute
   AuthRequestPasswordResetRoute: typeof AuthRequestPasswordResetRoute
   AuthSetNewPasswordRoute: typeof AuthSetNewPasswordRoute
@@ -268,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/games': {
+      id: '/auth/games'
+      path: '/auth/games'
+      fullPath: '/auth/games'
+      preLoaderRoute: typeof AuthGamesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/forRouteTroubleshooting': {
       id: '/auth/forRouteTroubleshooting'
       path: '/auth/forRouteTroubleshooting'
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ContactRoute: ContactRoute,
   AuthForRouteTroubleshootingRoute: AuthForRouteTroubleshootingRoute,
+  AuthGamesRoute: AuthGamesRoute,
   AuthProfileRoute: AuthProfileRoute,
   AuthRequestPasswordResetRoute: AuthRequestPasswordResetRoute,
   AuthSetNewPasswordRoute: AuthSetNewPasswordRoute,
