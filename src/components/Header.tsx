@@ -29,6 +29,19 @@ export const Header = () => {
           alt="logo"
         />
       </Link>
+      {/* New Games link placed just to the right of the logo */}
+      <Link
+        to="/auth/games"
+        style={navLinkStyle}
+        activeProps={{
+          style: {
+            backgroundColor: 'var(--color-accent)',
+            color: 'var(--color-bg)',
+          },
+        }}
+      >
+        Games
+      </Link>
       <Spacer orientation={'horizontal'} space={1}/>
       <Link
         to="/contact"

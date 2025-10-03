@@ -4,7 +4,10 @@ import ChessGame from '../components/ChessGame'
 import { getGameById } from '~/lib/chess-server'
 
 export const Route = createFileRoute('/')({
-  loaderDeps: ({ search }) => ({ gameId: typeof (search as any)?.gameId === 'string' ? (search as any).gameId : undefined }),
+  loaderDeps: ({ search }) => { 
+    const gameId = (search as any)?.gameId
+    return { gameId: typeof gameId === 'string' ? gameId : undefined }
+  },
   loader: async ({ deps }) => {
     let initialPGN: string | undefined = undefined
     const gameId = deps?.gameId
