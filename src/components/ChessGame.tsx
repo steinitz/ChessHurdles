@@ -430,11 +430,28 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
     
     let analysisText = `Move Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
     
+    // Helper function to normalize evaluation to mover's perspective
+    const normalizeEvaluation = (evaluation: number, isWhiteToMove: boolean): number => {
+      return isWhiteToMove ? evaluation : -evaluation;
+    };
+    
+    // Helper function to detect mate scores
+    const isMateScore = (evaluation: number): boolean => {
+      return Math.abs(evaluation) > 5000;
+    };
+    
+    // Helper function to get mate distance
+    const getMateDistance = (evaluation: number): number => {
+      return Math.abs(evaluation) - 5000;
+    };
+    
     targetMoves.forEach((move, index) => {
       const moveNumber = startMoveNumber + index;
       const result = results[index];
+      const isWhiteMove = (moveNumber % 2) === 1;
       
       analysisText += `Move ${moveNumber}: ${move}\n`;
+      
       if (result) {
         const evalStr = Math.abs(result.evaluation) > 5000 
           ? `#${Math.sign(result.evaluation) * (Math.abs(result.evaluation) - 5000)}`
@@ -442,6 +459,40 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         analysisText += `  Evaluation: ${evalStr}\n`;
         analysisText += `  Best Move: ${result.bestMove}\n`;
         analysisText += `  Time: ${result.calculationTime}ms\n`;
+        
+        // Calculate centipawnLoss if we have a previous result
+        if (index > 0) {
+          const prevResult = results[index - 1];
+          if (prevResult) {
+            // Get evaluations from mover's perspective
+            const preCp = normalizeEvaluation(prevResult.evaluation, isWhiteMove);
+            const postCp = normalizeEvaluation(result.evaluation, !isWhiteMove); // Opponent's perspective, so flip
+            
+            // Calculate centipawnLoss: max(0, preCp + postCp)
+             const centipawnLoss = Math.max(0, preCp + postCp);
+             
+             analysisText += `  centipawnLoss: ${centipawnLoss}\n`;
+             
+             // Highlight significant centipawnLoss (≥150 = mistake/blunder threshold)
+             if (centipawnLoss >= 150) {
+               if (centipawnLoss >= 300) {
+                 analysisText += `  ⚠️  BLUNDER (centipawnLoss ≥300)\n`;
+               } else {
+                 analysisText += `  ⚠️  MISTAKE (centipawnLoss ≥150)\n`;
+               }
+            }
+          }
+        }
+        
+        // Check for mate≤5 detection
+        if (isMateScore(result.evaluation)) {
+          const mateDistance = getMateDistance(result.evaluation);
+          if (mateDistance <= 5) {
+            const mateSign = result.evaluation > 0 ? '+' : '-';
+            analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
+          }
+        }
+        
       } else {
         analysisText += `  Analysis: Failed\n`;
       }
