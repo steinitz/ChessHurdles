@@ -467,19 +467,19 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
             // Get evaluations from mover's perspective
             const preCp = normalizeEvaluation(prevResult.evaluation, isWhiteMove);
             const postCp = normalizeEvaluation(result.evaluation, !isWhiteMove); // Opponent's perspective, so flip
-            
+
             // Calculate centipawnLoss: max(0, preCp + postCp)
-             const centipawnLoss = Math.max(0, preCp + postCp);
-             
-             analysisText += `  centipawnLoss: ${centipawnLoss}\n`;
-             
-             // Highlight significant centipawnLoss (≥150 = mistake/blunder threshold)
-             if (centipawnLoss >= 150) {
-               if (centipawnLoss >= 300) {
-                 analysisText += `  ⚠️  BLUNDER (centipawnLoss ≥300)\n`;
-               } else {
-                 analysisText += `  ⚠️  MISTAKE (centipawnLoss ≥150)\n`;
-               }
+            const centipawnLoss = Math.max(0, preCp + postCp);
+
+            analysisText += `  centipawnLoss: ${centipawnLoss}\n`;
+
+            // Highlight significant centipawnLoss (≥150 = mistake/blunder threshold)
+            if (centipawnLoss >= 150) {
+              if (centipawnLoss >= 300) {
+                analysisText += `  ⚠️  BLUNDER (centipawnLoss ≥300)\n`;
+              } else {
+                analysisText += `  ⚠️  MISTAKE (centipawnLoss ≥150)\n`;
+              }
             }
           }
         }

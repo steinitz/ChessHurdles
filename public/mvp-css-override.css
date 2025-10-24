@@ -22,10 +22,13 @@ input {
   min-width: 91%; /* this might be extreme and mess up certain inputs */
 }
 
+textarea, textarea[readonly] {
+  background-color: var(--color-bg); /* Use normal background */
+  color: var(--color-text); /* Use text color for theme */
+}
+
 textarea[readonly] {
   cursor: default;
-  background-color: var(--color-bg); /* Use normal background */
-  color: var(--color-text); /* Ensure proper text color for theme */
 }
 
 main {
