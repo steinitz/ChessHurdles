@@ -135,10 +135,11 @@ export function uciToAlgebraic(uciMove: string, fen: string): string | null {
     // Chess.js can handle UCI moves directly
     const move = game.move(uciMove);
     
-    return move ? move.san : null;
+    // Return the UCI move as fallback if conversion fails to avoid breaking PV display
+    return move ? move.san : uciMove;
   } catch (error) {
-    // Silently handle conversion errors - this is expected during analysis
-    return null;
+    // Return the UCI move as fallback instead of null to avoid breaking PV display
+    return uciMove;
   }
 }
 
@@ -160,9 +161,14 @@ export function uciSequenceToAlgebraic(
     const algebraic = uciToAlgebraic(uciMove, game.fen());
     if (algebraic) {
       algebraicMoves.push(algebraic);
-      // Make the move to update the position for the next conversion
+      // Only make the move if it was successfully converted to algebraic
       try {
-        game.move(uciMove);
+        const moveResult = game.move(uciMove);
+        if (!moveResult) {
+          // If the move couldn't be made, stop processing further moves
+          console.warn('Failed to make move during sequence conversion:', uciMove);
+          break;
+        }
       } catch (error) {
         console.warn('Failed to make move during sequence conversion:', uciMove);
         break;

@@ -24,10 +24,29 @@ describe('chess-utils', () => {
     // Note: Promotion moves can be added later if needed
     // The basic functionality works for standard moves
 
-    it('should return null for invalid moves', () => {
-      expect(uciToAlgebraic('e2e5', startingFen)).toBe(null); // Invalid pawn jump
-      expect(uciToAlgebraic('invalid', startingFen)).toBe(null);
-      expect(uciToAlgebraic('', startingFen)).toBe(null);
+    it('should return UCI move as fallback for invalid moves', () => {
+      // After our recent changes, invalid moves should return the UCI move as fallback
+      expect(uciToAlgebraic('e2e5', startingFen)).toBe('e2e5'); // Invalid pawn jump returns UCI
+      expect(uciToAlgebraic('b7d7', startingFen)).toBe('b7d7'); // Invalid move returns UCI
+      expect(uciToAlgebraic('invalid', startingFen)).toBe('invalid'); // Invalid format returns UCI
+      expect(uciToAlgebraic('', startingFen)).toBe(''); // Empty string returns empty
+    });
+
+    it('should handle edge cases from engine analysis', () => {
+      // Test cases based on the actual errors we encountered
+      const testCases = [
+        { uci: 'b7d7', fen: startingFen, expected: 'b7d7' }, // Invalid bishop move from starting position
+        { uci: 'b2h8', fen: startingFen, expected: 'b2h8' }, // Invalid pawn diagonal move
+        { uci: 'a4f4', fen: startingFen, expected: 'a4f4' }, // Invalid move from empty square
+        { uci: 'e7e6', fen: startingFen, expected: 'e7e6' }, // Invalid from starting position (white to move)
+        { uci: 'e7e5', fen: startingFen, expected: 'e7e5' }, // Invalid from starting position (white to move)
+      ];
+
+      testCases.forEach(({ uci, fen, expected }) => {
+        const result = uciToAlgebraic(uci, fen);
+        // For moves that should be valid in the right context, we expect either algebraic or UCI fallback
+        expect(result).toBe(expected);
+      });
     });
   });
 
@@ -44,10 +63,17 @@ describe('chess-utils', () => {
       expect(uciSequenceToAlgebraic(uciString, startingFen)).toEqual(expected);
     });
 
-    it('should stop at invalid moves', () => {
+    it('should stop at invalid moves and return partial results', () => {
       const uciMoves = ['e2e4', 'invalid', 'g1f3'];
-      const expected = ['e4']; // Should stop at invalid move
+      const expected = ['e4', 'invalid']; // Now includes UCI fallback for invalid moves
       expect(uciSequenceToAlgebraic(uciMoves, startingFen)).toEqual(expected);
+    });
+
+    it('should handle sequences with context-dependent invalid moves', () => {
+      // Test sequence where moves become invalid due to wrong position context
+      const uciMoves = ['e2e4', 'b7d7']; // Second move invalid from starting position
+      const result = uciSequenceToAlgebraic(uciMoves, startingFen);
+      expect(result).toEqual(['e4', 'b7d7']); // Now includes UCI fallback for invalid moves
     });
   });
 
@@ -81,9 +107,19 @@ describe('chess-utils', () => {
       expect(formatPrincipalVariation(pvString, blackToMoveFen)).toBe(expected);
     });
 
-    it('should handle empty strings', () => {
+    it('should handle empty or invalid principal variations gracefully', () => {
       expect(formatPrincipalVariation('', startingFen)).toBe('');
       expect(formatPrincipalVariation('   ', startingFen)).toBe('');
+      // "invalid moves" gets split into ["invalid", "moves"], but only first is processed
+      expect(formatPrincipalVariation('invalid moves', startingFen)).toBe('1.invalid');
+    });
+
+    it('should handle principal variations with invalid UCI moves', () => {
+      // This tests the scenario we encountered where engine returns invalid moves
+      const pv = 'e2e4 b7d7 g1f3'; // Contains invalid move
+      const result = formatPrincipalVariation(pv, startingFen);
+      // Now includes UCI fallback for invalid moves
+      expect(result).toBe('1.e4 b7d7');
     });
 
     it('should handle single moves', () => {
@@ -106,8 +142,8 @@ describe('chess-utils', () => {
       // This should work with the correct FEN
       expect(uciToAlgebraic(validUciMove, actualPosition)).toBe('Bc4');
       
-      // But should fail with the starting position FEN (the bug scenario)
-      expect(uciToAlgebraic(validUciMove, startingFen)).toBe(null);
+      // But should return UCI fallback with the starting position FEN (the bug scenario)
+      expect(uciToAlgebraic(validUciMove, startingFen)).toBe('f1c4');
     });
 
     it('should demonstrate the b3a5 scenario from our logs', () => {
@@ -118,8 +154,8 @@ describe('chess-utils', () => {
       // This move should work in the correct position
       expect(uciToAlgebraic('b3a5', positionWithKnightOnB3)).toBe('Na5');
       
-      // But fail in the starting position (our bug scenario)
-      expect(uciToAlgebraic('b3a5', startingFen)).toBe(null);
+      // But return UCI fallback in the starting position (our bug scenario)
+      expect(uciToAlgebraic('b3a5', startingFen)).toBe('b3a5');
     });
   });
 });

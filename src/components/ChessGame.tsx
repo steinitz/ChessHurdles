@@ -34,6 +34,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [analysisDepth, setAnalysisDepth] = useState(10);
+  const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(13);
   const [engineEvaluation, setEngineEvaluation] = useState<{
     evaluation: number;
     bestMove: string;
@@ -277,7 +278,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
                   analyzePosition(
                     analysisWorkerRef.current,
                     nextPosition.fen(),
-                    3, // depth
+                    moveAnalysisDepth, // depth
                     false,
                     () => {}, // setIsAnalyzing - we manage this ourselves
                     () => {}, // setError
@@ -314,7 +315,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         analyzePosition(
           analysisWorkerRef.current,
           targetPositions[0].fen(),
-          3, // depth
+          moveAnalysisDepth, // depth
           false,
           () => {}, // setIsAnalyzing - we manage this ourselves
           () => {}, // setError
@@ -365,10 +366,10 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
                 // Analyze next position
                 const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
                 if (nextPosition) {
-                  analyzePosition(
-                    analysisWorkerRef.current,
-                    nextPosition.fen(),
-                    3, // depth
+                    analyzePosition(
+                      analysisWorkerRef.current,
+                      nextPosition.fen(),
+                      moveAnalysisDepth, // depth
                     false,
                     () => {}, // setIsAnalyzing - we manage this ourselves
                     () => {}, // setError
@@ -405,7 +406,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         analyzePosition(
           analysisWorkerRef.current,
           targetPositions[0].fen(),
-          3, // depth
+          moveAnalysisDepth, // depth
           false,
           () => {}, // setIsAnalyzing - we manage this ourselves
           () => {}, // setError
@@ -426,7 +427,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
     const analysisType = isFullGame ? 'Entire Game' : 'Moves 15-20';
     
     // Get depth from first result (all moves analyzed at same depth)
-    const analysisDepth = results.length > 0 ? results[0].depth : 3;
+    const analysisDepth = results.length > 0 ? results[0].depth : moveAnalysisDepth;
     
     let analysisText = `Move Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
     
@@ -468,17 +469,17 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
             const preCp = normalizeEvaluation(prevResult.evaluation, isWhiteMove);
             const postCp = normalizeEvaluation(result.evaluation, !isWhiteMove); // Opponent's perspective, so flip
 
-            // Calculate centipawnLoss: max(0, preCp + postCp)
-            const centipawnLoss = Math.max(0, preCp + postCp);
+            // Calculate centipawnChange: max(0, preCp + postCp) - measures evaluation swing from White's perspective
+            const centipawnChange = Math.max(0, preCp + postCp);
 
-            analysisText += `  centipawnLoss: ${centipawnLoss}\n`;
+            analysisText += `  centipawnChange: ${centipawnChange}\n`;
 
-            // Highlight significant centipawnLoss (≥150 = mistake/blunder threshold)
-            if (centipawnLoss >= 150) {
-              if (centipawnLoss >= 300) {
-                analysisText += `  ⚠️  BLUNDER (centipawnLoss ≥300)\n`;
+            // Highlight significant centipawnChange (≥150 = mistake/blunder threshold)
+            if (centipawnChange >= 150) {
+              if (centipawnChange >= 300) {
+                analysisText += `  ⚠️  BLUNDER (centipawnChange ≥300)\n`;
               } else {
-                analysisText += `  ⚠️  MISTAKE (centipawnLoss ≥150)\n`;
+                analysisText += `  ⚠️  MISTAKE (centipawnChange ≥150)\n`;
               }
             }
           }
@@ -818,18 +819,32 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         {/* Move Analysis Section */}
         <div style={{ marginTop: '1rem', padding: '0.5rem', border: '1px solid var(--color-bg-secondary)', borderRadius: '4px', maxWidth: containerWidth }}>
           <h3>Move Analysis</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+            <label>
+              Depth:
+              <input
+                type="range"
+                min="3"
+                max="34"
+                value={moveAnalysisDepth}
+                onChange={(e) => setMoveAnalysisDepth(parseInt(e.target.value))}
+                style={{ marginLeft: '0.5rem', width: '80px' }}
+              />
+              <span style={{ marginLeft: '0.5rem' }}>{moveAnalysisDepth}</span>
+            </label>
+          </div>
           <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button 
               onClick={handleAnalyzeEntireGame}
               disabled={isAnalyzingMoves}
             >
-              {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game (Depth 3)'}
+              {isAnalyzingMoves ? 'Analyzing...' : `Analyze Entire Game (Depth ${moveAnalysisDepth})`}
             </button>
             <button 
               onClick={handleAnalyzeMoves15to20}
               disabled={isAnalyzingMoves}
             >
-              {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Moves 15-20 (Depth 3)'}
+              {isAnalyzingMoves ? 'Analyzing...' : `Analyze Moves 15-20 (Depth ${moveAnalysisDepth})`}
             </button>
           </div>
           
