@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Spacer } from '~stzUtils/components/Spacer'
-import ChessGame from '../components/ChessGame'
+import ChessGame from '../components/ChessGame/ChessGame'
 import { getGameById } from '~/lib/chess-server'
 
 export const Route = createFileRoute('/')({

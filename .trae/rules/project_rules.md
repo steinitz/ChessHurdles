@@ -63,6 +63,18 @@ slowMo: 1000,  // Adds 1 second delay between actions
 - All E2E tests now pass consistently with proper timing configuration
 - Server stability issues resolved through pacing test execution
 
+## Development Server Guidelines
+
+### Automatic Server Launch Policy
+- **DO NOT** automatically start the development server (`pnpm dev`) unless explicitly requested by the user
+- Only launch the dev server when the user specifically asks to:
+  - "Start the dev server"
+  - "Run the application" 
+  - "Open a preview"
+  - Or similar explicit requests
+- Avoid launching the server for code changes, refactoring, or general development tasks
+- The user prefers to manually control when the server runs
+
 ## Recent Feature Additions
 
 ### Password Change Feature (Profile.tsx)

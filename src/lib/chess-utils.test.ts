@@ -51,6 +51,22 @@ describe('chess-utils', () => {
   });
 
   describe('uciSequenceToAlgebraic', () => {
+    it('should handle the failing sequence from game analysis', () => {
+      // This is the exact failing case from the browser console
+      const startingFen = '3r3r/Rb3p1p/p4np1/1p1q4/kP6/P1Q2PPB/2P4P/1K6 w - - 2 30';
+      const pvSequence = 'c3f6 a8c6 e7f7 c6b7';
+      
+      // This should not throw an error, but should handle the invalid move gracefully
+      const result = uciSequenceToAlgebraic(pvSequence, startingFen);
+      
+      // The result should be an array containing the first valid move
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0]).toBe('Qxf6'); // First move should work
+    });
+  });
+
+  describe('uciSequenceToAlgebraic', () => {
     it('should convert a sequence of moves', () => {
       const uciMoves = ['e2e4', 'e7e5', 'g1f3', 'b8c6'];
       const expected = ['e4', 'e5', 'Nf3', 'Nc6'];

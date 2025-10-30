@@ -1,5 +1,73 @@
 import { Chess } from 'chess.js';
 
+interface GameMove {
+  position: Chess;
+  move?: string;
+  moveNumber?: number;
+  isWhiteMove?: boolean;
+}
+
+/**
+ * Parses a PGN string and returns GameMove objects with positions and moves
+ * @param pgnString - PGN string to parse
+ * @returns Object with gameMoves array, headers, and validation status
+ */
+export function pgnToGameMoves(pgnString: string): {
+  gameMoves: GameMove[];
+  headers: Record<string, string>;
+  isValid: boolean;
+  error?: string;
+} {
+  const parseResult = parsePgn(pgnString);
+  
+  if (!parseResult.isValid) {
+    return {
+      gameMoves: [{ position: new Chess() }], // Initial position only
+      headers: {},
+      isValid: false,
+      error: parseResult.error
+    };
+  }
+  
+  // Recreate the game step by step to build GameMove objects
+  const game = new Chess();
+  const gameMoves: GameMove[] = [{ position: new Chess() }]; // Start with initial position
+  
+  // Load PGN again to get the moves in order
+  game.loadPgn(pgnString.trim());
+  const pgnMoves = game.history();
+  
+  // Reset and replay moves to build GameMove objects
+  game.reset();
+  
+  for (let i = 0; i < pgnMoves.length; i++) {
+    const move = pgnMoves[i];
+    try {
+      const moveResult = game.move(move);
+      if (moveResult) {
+        const moveNumber = Math.floor(i / 2) + 1;
+        const isWhiteMove = i % 2 === 0;
+        
+        gameMoves.push({
+          position: new Chess(game.fen()),
+          move: moveResult.san,
+          moveNumber,
+          isWhiteMove
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to replay move:', move, error);
+      break;
+    }
+  }
+  
+  return {
+    gameMoves,
+    headers: parseResult.headers,
+    isValid: true
+  };
+}
+
 /**
  * Parses a PGN string and returns the moves and game information
  * @param pgnString - PGN string to parse
@@ -167,10 +235,26 @@ export function uciSequenceToAlgebraic(
         if (!moveResult) {
           // If the move couldn't be made, stop processing further moves
           console.warn('Failed to make move during sequence conversion:', uciMove);
+          // DEBUG: Output to Game Analysis textarea
+          console.log(`DEBUG SEQUENCE FAILURE:
+PV: ${Array.isArray(uciMoves) ? uciMoves.join(' ') : uciMoves}
+Failed Move: ${uciMove}
+Starting FEN: ${startingFen}
+Current FEN: ${game.fen()}
+Moves so far: ${algebraicMoves.join(' ')}`);
           break;
         }
       } catch (error) {
         console.warn('Failed to make move during sequence conversion:', uciMove);
+        // DEBUG: Output to Game Analysis textarea
+        console.log(`DEBUG SEQUENCE ERROR:
+PV: ${Array.isArray(uciMoves) ? uciMoves.join(' ') : uciMoves}
+Failed Move: ${uciMove}
+Starting FEN: ${startingFen}
+Current FEN: ${game.fen()}
+Moves so far: ${algebraicMoves.join(' ')}
+Error: ${error}`);
+        // Instead of throwing, just break and return what we have so far
         break;
       }
     } else {
