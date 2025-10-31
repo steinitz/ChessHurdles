@@ -155,105 +155,13 @@ export default function GameAnalysis({
     }
   }, [gameMoves, isAnalyzingMoves, moveAnalysisDepth, analysisWorkerRef]);
 
-  const handleAnalyzeMoves15to20 = useCallback(() => {
-    if (gameMoves.length < 21) { // Need at least 21 positions (initial + 20 moves)
-      setMoveAnalysisResults('Not enough moves in the game. Need at least 20 moves to analyze moves 15-20.');
-      return;
-    }
-
-    if (isAnalyzingMoves) {
-      setMoveAnalysisResults('Analysis already in progress...');
-      return;
-    }
-
-    // Extract moves 15-20 (gameMoves indices 15-20, since index 0 is initial position)
-    const targetMoves = gameMoves.slice(15, 21).map(gameMove => gameMove.move!);
-    const targetPositions = gameMoves.slice(15, 21).map(gameMove => gameMove.position);
-
-    // Store in refs for sequential analysis
-    targetMovesRef.current = targetMoves;
-    targetPositionsRef.current = targetPositions;
-    analysisResultsRef.current = [];
-    currentAnalysisIndexRef.current = 0;
-
-    setIsAnalyzingMoves(true);
-    setMoveAnalysisResults('Starting analysis of moves 15-20...\n\nInitializing Stockfish engine...');
-
-    // Initialize Stockfish worker if not already done
-    if (!analysisWorkerRef.current) {
-      analysisWorkerRef.current = initializeStockfishWorker(
-        (event: MessageEvent) => {
-          const callbacks: EngineCallbacks = {
-            setEvaluation: (evaluation: EngineEvaluation) => {
-              // Store the result for this position
-              analysisResultsRef.current[currentAnalysisIndexRef.current] = evaluation;
-
-              // Move to next position
-              currentAnalysisIndexRef.current++;
-
-              if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
-                // Analyze next position
-                const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
-                if (nextPosition) {
-                  analyzePosition(
-                    analysisWorkerRef.current,
-                    nextPosition.fen(),
-                    moveAnalysisDepth,
-                    isAnalyzingPositionRef.current,
-                    (analyzing: boolean) => { isAnalyzingPositionRef.current = analyzing; },
-                    () => {}, // setError
-                    startTimeRef,
-                    analyzingFenRef
-                  );
-                }
-              } else {
-                // Analysis complete
-                displayAnalysisResults();
-              }
-            },
-            setIsAnalyzing: () => {}, // We manage this ourselves
-          };
-
-          handleEngineMessage(
-            event.data,
-            moveAnalysisDepth, // Use actual depth setting
-            startTimeRef.current,
-            analyzingFenRef.current,
-            callbacks
-          );
-        },
-        (error: string) => {
-          setMoveAnalysisResults(`Error initializing Stockfish: ${error}`);
-          setIsAnalyzingMoves(false);
-        }
-      );
-    }
-
-    // Start analyzing the first position
-    if (targetPositions.length > 0 && targetPositions[0]) {
-      setTimeout(() => {
-        analyzePosition(
-          analysisWorkerRef.current,
-          targetPositions[0].fen(),
-          moveAnalysisDepth, // depth
-          false,
-          () => {}, // setIsAnalyzing - we manage this ourselves
-          () => {}, // setError
-          startTimeRef,
-          analyzingFenRef
-        );
-      }, 1000); // Give Stockfish time to initialize
-    }
-  }, [gameMoves, isAnalyzingMoves, moveAnalysisDepth, analysisWorkerRef]);
-
   const displayAnalysisResults = useCallback(() => {
     const targetMoves = targetMovesRef.current;
     const results = analysisResultsRef.current;
     
-    // Determine what was analyzed based on the moves
-    const isFullGame = targetMoves.length === gameMoves.length - 1; // -1 because gameMoves includes initial position
-    const startMoveNumber = isFullGame ? 1 : 15;
-    const analysisType = isFullGame ? 'Entire Game' : 'Moves 15-20';
+    // Since we only analyze entire games now, this is always a full game analysis
+    const analysisType = 'Entire Game';
+    const startMoveNumber = 1;
     
     // Use the depth from the user's slider setting
     const analysisDepth = moveAnalysisDepth;
@@ -359,14 +267,6 @@ export default function GameAnalysis({
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game'}
-        </button>
-        
-        <button
-          onClick={handleAnalyzeMoves15to20}
-          disabled={isAnalyzingMoves || gameMoves.length < 21}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Analyze Moves 15-20
         </button>
       </div>
 
