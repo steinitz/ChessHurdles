@@ -1,27 +1,117 @@
-import React from 'react';
-import { EngineEvaluation } from '~/lib/stockfish-engine';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { Chess } from 'chess.js';
+import { 
+  initializeStockfishWorker, 
+  analyzePosition, 
+  handleEngineMessage,
+  cleanupWorker,
+  EngineEvaluation,
+  EngineCallbacks
+} from '~/lib/stockfish-engine';
 
 interface PositionAnalysisProps {
-  isAnalyzing: boolean;
-  analysisDepth: number;
-  engineEvaluation: EngineEvaluation | null;
-  error: string | null;
+  game: Chess;
   containerWidth: string;
-  onAnalyzePosition: () => void;
-  onDepthChange: (depth: number) => void;
-  formatEvaluation: (evaluation: number) => string;
 }
 
 export function PositionAnalysis({
-  isAnalyzing,
-  analysisDepth,
-  engineEvaluation,
-  error,
-  containerWidth,
-  onAnalyzePosition,
-  onDepthChange,
-  formatEvaluation
+  game,
+  containerWidth
 }: PositionAnalysisProps) {
+  // Position analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisDepth, setAnalysisDepth] = useState(10);
+  const [engineEvaluation, setEngineEvaluation] = useState<EngineEvaluation | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Position analysis refs
+  const positionWorkerRef = useRef<Worker | null>(null);
+  const positionStartTimeRef = useRef<number>(0);
+  const positionAnalyzingFenRef = useRef<string>('');
+
+  // Format evaluation helper
+  const formatEvaluation = useCallback((evaluation: number): string => {
+    if (evaluation === 0) return '0.00';
+    if (Math.abs(evaluation) > 900) {
+      return evaluation > 0 ? `+M${Math.ceil((1000 - evaluation) / 2)}` : `-M${Math.ceil((1000 + evaluation) / 2)}`;
+    }
+    return (evaluation / 100).toFixed(2);
+  }, []);
+
+  // Position analysis handler
+  const handleAnalyzePosition = useCallback(() => {
+    if (isAnalyzing) return;
+
+    const currentFen = game.fen();
+    console.log('Starting position analysis for FEN:', currentFen);
+    
+    setIsAnalyzing(true);
+    setError(null);
+    setEngineEvaluation(null);
+    positionStartTimeRef.current = Date.now();
+    positionAnalyzingFenRef.current = currentFen;
+
+    // Initialize position worker if not already done
+    if (!positionWorkerRef.current) {
+      positionWorkerRef.current = initializeStockfishWorker(
+        (event: MessageEvent) => {
+          const message = event.data;
+          const callbacks: EngineCallbacks = {
+            setEvaluation: (evaluation: EngineEvaluation) => {
+              setEngineEvaluation(evaluation);
+            },
+            setIsAnalyzing,
+            onEvaluation: (evaluation, bestMove, principalVariation) => {
+              setEngineEvaluation({ 
+                evaluation, 
+                bestMove, 
+                principalVariation,
+                depth: analysisDepth,
+                calculationTime: Date.now() - positionStartTimeRef.current
+              });
+            },
+            onCalculationTime: (timeMs) => {
+              setEngineEvaluation(prev => prev ? { ...prev, calculationTime: timeMs } : null);
+            }
+          };
+          
+          handleEngineMessage(
+            message,
+            analysisDepth,
+            positionStartTimeRef.current,
+            positionAnalyzingFenRef.current,
+            callbacks
+          );
+        },
+        (errorMsg: string) => {
+          setError(errorMsg);
+          setIsAnalyzing(false);
+        }
+      );
+    }
+
+    // Analyze current position
+    analyzePosition(
+      positionWorkerRef.current,
+      currentFen,
+      analysisDepth,
+      isAnalyzing,
+      setIsAnalyzing,
+      setError,
+      positionStartTimeRef,
+      positionAnalyzingFenRef
+    );
+  }, [game, analysisDepth, isAnalyzing]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (positionWorkerRef.current) {
+        cleanupWorker(positionWorkerRef.current);
+        positionWorkerRef.current = null;
+      }
+    };
+  }, []);
   return (
     <div style={{ 
       marginTop: '1rem', 
@@ -37,7 +127,7 @@ export function PositionAnalysis({
         marginBottom: '0.5rem' 
       }}>
         <button
-          onClick={onAnalyzePosition}
+          onClick={handleAnalyzePosition}
           disabled={isAnalyzing}
         >
           {isAnalyzing ? 'Analyzing...' : 'Analyze Position'}
@@ -49,7 +139,7 @@ export function PositionAnalysis({
             min="1"
             max="15"
             value={analysisDepth}
-            onChange={(e) => onDepthChange(parseInt(e.target.value))}
+            onChange={(e) => setAnalysisDepth(parseInt(e.target.value))}
             style={{ marginLeft: '0.5rem', width: '80px' }}
           />
           <span style={{ marginLeft: '0.5rem' }}>{analysisDepth}</span>
