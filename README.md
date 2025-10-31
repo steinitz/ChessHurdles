@@ -69,6 +69,55 @@ A production-ready starter template with authentication, database integration, a
 - **Custom components** - Reusable UI elements with TypeScript
 - **Responsive design** - Mobile-first approach
 
+## Chess Analysis Infrastructure
+
+ChessHurdles implements a sophisticated chess game analysis system with real-time evaluation graphs and progressive analysis feedback.
+
+### Core Features
+
+**Game Analysis Engine**
+- **Stockfish Integration** - Web Worker-based chess engine for position evaluation
+- **Reverse Analysis** - Analyzes moves in reverse chronological order for efficiency
+- **Progressive Updates** - Real-time graph updates as analysis proceeds
+- **Configurable Scope** - Adjustable number of moves to analyze (useful for testing/development)
+
+**Evaluation Visualization**
+- **Interactive Graph** - Visual representation of position evaluations over time
+- **Real-time Updates** - Graph bars appear progressively as analysis completes
+- **Move Navigation** - Click graph bars to jump to specific game positions
+- **Responsive Design** - Adapts to container width for optimal display
+
+### Technical Architecture
+
+**Reverse Analysis System**
+The key innovation is that the engine benefits from having "seen the future" when analyzing moves:
+
+1. **Strategic Context**: By analyzing moves in reverse order, the engine has knowledge of how the game actually unfolded
+2. **Enhanced Evaluation**: This contextual awareness can lead to more nuanced position assessments
+3. **Efficient Processing**: Analyze last moves first (e.g., moves 87, then 86) without game replay
+4. **Progressive Rendering**: Initialize with nulls, fill positions as analysis completes
+
+**Data Flow**
+```
+Game Moves → Reverse Analysis → Position Evaluation → Graph Display
+    ↓              ↓                    ↓               ↓
+[1,2,...,87] → [87,86,...] → [eval87,eval86] → [eval86,eval87]
+```
+
+### Implementation Details
+
+**Key Components**
+- `GameAnalysis.tsx` - Main analysis orchestrator with reverse processing logic
+- `EvaluationGraph.tsx` - Interactive visualization component
+- `stockfish-engine.ts` - Web Worker integration for chess engine
+- `ChessGame.tsx` - Game state management and move navigation
+
+**Testing Strategy**
+- Unit tests for component logic and edge cases
+- E2E tests for complete analysis workflows
+- Configurable move limits for efficient test execution
+- Mock engine responses for predictable testing
+
 ## Foundation - in stzUser directory
 
 For detailed foundation documentation, see [README-STZUSER.md](./README-STZUSER.md).

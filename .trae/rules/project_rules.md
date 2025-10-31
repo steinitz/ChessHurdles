@@ -75,6 +75,12 @@ slowMo: 1000,  // Adds 1 second delay between actions
 - Avoid launching the server for code changes, refactoring, or general development tasks
 - The user prefers to manually control when the server runs
 
+### Preview Tool Usage Policy
+- **DO NOT** use the `open_preview` tool automatically after making changes
+- The user prefers to open `http://localhost:3000` manually in Brave browser
+- Only inform the user when the server is ready or when changes have been made that they might want to test
+- Avoid loading the application into the Trae IDE interface
+
 ## Recent Feature Additions
 
 ### Password Change Feature (Profile.tsx)

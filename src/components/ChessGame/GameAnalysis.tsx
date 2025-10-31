@@ -9,6 +9,48 @@ import {
   type EngineCallbacks
 } from '~/lib/stockfish-engine';
 
+/**
+ * REVERSE ANALYSIS INFRASTRUCTURE
+ * 
+ * This component implements a sophisticated reverse analysis system for chess games.
+ * The key insight is that the engine benefits from having "seen the future" when 
+ * analyzing a given move - by processing moves in reverse chronological order, 
+ * the engine can leverage knowledge of how the game actually unfolded to provide 
+ * more contextually aware evaluations.
+ * 
+ * ARCHITECTURE OVERVIEW:
+ * 
+ * 1. DATA STRUCTURE MAPPING:
+ *    - gameMoves[0] = initial position (before any moves)
+ *    - gameMoves[1] = position after move 1
+ *    - gameMoves[N] = position after move N
+ *    - To analyze move N, we need gameMoves[N-1] (position before move N)
+ * 
+ * 2. REVERSE ANALYSIS ORDER:
+ *    - We analyze moves in reverse chronological order (last moves first)
+ *    - This allows for progressive display while maintaining analysis efficiency
+ *    - Example: For moves 86,87 we analyze move 87 first, then move 86
+ * 
+ * 3. DISPLAY ORDER TRANSFORMATION:
+ *    - Analysis happens in reverse: [move 87, move 86]
+ *    - Display shows chronologically: [move 86, move 87]
+ *    - Transform: displayIndex = (targetMoveNumbers.length - 1) - analysisIndex
+ * 
+ * 4. PROGRESSIVE GRAPH UPDATES:
+ *    - Initialize evaluation array with nulls: [null, null]
+ *    - As analysis completes, fill positions: [evaluation86, null] → [evaluation86, evaluation87]
+ *    - Filter nulls before passing to EvaluationGraph component
+ * 
+ * 5. CONFIGURABLE ANALYSIS SCOPE:
+ *    - maxMovesToAnalyze prop allows testing with fewer moves (default: 2)
+ *    - Useful for development, testing, and performance optimization
+ */
+
+// Analysis depth constants
+const MIN_ANALYSIS_DEPTH = 1;
+const MAX_ANALYSIS_DEPTH = 21;
+const DEFAULT_ANALYSIS_DEPTH = 1;
+
 interface EvaluationData {
   moveNumber: number;
   evaluation: number;
@@ -28,27 +70,30 @@ interface GameAnalysisProps {
   containerWidth: number;
   analysisWorkerRef: React.MutableRefObject<Worker | null>;
   goToMove: (index: number) => void;
+  maxMovesToAnalyze?: number; // Optional prop for testing and development
 }
 
 export default function GameAnalysis({ 
   gameMoves, 
   containerWidth, 
   analysisWorkerRef,
-  goToMove 
+  goToMove,
+  maxMovesToAnalyze 
 }: GameAnalysisProps) {
   // Moved state from ChessGame
-  const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(13);
+  const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(DEFAULT_ANALYSIS_DEPTH);
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
   const [moveAnalysisResults, setMoveAnalysisResults] = useState<string>('');
+  const [currentEvaluations, setCurrentEvaluations] = useState<EvaluationData[]>([]);
 
   // Moved refs from ChessGame
   const startTimeRef = useRef<number>(0);
   const analyzingFenRef = useRef<string>('');
   const targetMovesRef = useRef<string[]>([]);
   const targetPositionsRef = useRef<Chess[]>([]);
+  const targetMoveNumbersRef = useRef<number[]>([]);
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
   const currentAnalysisIndexRef = useRef<number>(0);
-  const isAnalyzingPositionRef = useRef<boolean>(false);
 
   // Helper functions (moved from ChessGame)
   const isMateScore = (evaluation: number): boolean => {
@@ -75,15 +120,43 @@ export default function GameAnalysis({
       return;
     }
 
-    // Analyze all moves in the game (skip initial position)
-    const targetMoves = gameMoves.slice(1).map(gameMove => gameMove.move!);
-    const targetPositions = gameMoves.slice(1).map(gameMove => gameMove.position);
+    // Analyze last two moves in reverse order (for debugging)
+    const allMoves = gameMoves.slice(1).map(gameMove => gameMove.move!);
+    
+    // For each move, we need the position BEFORE the move was played
+    // gameMoves[0] = initial position, gameMoves[1] = after move 1, etc.
+    // So to analyze move N, we need gameMoves[N-1] (position before move N)
+    const allPositionsBeforeMoves = gameMoves.slice(0, -1).map(gameMove => gameMove.position); // All positions except the last one
+    
+    // Determine how many moves to analyze (default to 2 for backward compatibility)
+    const movesToAnalyze = maxMovesToAnalyze || 2;
+    
+    // Take only the specified number of moves from the end and reverse the order
+    const targetMoves = allMoves.slice(-movesToAnalyze).reverse();
+    const targetPositions = allPositionsBeforeMoves.slice(-movesToAnalyze).reverse();
+    
+    // Calculate the actual move numbers (specified number of moves from end, in reverse order)
+    const totalMoves = allMoves.length;
+    const targetMoveNumbers = Array.from(
+      { length: Math.min(movesToAnalyze, totalMoves) }, 
+      (_, i) => totalMoves - i
+    );
+
+    // Log what moves we captured for analysis
+    console.log(`📋 Total moves in game: ${allMoves.length}`);
+    console.log(`🎯 Moves selected for analysis (last ${movesToAnalyze}, reversed):`, targetMoves);
+    console.log(`🔢 Move numbers:`, targetMoveNumbers);
+    console.log(`📊 Analysis depth: ${moveAnalysisDepth}`);
 
     // Store in refs for sequential analysis
     targetMovesRef.current = targetMoves;
     targetPositionsRef.current = targetPositions;
+    targetMoveNumbersRef.current = targetMoveNumbers;
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
+
+    // Initialize currentEvaluations with empty array of correct length for progressive updates
+    setCurrentEvaluations(new Array(targetMoveNumbers.length).fill(null));
 
     setIsAnalyzingMoves(true);
     setMoveAnalysisResults('Starting analysis of entire game...\n\nInitializing Stockfish engine...');
@@ -97,19 +170,48 @@ export default function GameAnalysis({
               // Store the result for this position
               analysisResultsRef.current[currentAnalysisIndexRef.current] = evaluation;
 
+              // Update the graph progressively - create evaluation data for this position
+              const currentMoveIndex = currentAnalysisIndexRef.current;
+              const actualMoveNumber = targetMoveNumbersRef.current[currentMoveIndex];
+              const newEvaluationData: EvaluationData = {
+                moveNumber: actualMoveNumber,
+                evaluation: evaluation.evaluation,
+                isMate: isMateScore(evaluation.evaluation),
+                mateIn: isMateScore(evaluation.evaluation) ? getMateDistance(evaluation.evaluation) : undefined
+              };
+
+              // Update the current evaluations state to show this position on the graph
+              // We analyze in reverse order but want to display in chronological order
+              setCurrentEvaluations(prev => {
+                const updated = [...prev];
+                
+                // For backwards analysis: analysis index 0 = move 44, index 1 = move 43
+                // We want chronological display: index 0 = move 43, index 1 = move 44
+                // So: displayIndex = (targetMoveNumbers.length - 1) - currentMoveIndex
+                const displayIndex = (targetMoveNumbers.length - 1) - currentMoveIndex;
+                updated[displayIndex] = newEvaluationData;
+                
+                return updated;
+              });
+
               // Move to next position
               currentAnalysisIndexRef.current++;
 
               if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
                 // Analyze next position
                 const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
+                const nextMove = targetMovesRef.current[currentAnalysisIndexRef.current];
+                
+                console.log(`🔍 Starting analysis of move ${currentAnalysisIndexRef.current + 1}/2: "${nextMove}"`);
+                console.log(`📍 Position FEN: ${nextPosition.fen()}`);
+                
                 if (nextPosition) {
                   analyzePosition(
                     analysisWorkerRef.current,
                     nextPosition.fen(),
                     moveAnalysisDepth,
-                    isAnalyzingPositionRef.current,
-                    (analyzing: boolean) => { isAnalyzingPositionRef.current = analyzing; },
+                    isAnalyzingMoves, // Use the actual React state
+                    setIsAnalyzingMoves, // Use the state setter
                     () => {}, // setError
                     startTimeRef,
                     analyzingFenRef
@@ -140,13 +242,17 @@ export default function GameAnalysis({
 
     // Start analyzing the first position
     if (targetPositions.length > 0 && targetPositions[0]) {
+      const firstMove = targetMoves[0];
+      console.log(`🔍 Starting analysis of move 1/2: "${firstMove}"`);
+      console.log(`📍 Position FEN: ${targetPositions[0].fen()}`);
+      
       setTimeout(() => {
         analyzePosition(
           analysisWorkerRef.current,
           targetPositions[0].fen(),
           moveAnalysisDepth, // depth
-          isAnalyzingPositionRef.current,
-          (analyzing: boolean) => { isAnalyzingPositionRef.current = analyzing; },
+          isAnalyzingMoves, // Use the actual React state
+          setIsAnalyzingMoves, // Use the state setter
           () => {}, // setError
           startTimeRef,
           analyzingFenRef
@@ -247,8 +353,8 @@ export default function GameAnalysis({
         </label>
         <input
           type="range"
-          min="5"
-          max="20"
+          min={MIN_ANALYSIS_DEPTH}
+          max={MAX_ANALYSIS_DEPTH}
           value={moveAnalysisDepth}
           onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
@@ -270,6 +376,13 @@ export default function GameAnalysis({
         </button>
       </div>
 
+      <EvaluationGraph
+          evaluations={currentEvaluations.filter(Boolean)}
+          onMoveClick={goToMove}
+          width={containerWidth}
+          height={200}
+        />
+
       {moveAnalysisResults && (
         <div className="mb-4">
           <h4 className="text-md font-medium mb-2">Analysis Results</h4>
@@ -278,13 +391,6 @@ export default function GameAnalysis({
           </pre>
         </div>
       )}
-
-      <EvaluationGraph
-          evaluations={transformToEvaluationData(analysisResultsRef.current)}
-          onMoveClick={goToMove}
-          width={containerWidth}
-          height={200}
-        />
     </div>
   );
 }

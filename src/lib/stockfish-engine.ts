@@ -129,8 +129,8 @@ export function initializeStockfishWorker(onMessage: (event: MessageEvent) => vo
     const wasmSupported = typeof WebAssembly === 'object' && 
       WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
     
-    // For now, we'll use the basic stockfish.js (not WASM) to avoid CORS issues
-    const worker = new Worker('/node_modules/stockfish.js/stockfish.js');
+    // Load stockfish.js from the public directory
+    const worker = new Worker('/stockfish.js');
     
     worker.addEventListener('message', onMessage);
     worker.addEventListener('error', (e) => {

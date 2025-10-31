@@ -203,11 +203,10 @@ export function uciToAlgebraic(uciMove: string, fen: string): string | null {
     // Chess.js can handle UCI moves directly
     const move = game.move(uciMove);
     
-    // Return the UCI move as fallback if conversion fails to avoid breaking PV display
-    return move ? move.san : uciMove;
+    return move ? move.san : null;
   } catch (error) {
-    // Return the UCI move as fallback instead of null to avoid breaking PV display
-    return uciMove;
+    // Return null if conversion fails
+    return null;
   }
 }
 
@@ -226,40 +225,35 @@ export function uciSequenceToAlgebraic(
   const algebraicMoves: string[] = [];
   
   for (const uciMove of moves) {
-    const algebraic = uciToAlgebraic(uciMove, game.fen());
-    if (algebraic) {
-      algebraicMoves.push(algebraic);
-      // Only make the move if it was successfully converted to algebraic
-      try {
-        const moveResult = game.move(uciMove);
-        if (!moveResult) {
-          // If the move couldn't be made, stop processing further moves
-          console.warn('Failed to make move during sequence conversion:', uciMove);
-          // DEBUG: Output to Game Analysis textarea
-          console.log(`DEBUG SEQUENCE FAILURE:
-PV: ${Array.isArray(uciMoves) ? uciMoves.join(' ') : uciMoves}
-Failed Move: ${uciMove}
-Starting FEN: ${startingFen}
-Current FEN: ${game.fen()}
-Moves so far: ${algebraicMoves.join(' ')}`);
-          break;
-        }
-      } catch (error) {
+    try {
+      // Try to make the move directly - this will give us the algebraic notation if successful
+      const moveResult = game.move(uciMove);
+      if (moveResult) {
+        // Successfully made the move, add the algebraic notation
+        algebraicMoves.push(moveResult.san);
+      } else {
+        // Move couldn't be made, stop processing further moves
         console.warn('Failed to make move during sequence conversion:', uciMove);
-        // DEBUG: Output to Game Analysis textarea
-        console.log(`DEBUG SEQUENCE ERROR:
-PV: ${Array.isArray(uciMoves) ? uciMoves.join(' ') : uciMoves}
-Failed Move: ${uciMove}
-Starting FEN: ${startingFen}
-Current FEN: ${game.fen()}
-Moves so far: ${algebraicMoves.join(' ')}
-Error: ${error}`);
-        // Instead of throwing, just break and return what we have so far
         break;
       }
-    } else {
-      console.warn('Failed to convert UCI move in sequence:', uciMove);
-      break;
+    } catch (error) {
+      // Move failed, try to get algebraic notation without making the move
+      const algebraic = uciToAlgebraic(uciMove, game.fen());
+      if (algebraic && algebraic !== uciMove) {
+        // Successfully converted to algebraic, add it and try to make the move
+        algebraicMoves.push(algebraic);
+        try {
+          game.move(uciMove);
+        } catch (moveError) {
+          // Even the algebraic conversion couldn't help, stop here
+          console.warn('Failed to make move after algebraic conversion:', uciMove);
+          break;
+        }
+      } else {
+        // Couldn't convert or make the move, stop processing
+        console.warn('Failed to convert and make UCI move:', uciMove);
+        break;
+      }
     }
   }
   
