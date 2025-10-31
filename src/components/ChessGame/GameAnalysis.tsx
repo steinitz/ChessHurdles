@@ -46,10 +46,10 @@ import {
  *    - Useful for development, testing, and performance optimization
  */
 
-// Analysis depth constants
-const MIN_ANALYSIS_DEPTH = 1;
-const MAX_ANALYSIS_DEPTH = 21;
-const DEFAULT_ANALYSIS_DEPTH = 1;
+// Analysis depth constants - exported for testing
+export const MIN_ANALYSIS_DEPTH = 1;
+export const MAX_ANALYSIS_DEPTH = 21;
+export const DEFAULT_ANALYSIS_DEPTH = 1;
 
 interface EvaluationData {
   moveNumber: number;
