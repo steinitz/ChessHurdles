@@ -232,6 +232,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           gameMoves={gameMoves}
           containerWidth={parseInt(containerWidth)}
           goToMove={goToMove}
+          maxMovesToAnalyze={gameMoves.length - 1} // Analyze all moves (excluding initial position)
         />
         
         <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>

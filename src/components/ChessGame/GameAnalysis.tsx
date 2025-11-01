@@ -8,6 +8,7 @@ import {
   type EngineEvaluation,
   type EngineCallbacks
 } from '~/lib/stockfish-engine';
+import {Spacer} from '~stzUtils/components/Spacer';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -49,13 +50,14 @@ import {
 // Analysis depth constants - exported for testing
 export const MIN_ANALYSIS_DEPTH = 1;
 export const MAX_ANALYSIS_DEPTH = 21;
-export const DEFAULT_ANALYSIS_DEPTH = 1;
+export const DEFAULT_ANALYSIS_DEPTH = 4;
 
 interface EvaluationData {
   moveNumber: number;
   evaluation: number;
   isMate: boolean;
   mateIn?: number;
+  isPlaceholder?: boolean;
 }
 
 interface GameMove {
@@ -155,8 +157,14 @@ export default function GameAnalysis({
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
 
-    // Initialize currentEvaluations with empty array of correct length for progressive updates
-    setCurrentEvaluations(new Array(targetMoveNumbers.length).fill(null));
+    // Initialize currentEvaluations with zero-value placeholders for progressive updates
+    const placeholderEvaluations = targetMoveNumbers.map((moveNumber) => ({
+      moveNumber,
+      evaluation: 0,
+      isMate: false,
+      isPlaceholder: true
+    }));
+    setCurrentEvaluations(placeholderEvaluations);
 
     setIsAnalyzingMoves(true);
     setMoveAnalysisResults('Starting analysis of entire game...\n\nInitializing Stockfish engine...');
@@ -177,7 +185,8 @@ export default function GameAnalysis({
                 moveNumber: actualMoveNumber,
                 evaluation: evaluation.evaluation,
                 isMate: isMateScore(evaluation.evaluation),
-                mateIn: isMateScore(evaluation.evaluation) ? getMateDistance(evaluation.evaluation) : undefined
+                mateIn: isMateScore(evaluation.evaluation) ? getMateDistance(evaluation.evaluation) : undefined,
+                isPlaceholder: false
               };
 
               // Update the current evaluations state to show this position on the graph
@@ -344,12 +353,23 @@ export default function GameAnalysis({
   };
 
   return (
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <h3 className="text-lg font-semibold mb-4">Game Analysis</h3>
-      
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Analysis Depth: {moveAnalysisDepth}
+    <div>
+      <h3>Game Analysis</h3>
+
+      <div >
+        <label>
+          <div>Analysis Depth: {moveAnalysisDepth}</div>
+          <div style={{
+            display: 'flex', 
+            flexDirection: 'row',
+            justifyContent: 'space-evenly',
+            fontWeight: 'normal',
+            }}
+          >
+            <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>&nbsp;
+            <Spacer orientation="horizontal" />
+            <span>{MAX_ANALYSIS_DEPTH} (Deep)</span>
+          </div>
         </label>
         <input
           type="range"
@@ -357,13 +377,9 @@ export default function GameAnalysis({
           max={MAX_ANALYSIS_DEPTH}
           value={moveAnalysisDepth}
           onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
-          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
           disabled={isAnalyzingMoves}
+          style={{width: '99%'}}
         />
-        <div className="flex justify-between text-xs text-gray-500 mt-1">
-          <span>5 (Fast)</span>
-          <span>20 (Deep)</span>
-        </div>
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -377,7 +393,7 @@ export default function GameAnalysis({
       </div>
 
       <EvaluationGraph
-          evaluations={currentEvaluations.filter(Boolean)}
+          evaluations={currentEvaluations}
           onMoveClick={goToMove}
           width={containerWidth}
           height={200}

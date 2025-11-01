@@ -5,6 +5,7 @@ interface EvaluationData {
   evaluation: number;
   isMate: boolean;
   mateIn?: number;
+  isPlaceholder?: boolean;
 }
 
 interface EvaluationGraphProps {
@@ -95,8 +96,14 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
             const barHeight = Math.abs(scaleY(evaluation.evaluation) - zeroY);
             const y = evaluation.evaluation >= 0 ? scaleY(evaluation.evaluation) : zeroY;
             
-            // Use single color for all bars
+            // Use different colors for placeholder vs real data
             let fillColor = 'var(--color-link)';
+            let opacity = 0.7;
+            
+            if (evaluation.isPlaceholder) {
+              fillColor = 'var(--color-text-secondary)';
+              opacity = 0.3;
+            }
             
             // Highlight current move with different opacity or stroke
             const isCurrentMove = index === currentMoveIndex;
@@ -114,7 +121,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                   strokeWidth={isCurrentMove ? 2 : 0}
                   style={{ 
                     cursor: onMoveClick ? 'pointer' : 'default',
-                    opacity: hoveredIndex === index ? 0.8 : (isCurrentMove ? 1 : 0.7),
+                    opacity: hoveredIndex === index ? 0.8 : (isCurrentMove ? 1 : opacity),
                     transition: 'opacity 0.2s ease'
                   }}
                   onClick={() => onMoveClick?.(index)}
@@ -166,9 +173,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                       fontSize="11"
                       fill="var(--color-text)"
                     >
-                      {evaluation.isMate 
-                        ? `#${Math.sign(evaluation.evaluation) * (Math.abs(evaluation.evaluation) - 5000)}`
-                        : (evaluation.evaluation / 100).toFixed(2)
+                      {evaluation.isPlaceholder 
+                        ? 'Analyzing...'
+                        : evaluation.isMate 
+                          ? `#${Math.sign(evaluation.evaluation) * (Math.abs(evaluation.evaluation) - 5000)}`
+                          : (evaluation.evaluation / 100).toFixed(2)
                       }
                     </text>
                   </g>
