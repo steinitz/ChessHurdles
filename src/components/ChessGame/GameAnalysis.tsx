@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import EvaluationGraph from '~/components/EvaluationGraph';
 import { 
@@ -96,6 +96,12 @@ export default function GameAnalysis({
   const targetMoveNumbersRef = useRef<number[]>([]);
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
   const currentAnalysisIndexRef = useRef<number>(0);
+  // Use a ref for depth so engine callbacks always see latest value
+  const moveAnalysisDepthRef = useRef<number>(DEFAULT_ANALYSIS_DEPTH);
+
+  useEffect(() => {
+    moveAnalysisDepthRef.current = moveAnalysisDepth;
+  }, [moveAnalysisDepth]);
 
   // Helper functions (moved from ChessGame)
   const isMateScore = (evaluation: number): boolean => {
@@ -218,7 +224,7 @@ export default function GameAnalysis({
                   analyzePosition(
                     analysisWorkerRef.current,
                     nextPosition.fen(),
-                    moveAnalysisDepth,
+                    moveAnalysisDepthRef.current,
                     isAnalyzingMoves, // Use the actual React state
                     setIsAnalyzingMoves, // Use the state setter
                     () => {}, // setError
@@ -236,7 +242,7 @@ export default function GameAnalysis({
 
           handleEngineMessage(
             event.data,
-            moveAnalysisDepth,
+            moveAnalysisDepthRef.current,
             startTimeRef.current,
             analyzingFenRef.current,
             callbacks
@@ -259,7 +265,7 @@ export default function GameAnalysis({
         analyzePosition(
           analysisWorkerRef.current,
           targetPositions[0].fen(),
-          moveAnalysisDepth, // depth
+          moveAnalysisDepthRef.current, // depth
           isAnalyzingMoves, // Use the actual React state
           setIsAnalyzingMoves, // Use the state setter
           () => {}, // setError
