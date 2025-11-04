@@ -69,7 +69,6 @@ interface GameMove {
 
 interface GameAnalysisProps {
   gameMoves: GameMove[];
-  containerWidth: number;
   analysisWorkerRef: React.MutableRefObject<Worker | null>;
   goToMove: (index: number) => void;
   maxMovesToAnalyze?: number; // Optional prop for testing and development
@@ -77,7 +76,6 @@ interface GameAnalysisProps {
 
 export default function GameAnalysis({ 
   gameMoves, 
-  containerWidth, 
   analysisWorkerRef,
   goToMove,
   maxMovesToAnalyze 
@@ -359,7 +357,7 @@ export default function GameAnalysis({
   };
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       <h3>Game Analysis</h3>
 
       <div >
@@ -398,12 +396,13 @@ export default function GameAnalysis({
         </button>
       </div>
 
-      <EvaluationGraph
+      <div style={{ width: '100%' }}>
+        <EvaluationGraph
           evaluations={currentEvaluations}
           onMoveClick={goToMove}
-          width={containerWidth}
           height={200}
         />
+      </div>
 
       {moveAnalysisResults && (
         <div className="mb-4">

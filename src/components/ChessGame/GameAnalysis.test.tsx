@@ -50,7 +50,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={mockGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
         maxMovesToAnalyze={2}
@@ -66,7 +65,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={mockGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
       />
@@ -89,7 +87,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={mockGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
       />
@@ -105,7 +102,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={emptyGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
       />
@@ -118,7 +114,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={mockGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
       />
@@ -143,7 +138,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={mockGameMoves}
-        containerWidth={800}
         analysisWorkerRef={mockAnalysisWorkerRef}
         goToMove={mockGoToMove}
         maxMovesToAnalyze={1}
@@ -192,7 +186,6 @@ describe('GameAnalysis', () => {
     render(
       <GameAnalysis
         gameMoves={gameWithMoves}
-        containerWidth={800}
         analysisWorkerRef={mockWorkerRef}
         goToMove={mockGoToMove}
         maxMovesToAnalyze={2}

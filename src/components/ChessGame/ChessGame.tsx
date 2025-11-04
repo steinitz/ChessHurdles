@@ -220,29 +220,28 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           />
         </div>
         
-        {/* Engine Analysis Section - Moved outside constrained height container */}
+        {/* Engine Analysis Section */}
         <PositionAnalysis
           game={game}
           containerWidth={containerWidth}
         />
-        
-        {/* Game Analysis Section */}
+
+        {/* Game Analysis Section - constrained to chessboard container width */}
         <GameAnalysis
           analysisWorkerRef={analysisWorkerRef}
           gameMoves={gameMoves}
-          containerWidth={parseInt(containerWidth)}
           goToMove={goToMove}
-          maxMovesToAnalyze={gameMoves.length - 1} // Analyze all moves (excluding initial position)
+          maxMovesToAnalyze={gameMoves.length - 1}
         />
-        
-        <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
+      </div>
+
+      <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
 
         <GameMoves
           gameMoves={gameMoves}
           currentMoveIndex={currentMoveIndex}
           goToMove={goToMove}
         />
-      </div>
     </section >
   );
 }

@@ -81,6 +81,12 @@ slowMo: 1000,  // Adds 1 second delay between actions
 - Only inform the user when the server is ready or when changes have been made that they might want to test
 - Avoid loading the application into the Trae IDE interface
 
+### Preview Policy Clarification (Assistant Exception)
+- It is acceptable for the assistant to open a preview to verify a visual/UI change only when the user explicitly requests it or grants consent.
+- Prefer using Chrome DevTools automation to inspect live pages instead of opening previews inside the IDE.
+- If a dev server is already running, reuse it; do not start additional servers.
+- This clarification supersedes any generic tooling guidance that might suggest automatically opening previews for UI changes.
+
 ## Recent Feature Additions
 
 ### Password Change Feature (Profile.tsx)
