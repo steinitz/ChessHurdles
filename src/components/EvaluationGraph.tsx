@@ -24,16 +24,10 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   scaleMode = 'linear'
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
-  if (!evaluations || evaluations.length === 0) {
-    return (
-      <div>
-        <p>No evaluation data available</p>
-      </div>
-    );
-  }
+  const hasData = !!evaluations && evaluations.length > 0;
 
   // Dynamic sizing (self-sizing): compute bar positions/widths in viewBox units (0–100 width)
-  const totalBars = evaluations.length;
+  const totalBars = hasData ? evaluations.length : 0;
   const barSpacing = 0.3; // small gap between bars in viewBox units
   const viewBoxWidth = 100; // normalized width units
   const viewBoxHeight = height; // use height units directly for vertical scale
@@ -48,7 +42,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   const totalBarWidth = barWidth + barSpacing;
   
   // Find evaluation range for scaling
-  const maxEval = Math.max(...evaluations.map(e => Math.abs(e.evaluation)));
+  const maxEval = hasData ? Math.max(...evaluations.map(e => Math.abs(e.evaluation))) : 0;
   const evalRange = Math.max(maxEval, 3); // Minimum range of 3 for visibility
   
   // Normalization helpers for different scale modes
@@ -139,7 +133,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           />
           
           {/* Evaluation bars */}
-          {evaluations.map((evaluation, index) => {
+          {hasData && evaluations.map((evaluation, index) => {
             const x = index * totalBarWidth;
             const barHeight = Math.abs(scaleY(evaluation.evaluation) - zeroY);
             const y = evaluation.evaluation >= 0 ? scaleY(evaluation.evaluation) : zeroY;
@@ -222,6 +216,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           vectorEffect="non-scaling-stroke"
         />
       </svg>
+      {!hasData && (
+        <div style={{ marginTop: 8 }}>
+          <p>No evaluation data available</p>
+        </div>
+      )}
       {/* Non-stretched overlay labels */}
       <div
         aria-hidden
