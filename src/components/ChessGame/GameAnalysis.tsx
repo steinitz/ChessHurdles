@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
-import EvaluationGraph from '~/components/EvaluationGraph';
+import EvaluationGraph from '~/components/ChessGame/EvaluationGraph';
 import { 
   initializeStockfishWorker, 
   analyzePosition, 
