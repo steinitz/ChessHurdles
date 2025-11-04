@@ -96,14 +96,14 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   // Precompute overlay label positions (CSS pixels)
   const axisPx = margin.left * pxPerUnitX;
   const topLabelY = margin.top + 10;
-  const zeroLabelY = margin.top + zeroY + 4;
+  const zeroLabelY = margin.top + zeroY;
   const bottomLabelY = margin.top + chartHeight - 5;
 
   return (
     <div
       ref={wrapperRef}
       data-testid="evaluation-graph"
-      style={{ width: '100%', display: 'block', position: 'relative' }}
+      style={{ width: '100%', position: 'relative' }}
     >
       <svg 
         id="evaluation-graph-svg"
@@ -111,38 +111,12 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
         height={height} 
         viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
         preserveAspectRatio="none"
-        style={{ 
-          border: '1px solid var(--color-bg-secondary)', 
-          borderRadius: '4px',
-          minWidth: '100%',
-          display: 'block'
-        }}
       >
-        {/* Background */}
-        <rect 
-          width={viewBoxWidth} 
-          height={viewBoxHeight} 
-          fill="var(--color-bg)" 
-        />
+        {/* Background removed to allow mvp.css default styles */}
         
         {/* Chart area */}
         <g transform={`translate(${margin.left}, ${margin.top})`}>
-          {/* Progress overlay: shows how much of the chart has completed analysis */}
-          {(() => {
-            const analyzedCount = evaluations.filter(e => !e.isPlaceholder).length;
-            const progressRatio = Math.max(0, Math.min(1, analyzedCount / Math.max(1, totalBars)));
-            const progressWidth = progressRatio * chartWidth;
-            return (
-              <rect
-                x={0}
-                y={0}
-                width={progressWidth}
-                height={chartHeight}
-                fill="var(--color-link)"
-                opacity={0.08}
-              />
-            );
-          })()}
+          {/* Progress overlay removed to avoid tinting the background */}
           {/* Zero line */}
           <line
             x1={0}
@@ -285,15 +259,13 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           position: 'absolute',
           inset: 0,
           pointerEvents: 'none',
-          zIndex: 1,
-          fontSize: '10px',
-          color: 'var(--color-text-secondary)'
+          fontSize: '10px'
         }}
       >
         <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${topLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
           +{evalRange.toFixed(1)}
         </div>
-        <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${zeroLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${zeroLabelY}px`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
           0.0
         </div>
         <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${bottomLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
