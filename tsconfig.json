@@ -9,7 +9,6 @@
     "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"],
-      "~components/*": ["./src/components/*"],
       "~stzUtils/*": ["./stzUtils/*"],
       "~stzUser/*": ["./stzUser/*"]
     }
