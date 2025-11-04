@@ -39,9 +39,13 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   const viewBoxHeight = height; // use height units directly for vertical scale
   
   // Graph dimensions in viewBox units
-  const margin = { top: 16, right: 8, bottom: 24, left: 12 };
+  const margin = { top: 16, right: 0, bottom: 24, left: 10 };
   const chartWidth = viewBoxWidth - margin.left - margin.right;
   const chartHeight = viewBoxHeight - margin.top - margin.bottom;
+
+  // Precompute bar geometry shared across rendering and overlay
+  const barWidth = Math.max(0.5, (chartWidth - Math.max(0, totalBars - 1) * barSpacing) / Math.max(1, totalBars));
+  const totalBarWidth = barWidth + barSpacing;
   
   // Find evaluation range for scaling
   const maxEval = Math.max(...evaluations.map(e => Math.abs(e.evaluation)));
@@ -82,11 +86,15 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   // refs and pixel ratio for horizontal alignment of overlay labels
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [pxPerUnitX, setPxPerUnitX] = useState<number>(1);
+  const [pxPerUnitY, setPxPerUnitY] = useState<number>(1);
 
   useLayoutEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
-    const compute = () => setPxPerUnitX(el.clientWidth / viewBoxWidth);
+    const compute = () => {
+      setPxPerUnitX(el.clientWidth / viewBoxWidth);
+      setPxPerUnitY(el.clientHeight / viewBoxHeight);
+    };
     compute();
     const ro = new ResizeObserver(() => compute());
     ro.observe(el);
@@ -111,6 +119,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
         height={height} 
         viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
         preserveAspectRatio="none"
+        style={{ display: 'block', width: '100%' }}
       >
         {/* Background removed to allow mvp.css default styles */}
         
@@ -131,8 +140,6 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           
           {/* Evaluation bars */}
           {evaluations.map((evaluation, index) => {
-            const barWidth = Math.max(0.5, (chartWidth - Math.max(0, totalBars - 1) * barSpacing) / Math.max(1, totalBars));
-            const totalBarWidth = barWidth + barSpacing;
             const x = index * totalBarWidth;
             const barHeight = Math.abs(scaleY(evaluation.evaluation) - zeroY);
             const y = evaluation.evaluation >= 0 ? scaleY(evaluation.evaluation) : zeroY;
@@ -185,44 +192,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                   />
                 )}
                 
-                {/* Hover tooltip */}
-                {hoveredIndex === index && (
-                  <g>
-                    <rect
-                      x={x - 6}
-                      y={y - 20}
-                      width={12}
-                      height={12}
-                      fill="var(--color-bg)"
-                      stroke="var(--color-text-secondary)"
-                      strokeWidth={1}
-                      rx={3}
-                    />
-                    <text
-                      x={x}
-                      y={y - 12}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fill="var(--color-text)"
-                    >
-                      Move {evaluation.moveNumber}
-                    </text>
-                    <text
-                      x={x}
-                      y={y - 4}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fill="var(--color-text)"
-                    >
-                      {evaluation.isPlaceholder 
-                        ? 'Analyzing...'
-                        : evaluation.isMate 
-                          ? `#${Math.sign(evaluation.evaluation) * (Math.abs(evaluation.evaluation) - 5000)}`
-                          : (evaluation.evaluation / 100).toFixed(2)
-                      }
-                    </text>
-                  </g>
-                )}
+                {/* Hover tooltip moved to HTML overlay to avoid SVG text stretch */}
               </g>
             );
           })}
@@ -271,6 +241,38 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
         <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${bottomLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
           -{evalRange.toFixed(1)}
         </div>
+
+        {/* Hover tooltip overlay: crisp text that doesn’t stretch */}
+        {hoveredIndex >= 0 && (() => {
+          const evaluation = evaluations[hoveredIndex];
+          const x = hoveredIndex * totalBarWidth;
+          const leftPx = (margin.left + x + barWidth / 2) * pxPerUnitX;
+          // Anchor tooltip near the x-axis (zero line) to avoid jumping with bar height
+          const axisTopPx = (margin.top + zeroY) * pxPerUnitY;
+          const valueText = evaluation.isPlaceholder
+            ? 'Analyzing...'
+            : evaluation.isMate
+              ? `#${Math.sign(evaluation.evaluation) * (Math.abs(evaluation.evaluation) - 5000)}`
+              : (evaluation.evaluation / 100).toFixed(2);
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: `${leftPx}px`,
+                top: `${axisTopPx - 8}px`,
+                transform: 'translateX(-50%)',
+                background: 'var(--color-bg)',
+                border: '1px solid var(--color-text-secondary)',
+                borderRadius: 3,
+                padding: '2px 4px',
+                color: 'var(--color-text)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Move {evaluation.moveNumber} · {valueText}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
