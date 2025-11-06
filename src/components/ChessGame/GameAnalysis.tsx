@@ -5,10 +5,13 @@ import {
   initializeStockfishWorker, 
   analyzePosition, 
   handleEngineMessage,
+  stopAnalysis,
   type EngineEvaluation,
   type EngineCallbacks
 } from '~/lib/stockfish-engine';
 import {Spacer} from '~stzUtils/components/Spacer';
+import { useSession } from '~stzUser/lib/auth-client';
+import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -85,6 +88,7 @@ export default function GameAnalysis({
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
   const [moveAnalysisResults, setMoveAnalysisResults] = useState<string>('');
   const [currentEvaluations, setCurrentEvaluations] = useState<EvaluationData[]>([]);
+  const { data: session } = useSession();
 
   // Moved refs from ChessGame
   const startTimeRef = useRef<number>(0);
@@ -96,10 +100,83 @@ export default function GameAnalysis({
   const currentAnalysisIndexRef = useRef<number>(0);
   // Use a ref for depth so engine callbacks always see latest value
   const moveAnalysisDepthRef = useRef<number>(DEFAULT_ANALYSIS_DEPTH);
+  // Cancellation ref to halt sequencing
+  const analysisCancelledRef = useRef<boolean>(false);
+  // Guard to avoid persisting default before restore runs
+  const hasAttemptedRestoreRef = useRef<boolean>(false);
 
   useEffect(() => {
     moveAnalysisDepthRef.current = moveAnalysisDepth;
   }, [moveAnalysisDepth]);
+
+  // Helpers for local storage persistence
+  const LS_KEY = 'chesshurdles.analysisDepth';
+  const readDepthFromLocalStorage = (): number | null => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      const parsed = raw ? Number(raw) : null;
+      return typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeDepthToLocalStorage = (depth: number) => {
+    try {
+      localStorage.setItem(LS_KEY, String(depth));
+    } catch {
+      // ignore
+    }
+  };
+
+  // On mount/session change, restore depth from DB or local storage
+  useEffect(() => {
+    let cancelled = false;
+    const restoreDepth = async () => {
+      // If authenticated, try server first
+      try {
+        if (session?.user?.id) {
+          const result = await getUserAnalysisDepth();
+          const depth = result?.depth;
+          if (typeof depth === 'number' && depth >= MIN_ANALYSIS_DEPTH && depth <= MAX_ANALYSIS_DEPTH) {
+            if (!cancelled) setMoveAnalysisDepth(depth);
+            // sync local storage as well for faster next load
+            writeDepthToLocalStorage(depth);
+            hasAttemptedRestoreRef.current = true;
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load user analysis depth from server; falling back to local storage', e);
+      }
+
+      // Fallback to local storage
+      const lsDepth = readDepthFromLocalStorage();
+      if (typeof lsDepth === 'number' && lsDepth >= MIN_ANALYSIS_DEPTH && lsDepth <= MAX_ANALYSIS_DEPTH) {
+        if (!cancelled) setMoveAnalysisDepth(lsDepth);
+      }
+      hasAttemptedRestoreRef.current = true;
+    };
+    restoreDepth();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  // Persist depth on change to DB (if auth) or local storage
+  useEffect(() => {
+    const persist = async () => {
+      // Skip initial persist until we've attempted restore to avoid overwriting
+      if (!hasAttemptedRestoreRef.current) return;
+      const depth = moveAnalysisDepth;
+      writeDepthToLocalStorage(depth);
+      if (session?.user?.id) {
+        try {
+          await setUserAnalysisDepth({ data: depth });
+        } catch (e) {
+          console.warn('Failed to save analysis depth to server; value kept in local storage', e);
+        }
+      }
+    };
+    persist();
+  }, [moveAnalysisDepth, session?.user?.id]);
 
   // Helper functions (moved from ChessGame)
   const isMateScore = (evaluation: number): boolean => {
@@ -160,6 +237,7 @@ export default function GameAnalysis({
     targetMoveNumbersRef.current = targetMoveNumbers;
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
+    analysisCancelledRef.current = false;
 
     // Initialize currentEvaluations with zero-value placeholders for progressive updates
     const placeholderEvaluations = targetMoveNumbers.map((moveNumber) => ({
@@ -197,45 +275,48 @@ export default function GameAnalysis({
               // We analyze in reverse order but want to display in chronological order
               setCurrentEvaluations(prev => {
                 const updated = [...prev];
-                
-                // For backwards analysis: analysis index 0 = move 44, index 1 = move 43
-                // We want chronological display: index 0 = move 43, index 1 = move 44
-                // So: displayIndex = (targetMoveNumbers.length - 1) - currentMoveIndex
                 const displayIndex = (targetMoveNumbers.length - 1) - currentMoveIndex;
                 updated[displayIndex] = newEvaluationData;
-                
                 return updated;
               });
-
-              // Move to next position
-              currentAnalysisIndexRef.current++;
-
-              if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
-                // Analyze next position
-                const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
-                const nextMove = targetMovesRef.current[currentAnalysisIndexRef.current];
-                
-                console.log(`🔍 Starting analysis of move ${currentAnalysisIndexRef.current + 1}/2: "${nextMove}"`);
-                console.log(`📍 Position FEN: ${nextPosition.fen()}`);
-                
-                if (nextPosition) {
-                  analyzePosition(
-                    analysisWorkerRef.current,
-                    nextPosition.fen(),
-                    moveAnalysisDepthRef.current,
-                    isAnalyzingMoves, // Use the actual React state
-                    setIsAnalyzingMoves, // Use the state setter
-                    () => {}, // setError
-                    startTimeRef,
-                    analyzingFenRef
-                  );
+            },
+            setIsAnalyzing: (analyzing: boolean) => {
+              // When engine signals completion, start next position or finish
+              if (!analyzing) {
+                // If cancelled, stop
+                if (analysisCancelledRef.current) {
+                  setIsAnalyzingMoves(false);
+                  return;
                 }
-              } else {
-                // Analysis complete
-                displayAnalysisResults();
+
+                // Advance index after completion of current position
+                currentAnalysisIndexRef.current++;
+
+                if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
+                  const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
+                  const nextMove = targetMovesRef.current[currentAnalysisIndexRef.current];
+
+                  console.log(`🔍 Starting analysis of move ${currentAnalysisIndexRef.current + 1}/${targetPositionsRef.current.length}: "${nextMove}"`);
+                  console.log(`📍 Position FEN: ${nextPosition.fen()}`);
+
+                  if (nextPosition && !analysisCancelledRef.current) {
+                    analyzePosition(
+                      analysisWorkerRef.current,
+                      nextPosition.fen(),
+                      moveAnalysisDepthRef.current,
+                      false, // allow analyze to start
+                      setIsAnalyzingMoves,
+                      () => {},
+                      startTimeRef,
+                      analyzingFenRef
+                    );
+                  }
+                } else {
+                  // Finished all positions
+                  displayAnalysisResults();
+                }
               }
             },
-            setIsAnalyzing: () => {}, // We manage this ourselves
           };
 
           handleEngineMessage(
@@ -260,6 +341,10 @@ export default function GameAnalysis({
       console.log(`📍 Position FEN: ${targetPositions[0].fen()}`);
       
       setTimeout(() => {
+        if (analysisCancelledRef.current) {
+          console.log('Analysis was cancelled before initial analyze call. Skipping.');
+          return;
+        }
         analyzePosition(
           analysisWorkerRef.current,
           targetPositions[0].fen(),
@@ -273,6 +358,12 @@ export default function GameAnalysis({
       }, 1000); // Give Stockfish time to initialize
     }
   }, [gameMoves, isAnalyzingMoves, moveAnalysisDepth, analysisWorkerRef]);
+
+  const handleCancelAnalysis = useCallback(() => {
+    analysisCancelledRef.current = true;
+    stopAnalysis(analysisWorkerRef.current, isAnalyzingMoves, setIsAnalyzingMoves);
+    setMoveAnalysisResults('Analysis cancelled.');
+  }, [analysisWorkerRef, isAnalyzingMoves]);
 
   const displayAnalysisResults = useCallback(() => {
     const targetMoves = targetMovesRef.current;
@@ -393,6 +484,13 @@ export default function GameAnalysis({
           className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game'}
+        </button>
+        <button
+          onClick={handleCancelAnalysis}
+          disabled={!isAnalyzingMoves}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          Cancel
         </button>
       </div>
 

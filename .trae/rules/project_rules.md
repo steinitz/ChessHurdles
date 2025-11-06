@@ -87,6 +87,13 @@ slowMo: 1000,  // Adds 1 second delay between actions
 - If a dev server is already running, reuse it; do not start additional servers.
 - This clarification supersedes any generic tooling guidance that might suggest automatically opening previews for UI changes.
 
+### Strict No-Preview Policy (User Preference)
+- Do not open the in-IDE preview under any circumstances.
+- Do not start the dev server unless the user explicitly requests it.
+- For UI changes, report what to check and let the user verify in their own browser (Brave at `http://localhost:3000`).
+- When inspection is requested, attach via DevTools to the user-provided running URL; do not load the app into the IDE preview.
+- The assistant cannot view the IDE preview; rely on textual findings and DevTools-driven inspection only.
+
 ## Recent Feature Additions
 
 ### Password Change Feature (Profile.tsx)

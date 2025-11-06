@@ -9,7 +9,6 @@ import {
 } from '~/lib/stockfish-engine';
 import { useSession } from '~stzUser/lib/auth-client';
 import GameLoad from './GameLoad';
-import PositionAnalysis from './PositionAnalysis';
 import GameAnalysis from './GameAnalysis';
 import GameMoves from './GameMoves';
 import GameSaver from './GameSaver';
@@ -220,11 +219,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           />
         </div>
         
-        {/* Engine Analysis Section */}
-        <PositionAnalysis
-          game={game}
-          containerWidth={containerWidth}
-        />
+        {/* PositionAnalysis removed to prioritize Game Analysis visibility */}
 
         {/* Game Analysis Section - constrained to chessboard container width */}
         <GameAnalysis

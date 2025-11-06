@@ -36,10 +36,17 @@ export interface HurdleTable {
   created_at: string;
 }
 
+export interface UserPreferencesTable {
+  user_id: string;
+  analysis_depth: number | null;
+  updated_at: string;
+}
+
 // Extended database interface including chess tables
 export interface ChessDatabase extends Database {
   games: GameTable;
   hurdles: HurdleTable;
+  user_preferences: UserPreferencesTable;
 }
 
 // Kysely instance for chess operations
@@ -264,5 +271,40 @@ export class ChessGameDatabase {
       .where('mastery_level', '<', masteryThreshold)
       .orderBy('last_practiced', 'asc') // Practice least recently practiced first
       .execute();
+  }
+
+  // ===== USER PREFERENCES =====
+
+  /**
+   * Get analysis depth preference for a user
+   */
+  static async getUserAnalysisDepth(userId: string): Promise<number | null> {
+    const row = await chessDb
+      .selectFrom('user_preferences')
+      .select(['analysis_depth'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    return typeof row?.analysis_depth === 'number' ? row.analysis_depth : null;
+  }
+
+  /**
+   * Set analysis depth preference for a user (upsert)
+   */
+  static async setUserAnalysisDepth(userId: string, depth: number): Promise<void> {
+    const now = new Date().toISOString();
+    // Try update, if 0 rows affected then insert
+    const updated = await chessDb
+      .updateTable('user_preferences')
+      .set({ analysis_depth: depth, updated_at: now })
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    const rowsUpdated = (updated as any)?.numUpdatedRows;
+    if (!rowsUpdated || Number(rowsUpdated) === 0) {
+      await chessDb
+        .insertInto('user_preferences')
+        .values({ user_id: userId, analysis_depth: depth, updated_at: now })
+        .executeTakeFirst();
+    }
   }
 }

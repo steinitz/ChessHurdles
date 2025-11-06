@@ -69,6 +69,17 @@ export async function ensureChessTables(): Promise<void> {
       .execute();
     console.log('✅ Hurdles table created successfully');
 
+    console.log('⚙️ Creating user_preferences table...');
+    // Create user preferences table for storing per-user analysis depth
+    await chessDb.schema
+      .createTable('user_preferences')
+      .ifNotExists()
+      .addColumn('user_id', 'text', (col) => col.primaryKey())
+      .addColumn('analysis_depth', 'integer')
+      .addColumn('updated_at', 'text', (col) => col.notNull())
+      .execute();
+    console.log('✅ User preferences table created successfully');
+
     console.log('🔍 Creating database indexes...');
     // Create indexes for better query performance
     await createIndexes();
@@ -174,6 +185,14 @@ async function createIndexes(): Promise<void> {
       .ifNotExists()
       .on('hurdles')
       .column('last_practiced')
+      .execute();
+
+    console.log('📊 Creating index: idx_user_prefs_user_id');
+    await chessDb.schema
+      .createIndex('idx_user_prefs_user_id')
+      .ifNotExists()
+      .on('user_preferences')
+      .column('user_id')
       .execute();
 
     console.log('✅ Chess database indexes created');

@@ -5,6 +5,7 @@ import {
   analyzePosition, 
   handleEngineMessage,
   cleanupWorker,
+  stopAnalysis,
   EngineEvaluation,
   EngineCallbacks
 } from '~/lib/stockfish-engine';
@@ -103,6 +104,11 @@ export function PositionAnalysis({
     );
   }, [game, analysisDepth, isAnalyzing]);
 
+  const handleCancelPositionAnalysis = useCallback(() => {
+    stopAnalysis(positionWorkerRef.current, isAnalyzing, setIsAnalyzing);
+    setError(null);
+  }, [positionWorkerRef, isAnalyzing]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -131,6 +137,12 @@ export function PositionAnalysis({
           disabled={isAnalyzing}
         >
           {isAnalyzing ? 'Analyzing...' : 'Analyze Position'}
+        </button>
+        <button
+          onClick={handleCancelPositionAnalysis}
+          disabled={!isAnalyzing}
+        >
+          Cancel
         </button>
         <label>
           Depth:
