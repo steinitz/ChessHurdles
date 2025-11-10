@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface EvaluationData {
+export interface EvaluationData {
   moveNumber: number;
   evaluation: number;
   isMate: boolean;
@@ -15,11 +15,37 @@ interface EvaluationGraphProps {
   height?: number;
 }
 
+// Exported constants/functions to keep tests resilient without literals
+export const EVALUATION_GRAPH_TEST_ID = 'evaluation-graph';
+export const EVALUATION_GRAPH_SVG_ID = 'evaluation-graph-svg';
+export const EVALUATION_BAR_TEST_ID = 'evaluation-bar';
+export const ZERO_LABEL_TEXT = '0.0';
+export const NO_DATA_TEXT = 'No evaluation data available';
+export const DEFAULT_EVALUATION_GRAPH_HEIGHT = 200;
+export const MATE_BASE = 5000;
+export const LOADING_TOOLTIP_TEXT = 'Analyzing...';
+
+export const computeEvalRange = (evaluations: EvaluationData[]): number => {
+  const hasData = !!evaluations && evaluations.length > 0;
+  const maxEval = hasData ? Math.max(...evaluations.map(e => Math.abs(e.evaluation))) : 0;
+  return Math.max(maxEval, 3);
+};
+
+export const formatEvaluationText = (evaluation: EvaluationData): string => {
+  if (evaluation.isPlaceholder) return LOADING_TOOLTIP_TEXT;
+  if (evaluation.isMate) {
+    const distance = Math.abs(evaluation.evaluation) - MATE_BASE;
+    const sign = Math.sign(evaluation.evaluation);
+    return `#${sign * distance}`;
+  }
+  return (evaluation.evaluation / 100).toFixed(2);
+};
+
 export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   evaluations,
   currentMoveIndex = -1,
   onMoveClick,
-  height = 200,
+  height = DEFAULT_EVALUATION_GRAPH_HEIGHT,
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
   const hasData = !!evaluations && evaluations.length > 0;
@@ -40,8 +66,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   const totalBarWidth = barWidth + barSpacing;
   
   // Find evaluation range for scaling
-  const maxEval = hasData ? Math.max(...evaluations.map(e => Math.abs(e.evaluation))) : 0;
-  const evalRange = Math.max(maxEval, 3); // Minimum range of 3 for visibility
+  const evalRange = computeEvalRange(evaluations); // Minimum range of 3 for visibility
   
   // Normalization (linear clamp from [-evalRange, +evalRange] to [-1, 1])
   const clamp = (x: number) => Math.max(-1, Math.min(1, x));
@@ -64,11 +89,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
 
   return (
     <div
-      data-testid="evaluation-graph"
+      data-testid={EVALUATION_GRAPH_TEST_ID}
       style={{ width: '100%', position: 'relative' }}
     >
       <svg 
-        id="evaluation-graph-svg"
+        id={EVALUATION_GRAPH_SVG_ID}
         width="100%" 
         height={height} 
         viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
@@ -114,6 +139,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
               <g key={index}>
                 {/* Bar */}
                 <rect
+                  data-testid={EVALUATION_BAR_TEST_ID}
                   x={x}
                   y={y}
                   width={barWidth}
@@ -163,7 +189,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
       </svg>
       {!hasData && (
         <div style={{ marginTop: 8 }}>
-          <p>No evaluation data available</p>
+          <p>{NO_DATA_TEXT}</p>
         </div>
       )}
       {/* Non-stretched overlay labels */}
@@ -180,7 +206,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           +{evalRange.toFixed(1)}
         </div>
         <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${zeroLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
-          0.0
+          {ZERO_LABEL_TEXT}
         </div>
         <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${bottomLabelPct}%`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
           -{evalRange.toFixed(1)}
@@ -193,11 +219,7 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           const leftPct = ((margin.left + x + barWidth / 2) / viewBoxWidth) * 100;
           // Anchor tooltip near the x-axis (zero line) to avoid jumping with bar height
           const axisTopPct = ((margin.top + zeroY) / viewBoxHeight) * 100;
-          const valueText = evaluation.isPlaceholder
-            ? 'Analyzing...'
-            : evaluation.isMate
-              ? `#${Math.sign(evaluation.evaluation) * (Math.abs(evaluation.evaluation) - 5000)}`
-              : (evaluation.evaluation / 100).toFixed(2);
+          const valueText = formatEvaluationText(evaluation);
           return (
             <div
               style={{

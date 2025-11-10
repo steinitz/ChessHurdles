@@ -13,8 +13,8 @@ vi.mock('../../lib/stockfish-engine', () => ({
   handleEngineMessage: vi.fn(),
 }));
 
-// Mock EvaluationGraph component
-vi.mock('../EvaluationGraph', () => ({
+// Mock EvaluationGraph component (match alias import in GameAnalysis)
+vi.mock('~/components/ChessGame/EvaluationGraph', () => ({
   default: ({ evaluations }: { evaluations: any[] }) => (
     <div data-testid="evaluation-graph">
       Graph with {evaluations.length} evaluations
