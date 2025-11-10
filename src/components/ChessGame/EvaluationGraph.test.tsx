@@ -73,4 +73,26 @@ describe('EvaluationGraph', () => {
     // Tooltip container is aria-hidden and conditionally rendered; after leave, the text should not be found
     expect(screen.queryByText(`Move ${evaluations[2].moveNumber} · ${formatEvaluationText(evaluations[2])}`)).toBeNull();
   });
+
+  it('computes range ignoring mate-coded and placeholder values; enforces minimum range', () => {
+    const evaluations: EvaluationData[] = [
+      { moveNumber: 1, evaluation: 0, isMate: false, isPlaceholder: true }, // placeholder
+      { moveNumber: 2, evaluation: 5002, isMate: true }, // mate-coded, should be ignored for range
+      { moveNumber: 3, evaluation: 80, isMate: false }, // small cp
+      { moveNumber: 4, evaluation: -120, isMate: false }, // small cp
+    ];
+
+    const evalRange = computeEvalRange(evaluations);
+    // With small cp values (max 120) and MIN_RANGE_CP=300, expect 300
+    expect(evalRange).toBeGreaterThanOrEqual(300);
+    expect(evalRange).toBe(300);
+
+    render(<EvaluationGraph evaluations={evaluations} height={DEFAULT_EVALUATION_GRAPH_HEIGHT} />);
+
+    // Axis labels should reflect ±(evalRange/100) in pawns
+    const pawnRange = (evalRange / 100).toFixed(1);
+    expect(screen.getByText(`+${pawnRange}`)).toBeInTheDocument();
+    expect(screen.getByText(ZERO_LABEL_TEXT)).toBeInTheDocument();
+    expect(screen.getByText(`-${pawnRange}`)).toBeInTheDocument();
+  });
 });
