@@ -193,19 +193,3 @@ git push origin main
 - Test after each update to ensure compatibility
 
 **Note:** If you've modified files in `stzUser/` or `stzUtils/`, you may need to resolve merge conflicts during updates.
-
-## Development Guidelines
-
-### State vs Ref Guidelines
-
-- Use `useState` for data that the UI must reflect immediately (labels, lists, toggles, progress).
-- Use `useRef` for mutable control data that should not trigger re-renders (workers, timers, indices, latest values for long-lived callbacks).
-- Avoid stale closures: for worker/message handlers or long-running callbacks, read the latest value via a ref instead of relying on state captured in the closure.
-- Keep large or fast-changing internal data in refs; expose minimal progress via state to avoid render churn.
-
-Examples in this project:
-- `GameAnalysis`: `analysisWorkerRef`, `currentAnalysisIndexRef`, `startTimeRef` (control, refs) and `isAnalyzingMoves`, `currentEvaluations` (UI, state). `moveAnalysisDepthRef` ensures engine callbacks use the latest depth.
-- `EvaluationGraph` and UI components: user-visible values in state; imperative handles kept in refs when needed.
-
-Upstream note:
-- The `stzUser/` foundation uses the same pattern where applicable (e.g., dialog control via `DialogRefType` and form fields in state). ChessHurdles applies it more extensively due to the Stockfish worker/callback analysis flow.

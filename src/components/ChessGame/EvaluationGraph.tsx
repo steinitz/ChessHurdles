@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 
 interface EvaluationData {
   moveNumber: number;
@@ -13,7 +13,6 @@ interface EvaluationGraphProps {
   currentMoveIndex?: number;
   onMoveClick?: (moveIndex: number) => void;
   height?: number;
-  scaleMode?: 'linear' | 'log' | 'tanh';
 }
 
 export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
@@ -21,7 +20,6 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   currentMoveIndex = -1,
   onMoveClick,
   height = 200,
-  scaleMode = 'linear'
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
   const hasData = !!evaluations && evaluations.length > 0;
@@ -45,28 +43,9 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   const maxEval = hasData ? Math.max(...evaluations.map(e => Math.abs(e.evaluation))) : 0;
   const evalRange = Math.max(maxEval, 3); // Minimum range of 3 for visibility
   
-  // Normalization helpers for different scale modes
+  // Normalization (linear clamp from [-evalRange, +evalRange] to [-1, 1])
   const clamp = (x: number) => Math.max(-1, Math.min(1, x));
-  const normalizeLinear = (e: number) => clamp(e / evalRange);
-  const normalizeLog = (e: number) => {
-    const s = Math.sign(e);
-    const abs = Math.abs(e);
-    // log1p compresses extremes while keeping 0 linear near origin
-    const normAbs = Math.log1p(abs) / Math.log1p(evalRange);
-    return clamp(s * normAbs);
-  };
-  const normalizeTanh = (e: number) => clamp(Math.tanh(e / evalRange));
-  const normalize = (e: number) => {
-    switch (scaleMode) {
-      case 'log':
-        return normalizeLog(e);
-      case 'tanh':
-        return normalizeTanh(e);
-      case 'linear':
-      default:
-        return normalizeLinear(e);
-    }
-  };
+  const normalize = (e: number) => clamp(e / evalRange);
 
   // Scale function for evaluation to y-coordinate using selected normalization
   const scaleY = (evaluation: number) => {
@@ -77,33 +56,14 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   // Zero line position
   const zeroY = chartHeight / 2;
   
-  // refs and pixel ratio for horizontal alignment of overlay labels
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const [pxPerUnitX, setPxPerUnitX] = useState<number>(1);
-  const [pxPerUnitY, setPxPerUnitY] = useState<number>(1);
-
-  useLayoutEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const compute = () => {
-      setPxPerUnitX(el.clientWidth / viewBoxWidth);
-      setPxPerUnitY(el.clientHeight / viewBoxHeight);
-    };
-    compute();
-    const ro = new ResizeObserver(() => compute());
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [viewBoxWidth]);
-
-  // Precompute overlay label positions (CSS pixels)
-  const axisPx = margin.left * pxPerUnitX;
-  const topLabelY = margin.top + 10;
-  const zeroLabelY = margin.top + zeroY;
-  const bottomLabelY = margin.top + chartHeight - 5;
+  // Overlay label positions as percentages relative to viewBox
+  const axisLeftPct = (margin.left / viewBoxWidth) * 100;
+  const topLabelPct = ((margin.top + 10) / viewBoxHeight) * 100;
+  const zeroLabelPct = ((margin.top + zeroY) / viewBoxHeight) * 100;
+  const bottomLabelPct = ((margin.top + chartHeight - 5) / viewBoxHeight) * 100;
 
   return (
     <div
-      ref={wrapperRef}
       data-testid="evaluation-graph"
       style={{ width: '100%', position: 'relative' }}
     >
@@ -171,21 +131,6 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                   onMouseLeave={() => setHoveredIndex(-1)}
                 />
                 
-                {/* Click target (invisible, larger area) */}
-                {onMoveClick && (
-                  <rect
-                    x={x - 2}
-                    y={0}
-                    width={barWidth + 4}
-                    height={chartHeight}
-                    fill="transparent"
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => onMoveClick(index)}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(-1)}
-                  />
-                )}
-                
                 {/* Hover tooltip moved to HTML overlay to avoid SVG text stretch */}
               </g>
             );
@@ -231,13 +176,13 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           fontSize: '10px'
         }}
       >
-        <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${topLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${topLabelPct}%`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
           +{evalRange.toFixed(1)}
         </div>
-        <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${zeroLabelY}px`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${zeroLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
           0.0
         </div>
-        <div style={{ position: 'absolute', left: `${axisPx}px`, top: `${bottomLabelY}px`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
+        <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${bottomLabelPct}%`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
           -{evalRange.toFixed(1)}
         </div>
 
@@ -245,9 +190,9 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
         {hoveredIndex >= 0 && (() => {
           const evaluation = evaluations[hoveredIndex];
           const x = hoveredIndex * totalBarWidth;
-          const leftPx = (margin.left + x + barWidth / 2) * pxPerUnitX;
+          const leftPct = ((margin.left + x + barWidth / 2) / viewBoxWidth) * 100;
           // Anchor tooltip near the x-axis (zero line) to avoid jumping with bar height
-          const axisTopPx = (margin.top + zeroY) * pxPerUnitY;
+          const axisTopPct = ((margin.top + zeroY) / viewBoxHeight) * 100;
           const valueText = evaluation.isPlaceholder
             ? 'Analyzing...'
             : evaluation.isMate
@@ -257,9 +202,9 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
             <div
               style={{
                 position: 'absolute',
-                left: `${leftPx}px`,
-                top: `${axisTopPx - 8}px`,
-                transform: 'translateX(-50%)',
+                left: `${leftPct}%`,
+                top: `${axisTopPct}%`,
+                transform: 'translateX(-50%) translateY(-8px)',
                 background: 'var(--color-bg)',
                 border: '1px solid var(--color-text-secondary)',
                 borderRadius: 3,
