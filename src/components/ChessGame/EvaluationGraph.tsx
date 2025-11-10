@@ -24,11 +24,16 @@ export const NO_DATA_TEXT = 'No evaluation data available';
 export const DEFAULT_EVALUATION_GRAPH_HEIGHT = 200;
 export const MATE_BASE = 5000;
 export const LOADING_TOOLTIP_TEXT = 'Analyzing...';
+export const MIN_RANGE_CP = 300; // 3.0 pawns minimum
 
 export const computeEvalRange = (evaluations: EvaluationData[]): number => {
   const hasData = !!evaluations && evaluations.length > 0;
-  const maxEval = hasData ? Math.max(...evaluations.map(e => Math.abs(e.evaluation))) : 0;
-  return Math.max(maxEval, 3);
+  if (!hasData) return MIN_RANGE_CP;
+  // Ignore placeholder and mate-coded values when determining axis scale
+  const usable = evaluations.filter(e => !e.isPlaceholder && Math.abs(e.evaluation) < MATE_BASE);
+  const maxEval = usable.length > 0 ? Math.max(...usable.map(e => Math.abs(e.evaluation))) : 0;
+  // Keep a sensible minimum range in centipawns
+  return Math.max(maxEval, MIN_RANGE_CP);
 };
 
 export const formatEvaluationText = (evaluation: EvaluationData): string => {
@@ -203,13 +208,13 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
         }}
       >
         <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${topLabelPct}%`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
-          +{evalRange.toFixed(1)}
+          +{(evalRange / 100).toFixed(1)}
         </div>
         <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${zeroLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
           {ZERO_LABEL_TEXT}
         </div>
         <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${bottomLabelPct}%`, transform: 'translateX(-6px) translateX(-100%)', whiteSpace: 'nowrap' }}>
-          -{evalRange.toFixed(1)}
+          -{(evalRange / 100).toFixed(1)}
         </div>
 
         {/* Hover tooltip overlay: crisp text that doesn’t stretch */}

@@ -29,10 +29,11 @@ describe('EvaluationGraph', () => {
     expect(screen.getByTestId(EVALUATION_GRAPH_TEST_ID)).toBeInTheDocument();
     expect(document.getElementById(EVALUATION_GRAPH_SVG_ID)).toBeTruthy();
 
-    // Axis labels
-    expect(screen.getByText(`+${evalRange.toFixed(1)}`)).toBeInTheDocument();
+    // Axis labels (displayed in pawns)
+    const pawnRange = (evalRange / 100).toFixed(1);
+    expect(screen.getByText(`+${pawnRange}`)).toBeInTheDocument();
     expect(screen.getByText(ZERO_LABEL_TEXT)).toBeInTheDocument();
-    expect(screen.getByText(`-${evalRange.toFixed(1)}`)).toBeInTheDocument();
+    expect(screen.getByText(`-${pawnRange}`)).toBeInTheDocument();
 
     // Bars
     const bars = screen.getAllByTestId(EVALUATION_BAR_TEST_ID);
