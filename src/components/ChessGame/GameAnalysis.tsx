@@ -383,8 +383,9 @@ export default function GameAnalysis({
       const moveNumber = startMoveNumber + index;
       const result = results[index];
       const isWhiteMove = (moveNumber % 2) === 1;
+      const playerColor = isWhiteMove ? 'White' : 'Black';
       
-      analysisText += `Move ${moveNumber}: ${move}\n`;
+      analysisText += `Move ${moveNumber}: ${playerColor} ${move}\n`;
       
       if (result) {
         const evalStr = Math.abs(result.evaluation) > 5000 
