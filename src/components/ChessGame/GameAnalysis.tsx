@@ -12,6 +12,7 @@ import {
 import {Spacer} from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
+import { CP_LOSS_THRESHOLDS } from '~/lib/chess-constants';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -406,12 +407,12 @@ export default function GameAnalysis({
 
             analysisText += `  centipawnChange: ${centipawnChange}\n`;
 
-            // Highlight significant centipawnChange (≥150 = mistake/blunder threshold)
-            if (centipawnChange >= 150) {
-              if (centipawnChange >= 300) {
-                analysisText += `  ⚠️  BLUNDER (centipawnChange ≥300)\n`;
+            // Highlight significant centipawnChange using centralized thresholds
+            if (centipawnChange >= CP_LOSS_THRESHOLDS.mistake) {
+              if (centipawnChange >= CP_LOSS_THRESHOLDS.blunder) {
+                analysisText += `  ⚠️  BLUNDER (centipawnChange ≥${CP_LOSS_THRESHOLDS.blunder})\n`;
               } else {
-                analysisText += `  ⚠️  MISTAKE (centipawnChange ≥150)\n`;
+                analysisText += `  ⚠️  MISTAKE (centipawnChange ≥${CP_LOSS_THRESHOLDS.mistake})\n`;
               }
             }
           }
