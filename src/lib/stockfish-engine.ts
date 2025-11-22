@@ -88,8 +88,20 @@ export function handleEngineMessage(
         // Convert the entire principal variation to algebraic notation
         const pvAlgebraic = formatPrincipalVariation(depthInfo.pv, analyzingFen);
         
+        // Stockfish reports scores from the perspective of the side to move.
+        // Normalize evaluations so that positive values always indicate an advantage for White.
+        const isWhiteToMove = analyzingFen.split(' ')[1] === 'w';
+
+        // Encode mate scores compatibly with UI components: base 5000 + mate distance
+        // Keep the sign from side-to-move, then normalize to White perspective
+        const sideSignedEval = depthInfo.isMate
+          ? (depthInfo.score > 0 ? (5000 + Math.abs(depthInfo.score)) : -(5000 + Math.abs(depthInfo.score)))
+          : depthInfo.score;
+
+        const normalizedEval = isWhiteToMove ? sideSignedEval : -sideSignedEval;
+
         const newEvaluation: EngineEvaluation = {
-          evaluation: depthInfo.isMate ? (depthInfo.score > 0 ? 10000 : -10000) : depthInfo.score,
+          evaluation: normalizedEval,
           bestMove: bestMoveFormatted,
           principalVariation: pvAlgebraic,
           depth: depthInfo.depth,
@@ -191,4 +203,123 @@ export function stopAnalysis(
     worker.postMessage('stop');
     setIsAnalyzing(false);
   }
+}
+
+// Calibration helpers
+/**
+ * Runs Stockfish on a single FEN to a fixed depth and resolves
+ * with elapsed time in ms when the engine emits `bestmove`.
+ * This does not touch React state and can be used for calibration.
+ */
+export async function runDepthOnFen(
+  worker: Worker | null,
+  fen: string,
+  depth: number,
+  timeoutMs: number = 20000
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    if (!worker) return reject(new Error('Engine worker not available'));
+
+    const start = Date.now();
+    let resolved = false;
+
+    const onMessage = (event: MessageEvent) => {
+      const msg = String(event.data || '');
+      if (parseBestMoveMessage(msg)) {
+        const elapsed = Date.now() - start;
+        cleanup();
+        resolved = true;
+        resolve(elapsed);
+      }
+    };
+
+    const onError = (e: any) => {
+      cleanup();
+      reject(new Error('Engine error during calibration'));
+    };
+
+    const cleanup = () => {
+      try {
+        worker.removeEventListener('message', onMessage as any);
+        worker.removeEventListener('error', onError as any);
+        worker.postMessage('stop');
+      } catch {}
+    };
+
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        cleanup();
+        reject(new Error('Calibration run timed out'));
+      }
+    }, timeoutMs);
+
+    worker.addEventListener('message', onMessage as any);
+    worker.addEventListener('error', onError as any);
+
+    // Ensure clean state and run to target depth
+    worker.postMessage('stop');
+    worker.postMessage('ucinewgame');
+    worker.postMessage(`position fen ${fen}`);
+    worker.postMessage(`go depth ${depth}`);
+  });
+}
+
+/**
+ * Calibrates a recommended analysis depth by running increasing depths
+ * on a test position until the elapsed time is near targetMs.
+ * Returns the depth closest to targetMs, clamped to min/max.
+ */
+export async function calibrateDepth(options: {
+  worker: Worker | null;
+  fen: string;
+  targetMs: number;
+  minDepth?: number;
+  maxDepth?: number;
+  timeoutPerRunMs?: number;
+}): Promise<number> {
+  const { worker, fen, targetMs, minDepth = 1, maxDepth = 21, timeoutPerRunMs = 20000 } = options;
+  if (!worker) throw new Error('Engine worker not available');
+
+  // Progressive probing depths (favor even steps as Stockfish often scales well)
+  const candidates: number[] = [];
+  for (let d = Math.max(2, minDepth); d <= maxDepth; d += 2) candidates.push(d);
+  if (!candidates.includes(maxDepth)) candidates.push(maxDepth);
+
+  let bestDepth = Math.max(minDepth, 2);
+  let bestDiff = Number.POSITIVE_INFINITY;
+  let lastUnder: { depth: number; ms: number } | null = null;
+  let firstOver: { depth: number; ms: number } | null = null;
+
+  for (const depth of candidates) {
+    let ms = 0;
+    try {
+      ms = await runDepthOnFen(worker, fen, depth, timeoutPerRunMs);
+    } catch (e) {
+      // If a run fails or times out, skip this depth
+      continue;
+    }
+
+    const diff = Math.abs(ms - targetMs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestDepth = depth;
+    }
+
+    if (ms < targetMs) {
+      lastUnder = { depth, ms };
+    } else if (!firstOver) {
+      firstOver = { depth, ms };
+      // When we first cross target, we can stop early
+      break;
+    }
+  }
+
+  // If we overshot, prefer nearer of lastUnder vs firstOver
+  if (lastUnder && firstOver) {
+    const underDiff = Math.abs(lastUnder.ms - targetMs);
+    const overDiff = Math.abs(firstOver.ms - targetMs);
+    bestDepth = underDiff <= overDiff ? lastUnder.depth : firstOver.depth;
+  }
+
+  return Math.min(Math.max(bestDepth, minDepth), maxDepth);
 }

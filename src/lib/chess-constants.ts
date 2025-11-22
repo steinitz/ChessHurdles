@@ -6,3 +6,17 @@ export const CP_LOSS_THRESHOLDS = {
   mistake: 150,
   blunder: 300,
 } as const;
+
+// Calibration settings for choosing a sensible default analysis depth
+// Target around 5 seconds on a mid-complexity position.
+export const CALIBRATION_TARGET_MS = 5000;
+export const CALIBRATION_TIMEOUT_MS = 20000; // safety timeout per depth run
+// A stable, middlegame test position (moderate branching factor)
+// Source: a typical middlegame structure used for benchmarking
+export const CALIBRATION_TEST_FEN =
+  'r2q1rk1/1bpp1ppp/p1n1pn2/8/3P4/2P2N2/PP3PPP/R1BQ1RK1 w - - 0 10';
+
+// Shared analysis depth defaults (used by GameAnalysis and tests)
+export const MIN_ANALYSIS_DEPTH = 1;
+export const MAX_ANALYSIS_DEPTH = 21;
+export const DEFAULT_ANALYSIS_DEPTH = 4;

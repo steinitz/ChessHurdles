@@ -196,17 +196,14 @@ export function pgnToGameHistory(pgnString: string): {
  * @param fen - Current position in FEN notation
  * @returns Move in algebraic notation (e.g., 'e4', 'Nf3') or null if invalid
  */
-export function uciToAlgebraic(uciMove: string, fen: string): string | null {
+export function uciToAlgebraic(uciMove: string, fen: string): string {
+  if (!uciMove) return '';
   try {
     const game = new Chess(fen);
-    
-    // Chess.js can handle UCI moves directly
     const move = game.move(uciMove);
-    
-    return move ? move.san : null;
-  } catch (error) {
-    // Return null if conversion fails
-    return null;
+    return move ? move.san : uciMove; // fallback to UCI when illegal in this FEN
+  } catch {
+    return uciMove; // fallback to UCI when parsing or move application fails
   }
 }
 
@@ -226,34 +223,22 @@ export function uciSequenceToAlgebraic(
   
   for (const uciMove of moves) {
     try {
-      // Try to make the move directly - this will give us the algebraic notation if successful
       const moveResult = game.move(uciMove);
       if (moveResult) {
-        // Successfully made the move, add the algebraic notation
         algebraicMoves.push(moveResult.san);
       } else {
-        // Move couldn't be made, stop processing further moves
-        console.warn('Failed to make move during sequence conversion:', uciMove);
+        // Illegal in current context: include UCI fallback and stop
+        algebraicMoves.push(uciMove);
         break;
       }
-    } catch (error) {
-      // Move failed, try to get algebraic notation without making the move
-      const algebraic = uciToAlgebraic(uciMove, game.fen());
-      if (algebraic && algebraic !== uciMove) {
-        // Successfully converted to algebraic, add it and try to make the move
-        algebraicMoves.push(algebraic);
-        try {
-          game.move(uciMove);
-        } catch (moveError) {
-          // Even the algebraic conversion couldn't help, stop here
-          console.warn('Failed to make move after algebraic conversion:', uciMove);
-          break;
-        }
-      } else {
-        // Couldn't convert or make the move, stop processing
-        console.warn('Failed to convert and make UCI move:', uciMove);
-        break;
+    } catch {
+      const notation = uciToAlgebraic(uciMove, game.fen());
+      algebraicMoves.push(notation);
+      // If we converted to SAN, try to advance the game; otherwise stop
+      if (notation && notation !== uciMove) {
+        try { game.move(notation); } catch {}
       }
+      break;
     }
   }
   

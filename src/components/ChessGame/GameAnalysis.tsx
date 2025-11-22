@@ -6,13 +6,16 @@ import {
   analyzePosition, 
   handleEngineMessage,
   stopAnalysis,
+  calibrateDepth,
   type EngineEvaluation,
   type EngineCallbacks
 } from '~/lib/stockfish-engine';
 import {Spacer} from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
-import { CP_LOSS_THRESHOLDS } from '~/lib/chess-constants';
+import { CP_LOSS_THRESHOLDS, CALIBRATION_TARGET_MS, CALIBRATION_TEST_FEN, MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
+export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
+import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -51,10 +54,7 @@ import { CP_LOSS_THRESHOLDS } from '~/lib/chess-constants';
  *    - Useful for development, testing, and performance optimization
  */
 
-// Analysis depth constants - exported for testing
-export const MIN_ANALYSIS_DEPTH = 1;
-export const MAX_ANALYSIS_DEPTH = 21;
-export const DEFAULT_ANALYSIS_DEPTH = 4;
+// Analysis depth constants moved to ~/lib/chess-constants for shared usage
 
 interface EvaluationData {
   moveNumber: number;
@@ -105,6 +105,9 @@ export default function GameAnalysis({
   const analysisCancelledRef = useRef<boolean>(false);
   // Guard to avoid persisting default before restore runs
   const hasAttemptedRestoreRef = useRef<boolean>(false);
+  // Track if we should auto-calibrate on first load when no stored preference
+  const needsCalibrationRef = useRef<boolean>(false);
+  const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
 
   useEffect(() => {
     moveAnalysisDepthRef.current = moveAnalysisDepth;
@@ -133,6 +136,7 @@ export default function GameAnalysis({
   useEffect(() => {
     let cancelled = false;
     const restoreDepth = async () => {
+      let foundStored = false;
       // If authenticated, try server first
       try {
         if (session?.user?.id) {
@@ -143,6 +147,7 @@ export default function GameAnalysis({
             // sync local storage as well for faster next load
             writeDepthToLocalStorage(depth);
             hasAttemptedRestoreRef.current = true;
+            foundStored = true;
             return;
           }
         }
@@ -154,12 +159,88 @@ export default function GameAnalysis({
       const lsDepth = readDepthFromLocalStorage();
       if (typeof lsDepth === 'number' && lsDepth >= MIN_ANALYSIS_DEPTH && lsDepth <= MAX_ANALYSIS_DEPTH) {
         if (!cancelled) setMoveAnalysisDepth(lsDepth);
+        foundStored = true;
       }
       hasAttemptedRestoreRef.current = true;
+      if (!foundStored) {
+        needsCalibrationRef.current = true;
+      }
     };
     restoreDepth();
     return () => { cancelled = true; };
   }, [session?.user?.id]);
+
+  // Manual calibration handler to find a depth close to ~5 seconds
+  const handleCalibrateDepth = useCallback(async () => {
+    if (isAnalyzingMoves || isCalibrating) return;
+    setIsCalibrating(true);
+    try {
+      setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + 'Calibrating engine depth (~5s target)...');
+      if (!analysisWorkerRef.current) {
+        analysisWorkerRef.current = initializeStockfishWorker(
+          (event: MessageEvent) => {
+            // No-op for calibration-specific runs
+          },
+          (error: string) => {
+            console.error('Engine error during calibration:', error);
+          }
+        );
+      }
+      const recommended = await calibrateDepth({
+        worker: analysisWorkerRef.current,
+        fen: CALIBRATION_TEST_FEN,
+        targetMs: CALIBRATION_TARGET_MS,
+        minDepth: MIN_ANALYSIS_DEPTH,
+        maxDepth: MAX_ANALYSIS_DEPTH,
+        timeoutPerRunMs: 20000,
+      });
+      setMoveAnalysisDepth(recommended);
+      setMoveAnalysisResults(prev => prev + `\nCalibration complete: set default depth to ${recommended}.`);
+    } catch (e: any) {
+      console.warn('Calibration failed:', e);
+      setMoveAnalysisResults(prev => prev + '\nCalibration failed; please try again.');
+    } finally {
+      setIsCalibrating(false);
+    }
+  }, [isAnalyzingMoves, isCalibrating]);
+
+  // Auto-calibrate on first load when no stored preference
+  useEffect(() => {
+    const runAutoCalibration = async () => {
+      if (isAnalyzingMoves || isCalibrating) return;
+      if (!hasAttemptedRestoreRef.current || !needsCalibrationRef.current) return;
+      setIsCalibrating(true);
+      try {
+        setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + 'No stored depth found. Calibrating engine (~5s target)...');
+        if (!analysisWorkerRef.current) {
+          analysisWorkerRef.current = initializeStockfishWorker(
+            (event: MessageEvent) => {},
+            (error: string) => {
+              console.error('Engine error during auto-calibration:', error);
+            }
+          );
+        }
+        const recommended = await calibrateDepth({
+          worker: analysisWorkerRef.current,
+          fen: CALIBRATION_TEST_FEN,
+          targetMs: CALIBRATION_TARGET_MS,
+          minDepth: MIN_ANALYSIS_DEPTH,
+          maxDepth: MAX_ANALYSIS_DEPTH,
+          timeoutPerRunMs: 20000,
+        });
+        setMoveAnalysisDepth(recommended);
+        setMoveAnalysisResults(prev => prev + `\nAuto-calibration complete: default depth set to ${recommended}.`);
+      } catch (e: any) {
+        console.warn('Auto-calibration failed:', e);
+        setMoveAnalysisResults(prev => prev + '\nAuto-calibration failed; you can calibrate manually.');
+      } finally {
+        setIsCalibrating(false);
+        needsCalibrationRef.current = false;
+      }
+    };
+    runAutoCalibration();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasAttemptedRestoreRef.current]);
 
   // Persist depth on change to DB (if auth) or local storage
   useEffect(() => {
@@ -399,22 +480,15 @@ export default function GameAnalysis({
         if (index > 0) {
           const prevResult = results[index - 1];
           if (prevResult) {
-            // Get evaluations from mover's perspective
-            const preCp = normalizeEvaluation(prevResult.evaluation, isWhiteMove);
-            const postCp = normalizeEvaluation(result.evaluation, !isWhiteMove); // Opponent's perspective, so flip
-
-            // Calculate centipawnChange: max(0, preCp + postCp) - measures evaluation swing from White's perspective
-            const centipawnChange = Math.max(0, preCp + postCp);
-
+            // Compute centipawn loss using shared helper (evaluations already normalized to White)
+            const centipawnChange = computeCentipawnChange(prevResult.evaluation, result.evaluation, isWhiteMove);
             analysisText += `  centipawnChange: ${centipawnChange}\n`;
 
-            // Highlight significant centipawnChange using centralized thresholds
-            if (centipawnChange >= CP_LOSS_THRESHOLDS.mistake) {
-              if (centipawnChange >= CP_LOSS_THRESHOLDS.blunder) {
-                analysisText += `  ⚠️  BLUNDER (centipawnChange ≥${CP_LOSS_THRESHOLDS.blunder})\n`;
-              } else {
-                analysisText += `  ⚠️  MISTAKE (centipawnChange ≥${CP_LOSS_THRESHOLDS.mistake})\n`;
-              }
+            // Classify and annotate significant loss
+            const cls = classifyCpLoss(centipawnChange);
+            if (cls === 'mistake' || cls === 'blunder') {
+              const threshold = cls === 'blunder' ? CP_LOSS_THRESHOLDS.blunder : CP_LOSS_THRESHOLDS.mistake;
+              analysisText += `  ⚠️  ${cls.toUpperCase()} (centipawnChange ≥${threshold})\n`;
 
               // Only show PV when a significant mistake/blunder is identified
               if (result.principalVariation) {
@@ -498,6 +572,13 @@ export default function GameAnalysis({
           className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           Cancel
+        </button>
+        <button
+          onClick={handleCalibrateDepth}
+          disabled={isAnalyzingMoves || isCalibrating}
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {isCalibrating ? 'Calibrating...' : 'Calibrate (~5s)'}
         </button>
       </div>
 
