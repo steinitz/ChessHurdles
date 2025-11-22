@@ -314,7 +314,7 @@ export default function GameAnalysis({
                   }
                 } else {
                   // Finished all positions
-                  displayAnalysisResults();
+                  displayTextualAnalysisResults();
                 }
               }
             },
@@ -366,7 +366,7 @@ export default function GameAnalysis({
     setMoveAnalysisResults('Analysis cancelled.');
   }, [analysisWorkerRef, isAnalyzingMoves]);
 
-  const displayAnalysisResults = useCallback(() => {
+  const displayTextualAnalysisResults = useCallback(() => {
     const targetMoves = targetMovesRef.current;
     const results = analysisResultsRef.current;
     
@@ -414,6 +414,11 @@ export default function GameAnalysis({
                 analysisText += `  ⚠️  BLUNDER (centipawnChange ≥${CP_LOSS_THRESHOLDS.blunder})\n`;
               } else {
                 analysisText += `  ⚠️  MISTAKE (centipawnChange ≥${CP_LOSS_THRESHOLDS.mistake})\n`;
+              }
+
+              // Only show PV when a significant mistake/blunder is identified
+              if (result.principalVariation) {
+                analysisText += `  Principal Variation: ${result.principalVariation}\n`;
               }
             }
           }
