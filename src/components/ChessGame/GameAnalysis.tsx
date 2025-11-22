@@ -16,6 +16,7 @@ import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
 import { CP_LOSS_THRESHOLDS, CALIBRATION_TARGET_MS, CALIBRATION_TEST_FEN, MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
+import { ENGINE_DEFAULT_OPTIONS } from '~/lib/chess-constants';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -175,7 +176,8 @@ export default function GameAnalysis({
     if (isAnalyzingMoves || isCalibrating) return;
     setIsCalibrating(true);
     try {
-      setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + 'Calibrating engine depth (~5s target)...');
+      // Clear previous Analysis Results to avoid clutter across repeated calibrations
+      setMoveAnalysisResults(`Calibrating engine depth (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s target)...`);
       if (!analysisWorkerRef.current) {
         analysisWorkerRef.current = initializeStockfishWorker(
           (event: MessageEvent) => {
@@ -183,7 +185,8 @@ export default function GameAnalysis({
           },
           (error: string) => {
             console.error('Engine error during calibration:', error);
-          }
+          },
+          ENGINE_DEFAULT_OPTIONS
         );
       }
       const recommended = await calibrateDepth({
@@ -193,6 +196,9 @@ export default function GameAnalysis({
         minDepth: MIN_ANALYSIS_DEPTH,
         maxDepth: MAX_ANALYSIS_DEPTH,
         timeoutPerRunMs: 20000,
+        onProgress: (depth, ms) => {
+          setMoveAnalysisResults(prev => prev + `\nDepth ${depth}: ${ms}ms`);
+        },
       });
       setMoveAnalysisDepth(recommended);
       setMoveAnalysisResults(prev => prev + `\nCalibration complete: set default depth to ${recommended}.`);
@@ -211,13 +217,14 @@ export default function GameAnalysis({
       if (!hasAttemptedRestoreRef.current || !needsCalibrationRef.current) return;
       setIsCalibrating(true);
       try {
-        setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + 'No stored depth found. Calibrating engine (~5s target)...');
+        setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + `No stored depth found. Calibrating engine (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s target)...`);
         if (!analysisWorkerRef.current) {
           analysisWorkerRef.current = initializeStockfishWorker(
             (event: MessageEvent) => {},
             (error: string) => {
               console.error('Engine error during auto-calibration:', error);
-            }
+            },
+            ENGINE_DEFAULT_OPTIONS
           );
         }
         const recommended = await calibrateDepth({
@@ -227,6 +234,9 @@ export default function GameAnalysis({
           minDepth: MIN_ANALYSIS_DEPTH,
           maxDepth: MAX_ANALYSIS_DEPTH,
           timeoutPerRunMs: 20000,
+          onProgress: (depth, ms) => {
+            setMoveAnalysisResults(prev => prev + `\nDepth ${depth}: ${ms}ms`);
+          },
         });
         setMoveAnalysisDepth(recommended);
         setMoveAnalysisResults(prev => prev + `\nAuto-calibration complete: default depth set to ${recommended}.`);
@@ -412,7 +422,8 @@ export default function GameAnalysis({
         (errorMsg: string) => {
           setMoveAnalysisResults(`Error initializing Stockfish: ${errorMsg}`);
           setIsAnalyzingMoves(false);
-        }
+        },
+        ENGINE_DEFAULT_OPTIONS
       );
     }
 
@@ -578,7 +589,9 @@ export default function GameAnalysis({
           disabled={isAnalyzingMoves || isCalibrating}
           className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
-          {isCalibrating ? 'Calibrating...' : 'Calibrate (~5s)'}
+          {isCalibrating
+            ? 'Calibrating...'
+            : `Calibrate (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s)`}
         </button>
       </div>
 

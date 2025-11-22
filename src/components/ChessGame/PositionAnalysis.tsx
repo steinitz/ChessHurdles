@@ -9,6 +9,7 @@ import {
   EngineEvaluation,
   EngineCallbacks
 } from '~/lib/stockfish-engine';
+import { ENGINE_DEFAULT_OPTIONS } from '~/lib/chess-constants';
 
 interface PositionAnalysisProps {
   game: Chess;
@@ -87,7 +88,8 @@ export function PositionAnalysis({
         (errorMsg: string) => {
           setError(errorMsg);
           setIsAnalyzing(false);
-        }
+        },
+        ENGINE_DEFAULT_OPTIONS
       );
     }
 

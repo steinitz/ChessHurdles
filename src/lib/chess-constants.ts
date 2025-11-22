@@ -9,7 +9,7 @@ export const CP_LOSS_THRESHOLDS = {
 
 // Calibration settings for choosing a sensible default analysis depth
 // Target around 5 seconds on a mid-complexity position.
-export const CALIBRATION_TARGET_MS = 5000;
+export const CALIBRATION_TARGET_MS = 4000;
 export const CALIBRATION_TIMEOUT_MS = 20000; // safety timeout per depth run
 // A stable, middlegame test position (moderate branching factor)
 // Source: a typical middlegame structure used for benchmarking
@@ -18,5 +18,15 @@ export const CALIBRATION_TEST_FEN =
 
 // Shared analysis depth defaults (used by GameAnalysis and tests)
 export const MIN_ANALYSIS_DEPTH = 1;
-export const MAX_ANALYSIS_DEPTH = 21;
-export const DEFAULT_ANALYSIS_DEPTH = 4;
+export const MAX_ANALYSIS_DEPTH = 34;
+export const DEFAULT_ANALYSIS_DEPTH = 5;
+
+// Centralized engine performance defaults for Stockfish UCI options
+// Adjust these values to experiment with speed and stability.
+// Note: Multi-threading requires a pthreads build and cross-origin isolation.
+export const ENGINE_DEFAULT_OPTIONS = {
+  // Threads: 1,
+  Hash: 64,
+  MultiPV: 1,
+  SyzygyPath: ''
+} as const;

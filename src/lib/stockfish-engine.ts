@@ -132,7 +132,13 @@ export function handleEngineMessage(
 }
 
 // Worker management functions
-export function initializeStockfishWorker(onMessage: (event: MessageEvent) => void, onError: (error: string) => void): Worker | null {
+export type EngineOptions = Record<string, string | number | boolean>;
+
+export function initializeStockfishWorker(
+  onMessage: (event: MessageEvent) => void,
+  onError: (error: string) => void,
+  engineOptions?: EngineOptions
+): Worker | null {
   try {
     // Check if we're in a browser environment
     if (typeof window === 'undefined') return null;
@@ -152,6 +158,47 @@ export function initializeStockfishWorker(onMessage: (event: MessageEvent) => vo
 
     // Initialize UCI protocol
     worker.postMessage('uci');
+    // Apply optional engine options for performance tuning
+    if (engineOptions) {
+      for (const [name, value] of Object.entries(engineOptions)) {
+        try {
+          worker.postMessage(`setoption name ${name} value ${String(value)}`);
+        } catch (err) {
+          console.warn(`Failed to set engine option ${name}:`, err);
+        }
+      }
+    }
+
+    // Auto-configure Threads to maximum hardware concurrency when safe.
+    // Only set Threads when SharedArrayBuffer is available and the page is cross-origin isolated.
+    // This avoids stalls when the Stockfish build or environment does not support WASM threads.
+    try {
+      const hasThreadsOption = !!(engineOptions && Object.prototype.hasOwnProperty.call(engineOptions, 'Threads'));
+      const coi = (window as any).crossOriginIsolated === true;
+      const sabAvailable = typeof SharedArrayBuffer !== 'undefined';
+      const hw = (navigator as any).hardwareConcurrency || 1;
+      console.info('[Stockfish] hardwareConcurrency:', hw);
+      if (hasThreadsOption) {
+        // Log the provided Threads value; user-configured value takes precedence
+        // Note: ENGINE_DEFAULT_OPTIONS type allows string/number/boolean; convert to string for logging
+        const provided = String((engineOptions as any).Threads);
+        console.info('[Stockfish] Threads provided in ENGINE_DEFAULT_OPTIONS:', provided);
+      } else {
+        console.info('[Stockfish] COI:', coi, 'SAB available:', sabAvailable);
+      }
+      if (!hasThreadsOption && coi && sabAvailable) {
+        const maxThreads = Math.max(1, hw);
+        console.info('[Stockfish] Auto-configuring Threads to', maxThreads);
+        worker.postMessage(`setoption name Threads value ${maxThreads}`);
+      } else if (!hasThreadsOption) {
+        console.info('[Stockfish] Auto Threads disabled (missing COI/SAB). Using single-threaded.');
+      }
+    } catch (err) {
+      console.warn('Auto Threads configuration skipped:', err);
+    }
+
+    // Signal readiness after applying options
+    try { worker.postMessage('isready'); } catch {}
     
     return worker;
   } catch (err) {
@@ -219,12 +266,25 @@ export async function runDepthOnFen(
 ): Promise<number> {
   return new Promise((resolve, reject) => {
     if (!worker) return reject(new Error('Engine worker not available'));
-
-    const start = Date.now();
+    let start = Date.now();
     let resolved = false;
+    let ready = false;
 
     const onMessage = (event: MessageEvent) => {
       const msg = String(event.data || '');
+      // Wait for engine readiness if requested
+      if (!ready && msg.includes('readyok')) {
+        ready = true;
+        // After ready, set position and start timer just before go
+        try {
+          worker.postMessage(`position fen ${fen}`);
+          start = Date.now();
+          worker.postMessage(`go depth ${depth}`);
+        } catch {}
+        return;
+      }
+
+      // Resolve on bestmove once search completes
       if (parseBestMoveMessage(msg)) {
         const elapsed = Date.now() - start;
         cleanup();
@@ -256,11 +316,14 @@ export async function runDepthOnFen(
     worker.addEventListener('message', onMessage as any);
     worker.addEventListener('error', onError as any);
 
-    // Ensure clean state and run to target depth
-    worker.postMessage('stop');
-    worker.postMessage('ucinewgame');
-    worker.postMessage(`position fen ${fen}`);
-    worker.postMessage(`go depth ${depth}`);
+    // Ensure clean state and check readiness before starting search
+    try {
+      worker.postMessage('stop');
+      worker.postMessage('ucinewgame');
+      // Ask engine to report readiness; proceed on 'readyok'
+      ready = false;
+      worker.postMessage('isready');
+    } catch {}
   });
 }
 
@@ -276,21 +339,17 @@ export async function calibrateDepth(options: {
   minDepth?: number;
   maxDepth?: number;
   timeoutPerRunMs?: number;
+  onProgress?: (depth: number, ms: number) => void;
 }): Promise<number> {
-  const { worker, fen, targetMs, minDepth = 1, maxDepth = 21, timeoutPerRunMs = 20000 } = options;
+  const { worker, fen, targetMs, minDepth = 1, maxDepth = 21, timeoutPerRunMs = 20000, onProgress } = options;
   if (!worker) throw new Error('Engine worker not available');
 
-  // Progressive probing depths (favor even steps as Stockfish often scales well)
-  const candidates: number[] = [];
-  for (let d = Math.max(2, minDepth); d <= maxDepth; d += 2) candidates.push(d);
-  if (!candidates.includes(maxDepth)) candidates.push(maxDepth);
-
-  let bestDepth = Math.max(minDepth, 2);
+  // Probe across increasing integer depths with early stop on first overshoot
+  let bestDepth = minDepth;
   let bestDiff = Number.POSITIVE_INFINITY;
   let lastUnder: { depth: number; ms: number } | null = null;
-  let firstOver: { depth: number; ms: number } | null = null;
 
-  for (const depth of candidates) {
+  for (let depth = Math.max(minDepth, 1); depth <= maxDepth; depth += 1) {
     let ms = 0;
     try {
       ms = await runDepthOnFen(worker, fen, depth, timeoutPerRunMs);
@@ -299,27 +358,26 @@ export async function calibrateDepth(options: {
       continue;
     }
 
+    if (typeof onProgress === 'function') {
+      try { onProgress(depth, ms); } catch {}
+    }
+
     const diff = Math.abs(ms - targetMs);
     if (diff < bestDiff) {
       bestDiff = diff;
       bestDepth = depth;
     }
 
-    if (ms < targetMs) {
-      lastUnder = { depth, ms };
-    } else if (!firstOver) {
-      firstOver = { depth, ms };
-      // When we first cross target, we can stop early
+    if (ms <= targetMs) {
+      if (!lastUnder || depth > lastUnder.depth) {
+        lastUnder = { depth, ms };
+      }
+    } else {
+      // First over-target timing encountered; stop further probing to avoid long runs
       break;
     }
   }
 
-  // If we overshot, prefer nearer of lastUnder vs firstOver
-  if (lastUnder && firstOver) {
-    const underDiff = Math.abs(lastUnder.ms - targetMs);
-    const overDiff = Math.abs(firstOver.ms - targetMs);
-    bestDepth = underDiff <= overDiff ? lastUnder.depth : firstOver.depth;
-  }
-
-  return Math.min(Math.max(bestDepth, minDepth), maxDepth);
+  const finalDepth = lastUnder ? lastUnder.depth : bestDepth;
+  return Math.min(Math.max(finalDepth, minDepth), maxDepth);
 }
