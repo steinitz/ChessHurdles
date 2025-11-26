@@ -25,7 +25,7 @@ import {
 } from '~/lib/chess-constants';
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
-import { makeKey, getCachedEval, setCachedEval, clearPersistentCache, describeFen, debugCompareAgainstCache } from '~/lib/analysis-cache';
+import { makeKey, getCachedEval, setCachedEval, clearPersistentCache } from '~/lib/analysis-cache';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
@@ -59,7 +59,13 @@ import { makeKey, getCachedEval, setCachedEval, clearPersistentCache, describeFe
  *    - As analysis completes, fill positions: [evaluation86, null] → [evaluation86, evaluation87]
  *    - Filter nulls before passing to EvaluationGraph component
  * 
- * 5. CONFIGURABLE ANALYSIS SCOPE:
+ * 5. CACHING STRATEGY:
+ *    - We cache evaluations for the first 13 full moves (26 plies) to speed up analysis of common openings.
+ *    - The cache key combines the engine fingerprint (options) and the FEN string.
+ *    - Cache hits allow us to skip the engine run for that position.
+ *    - The limit is defined by ANALYSIS_CACHE_FULL_MOVES_LIMIT in chess-constants.ts.
+ * 
+ * 6. CONFIGURABLE ANALYSIS SCOPE:
  *    - maxMovesToAnalyze prop allows testing with fewer moves (default: 4)
  *    - Useful for development, testing, and performance optimization
  */
@@ -110,7 +116,6 @@ export default function GameAnalysis({
   const targetMoveNumbersRef = useRef<number[]>([]);
   // Track full move numbers and side-to-move for accurate cache gating
   const targetFullMoveNumbersRef = useRef<number[]>([]);
-  const targetIsWhiteMoveRef = useRef<boolean[]>([]);
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
   const currentAnalysisIndexRef = useRef<number>(0);
   // Capture the index of the position currently being analyzed to avoid race conditions
@@ -340,9 +345,7 @@ export default function GameAnalysis({
 
     // Also capture full move numbers and color for precise cache gating
     const allMoveNumbers = gameMoves.slice(1).map((gm, idx) => gm.moveNumber ?? Math.floor(idx / 2) + 1);
-    const allIsWhiteMoves = gameMoves.slice(1).map((gm, idx) => gm.isWhiteMove ?? (idx % 2 === 0));
     const targetFullMoveNumbers = allMoveNumbers.slice(-movesToAnalyze).reverse();
-    const targetIsWhiteMoves = allIsWhiteMoves.slice(-movesToAnalyze).reverse();
 
     // Log what moves we captured for analysis
     console.log(`📋 Total moves in game: ${allMoves.length}`);
@@ -356,7 +359,6 @@ export default function GameAnalysis({
     targetPositionsRef.current = targetPositions;
     targetMoveNumbersRef.current = targetMoveNumbers;
     targetFullMoveNumbersRef.current = targetFullMoveNumbers;
-    targetIsWhiteMoveRef.current = targetIsWhiteMoves;
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
     analysisCancelledRef.current = false;
@@ -392,7 +394,6 @@ export default function GameAnalysis({
       const nextMove = targetMovesRef.current[index];
 
       console.log(`🔍 Starting analysis of move ${index + 1}/${targetPositionsRef.current.length}: "${nextMove}"`);
-      console.log(`📍 Position FEN: ${nextPosition.fen()}`);
 
       const fingerprint = `Hash=${ENGINE_DEFAULT_OPTIONS.Hash}|MultiPV=${ENGINE_DEFAULT_OPTIONS.MultiPV}`;
       const key = makeKey(nextPosition.fen(), fingerprint);
@@ -400,19 +401,11 @@ export default function GameAnalysis({
 
       // Only serve from cache for FULL moves ≤ limit
       if (nextActualFullMoveNumber <= ANALYSIS_CACHE_FULL_MOVES_LIMIT) {
-        try {
-          describeFen('lookup-next', nextPosition.fen());
-          debugCompareAgainstCache(nextPosition.fen(), fingerprint);
-        } catch { }
         const cached = getCachedEval(key);
-        const logMsg = `🔎 Cache lookup: move=${index + 1}/${targetPositionsRef.current.length}, fullMove=${nextActualFullMoveNumber}, isWhiteMove=${targetIsWhiteMoveRef.current[index]}, key="${key}", fen(next)="${nextPosition.fen()}", fingerprint="${fingerprint}"`;
-        console.debug(logMsg);
 
         if (cached && cached.depth >= moveAnalysisDepthRef.current) {
-          const hitMsg = `⚡ Cache hit: depth=${cached.depth}, key="${key}" (full move ${nextActualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`;
-          console.log(hitMsg);
+          console.log(`⚡ Cache hit: depth=${cached.depth}, key="${key}" (full move ${nextActualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`);
 
-          try { debugCompareAgainstCache(nextPosition.fen(), fingerprint); } catch { }
           // Serve cached evaluation and advance
           const actualFullMoveNumber = targetFullMoveNumbersRef.current[index];
           const newEvaluation: EngineEvaluation = {
@@ -444,9 +437,6 @@ export default function GameAnalysis({
             processNextPosition(index + 1);
           }, 50);
         } else {
-          const missMsg = `🟠 Cache miss: key="${key}", requestedDepth=${moveAnalysisDepthRef.current}, cachedDepth=${cached?.depth} (full move ${nextActualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`;
-          console.log(missMsg);
-
           // Cache miss: run engine
           // Capture active index for this engine run
           activeAnalysisIndexRef.current = index;
@@ -493,13 +483,7 @@ export default function GameAnalysis({
               try {
                 const fingerprint = `Hash=${ENGINE_DEFAULT_OPTIONS.Hash}|MultiPV=${ENGINE_DEFAULT_OPTIONS.MultiPV}`;
                 // Use the target position FEN for the current index to align with read path
-                const targetFen = targetPositionsRef.current[currentMoveIndex]?.fen();
-                const currentFen = targetFen;
-                // Debug: log FEN details and compare with in-memory cache entries for same fingerprint
-                try {
-                  describeFen('cache-save-target', currentFen!);
-                  debugCompareAgainstCache(currentFen!, fingerprint);
-                } catch { }
+                const currentFen = targetPositionsRef.current[currentMoveIndex]?.fen();
                 const key = makeKey(currentFen!, fingerprint);
                 const actualFullMoveNumber = targetFullMoveNumbersRef.current[currentMoveIndex];
                 // Policy (debug): cache the first N full moves
@@ -511,11 +495,6 @@ export default function GameAnalysis({
                     ts: Date.now()
                   });
                   console.log(`💾 Saved eval to cache: depth=${evaluation.depth}, key="${key}" (full move ${actualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`);
-                  console.debug(
-                    `✍️ Cache save context: fullMove=${actualFullMoveNumber}, isWhiteMove=${targetIsWhiteMoveRef.current[currentMoveIndex]}, fen(writeKey)="${currentFen}", fen(target)="${targetFen}"`
-                  );
-                } else {
-                  console.log(`⏭️ Skip cache save: full move ${actualFullMoveNumber} > ${ANALYSIS_CACHE_FULL_MOVES_LIMIT}`);
                 }
               } catch { }
 

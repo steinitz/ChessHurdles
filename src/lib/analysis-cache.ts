@@ -15,20 +15,10 @@ const NAMESPACE = 'analysis::'
 // In-memory index mirrors a subset of localStorage entries for fast lookups.
 const memory = new Map<string, CachedEval>()
 
-// Minimal FEN normalization (disabled for testing cache behavior):
-// Previously, we zeroed the halfmove clock and set fullmove number to 1.
-// For this experiment, we retain raw FEN clocks to ensure read/write keys match
-// exactly what the engine reports for each position.
-export function normalizeFenClocks(fen: string): string {
-  // return the raw FEN without normalization
-  return fen
-}
-
 // Build a stable key combining engine fingerprint and normalized FEN.
 // Fingerprint should reflect engine identity and relevant options (e.g., MultiPV).
 export function makeKey(fen: string, fingerprint: string): string {
-  const rawFen = normalizeFenClocks(fen)
-  return `${NAMESPACE}${fingerprint}::${rawFen}`
+  return `${NAMESPACE}${fingerprint}::${fen}`
 }
 
 // Get a cached evaluation. Checks memory first; falls back to localStorage.
@@ -142,81 +132,4 @@ export function clearPersistentCacheOnce(
   } catch {
     return false
   }
-}
-
-// ---------- Debug utilities for FEN inspection and comparison ----------
-
-function splitFenFields(fen: string): string[] {
-  return fen.split(/\s+/)
-}
-
-export function describeFen(label: string, fen: string): void {
-  const fields = splitFenFields(fen)
-  const info = {
-    label,
-    length: fen.length,
-    fields,
-    piecePlacement: fields[0],
-    activeColor: fields[1],
-    castling: fields[2],
-    enPassant: fields[3],
-    halfmoveClock: fields[4],
-    fullmoveNumber: fields[5],
-  }
-  console.log('[fen]', info)
-}
-
-export function compareFens(labelA: string, fenA: string, labelB: string, fenB: string): void {
-  const a = fenA
-  const b = fenB
-  const fieldsA = splitFenFields(a)
-  const fieldsB = splitFenFields(b)
-  const eq = a === b
-  console.log(`[fen-compare] eq=${eq} lenA=${a.length} lenB=${b.length}`)
-  console.log('[fen-compare] fields', { A: fieldsA, B: fieldsB })
-  // Field-by-field summary to make success/mismatch explicit
-  const names = ['piecePlacement', 'activeColor', 'castling', 'enPassant', 'halfmoveClock', 'fullmoveNumber']
-  const diffs: string[] = []
-  for (let i = 0; i < Math.min(fieldsA.length, fieldsB.length, names.length); i++) {
-    if (fieldsA[i] !== fieldsB[i]) diffs.push(names[i])
-  }
-  console.log(`[fen-compare] summary: ${eq ? 'MATCH' : 'MISMATCH'}${diffs.length ? `; differingFields=${diffs.join(',')}` : ''}`)
-  // Highlight clock differences
-  const clocks = {
-    halfmoveClock: { A: fieldsA[4], B: fieldsB[4] },
-    fullmoveNumber: { A: fieldsA[5], B: fieldsB[5] },
-  }
-  console.log('[fen-compare] clocks', clocks)
-  // Find first differing index
-  const minLen = Math.min(a.length, b.length)
-  let diffIdx = -1
-  for (let i = 0; i < minLen; i++) {
-    if (a[i] !== b[i]) { diffIdx = i; break }
-  }
-  if (diffIdx >= 0 || a.length !== b.length) {
-    const idx = diffIdx >= 0 ? diffIdx : minLen
-    console.log('[fen-compare] firstDiff', {
-      index: idx,
-      aChar: a[idx], aCode: a.charCodeAt(idx),
-      bChar: b[idx], bCode: b.charCodeAt(idx),
-    })
-  }
-}
-
-export function debugCompareAgainstCache(fen: string, fingerprint: string, limit: number = 10): void {
-  // Iterate memory entries of same fingerprint and compare FENs
-  const prefix = `${NAMESPACE}${fingerprint}::`
-  const keys = listMemoryKeys().filter(k => k.startsWith(prefix)).slice(0, limit)
-  if (keys.length === 0) {
-    console.log('[fen-compare] no memory entries for fingerprint')
-    return
-  }
-  let matched = false
-  for (const k of keys) {
-    const otherFen = k.substring(prefix.length)
-    const eq = fen === otherFen
-    compareFens('lookup', fen, 'cacheEntry', otherFen)
-    if (eq) matched = true
-  }
-  console.log(`[fen-compare] cache set summary: entriesChecked=${keys.length}, anyMatch=${matched}`)
 }
