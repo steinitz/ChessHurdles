@@ -94,6 +94,15 @@ slowMo: 1000,  // Adds 1 second delay between actions
 - When inspection is requested, attach via DevTools to the user-provided running URL; do not load the app into the IDE preview.
 - The assistant cannot view the IDE preview; rely on textual findings and DevTools-driven inspection only.
 
+### Assistant Messaging Guidelines (Preview Minimization)
+- Default: do not mention preview/dev-server policies unless the user asks.
+- Preambles: keep to a single concise line before grouped actions.
+- UI changes: do not open previews; instead provide precise Brave verification steps (URL, element selectors, expected states).
+- Inspection: only attach DevTools when the user asks; otherwise rely on logs and code.
+- Servers: never auto-start `pnpm dev`; reuse any already-running server when inspecting.
+- Explanations: focus on code changes, outcomes, and next steps; avoid meta commentary.
+- Logging: keep concise and relevant; include identifiers (e.g., cache keys, FEN, fingerprints) when debugging.
+
 ## Recent Feature Additions
 
 ### Password Change Feature (Profile.tsx)

@@ -1,10 +1,10 @@
-import React, {useState, useCallback, useEffect, useRef} from 'react';
-import {Chess} from 'chess.js';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Chess } from 'chess.js';
 import ChessBoard from '~/components/ChessBoard';
-import {Spacer} from '~stzUtils/components/Spacer'
+import { Spacer } from '~stzUtils/components/Spacer'
 import { pgnToGameMoves } from '~/lib/chess-utils';
-import { 
-  initializeStockfishWorker, 
+import {
+  initializeStockfishWorker,
   cleanupWorker
 } from '~/lib/stockfish-engine';
 import { useSession } from '~stzUser/lib/auth-client';
@@ -41,10 +41,10 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
   const [gameTitle, setGameTitle] = useState('Kasparov vs Topalov, Wijk aan Zee 1999');
   const [gameDescription, setGameDescription] = useState('"Kasparov\'s Immortal" - Navigate through this famous game');
   const [error, setError] = useState<string | null>(null);
-  
+
   // Authentication
   const { data: session } = useSession();
-  
+
   // Stockfish analysis refs (for game analysis only)
   const analysisWorkerRef = useRef<Worker | null>(null);
 
@@ -66,7 +66,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
             moveNumber,
             isWhiteMove
           });
-          
+
           if (!isWhiteMove) {
             moveNumber++;
           }
@@ -88,18 +88,18 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
   // Load PGN string into the game
   const handlePgnLoad = useCallback((pgnString: string) => {
     const result = pgnToGameMoves(pgnString);
-    
+
     if (result.isValid) {
       setGameMoves(result.gameMoves);
       setGame(new Chess()); // Start at initial position
       setCurrentMoveIndex(0);
-      
+
       // Try to extract game info from PGN headers
       const white = result.headers?.White || 'Unknown';
       const black = result.headers?.Black || 'Unknown';
       const event = result.headers?.Event || 'Chess Game';
       const date = result.headers?.Date || '';
-      
+
       setGameTitle(`${white} vs ${black}`);
       setGameDescription(event + (date ? `, ${date}` : ''));
       setError(null);
@@ -153,19 +153,19 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         <h2>{gameTitle}</h2>
         <p>{gameDescription}</p>
       </header>
-      
+
       <GameLoad onPgnLoad={handlePgnLoad} onClear={handlePgnClear} />
-      
+
       {/* Save functionality section */}
       {session?.user && (
-        <div style={{ 
-          marginBottom: '1rem', 
-          padding: '0.5rem', 
-          border: '1px solid var(--color-bg-secondary)', 
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.5rem',
+          border: '1px solid var(--color-bg-secondary)',
           borderRadius: '4px',
-          maxWidth: containerWidth 
+          maxWidth: containerWidth
         }}>
-          <GameSaver 
+          <GameSaver
             game={game}
             gameMoves={gameMoves}
             gameTitle={gameTitle}
@@ -174,12 +174,12 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           />
         </div>
       )}
-      
+
       {!session?.user && (
-        <div style={{ 
-          marginBottom: '1rem', 
-          padding: '0.5rem', 
-          border: '1px solid var(--color-bg-secondary)', 
+        <div style={{
+          marginBottom: '1rem',
+          padding: '0.5rem',
+          border: '1px solid var(--color-bg-secondary)',
           borderRadius: '4px',
           maxWidth: containerWidth,
           textAlign: 'center'
@@ -218,7 +218,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
             containerHeight={chessgameTransportHeight}
           />
         </div>
-        
+
         {/* PositionAnalysis removed to prioritize Game Analysis visibility */}
 
         {/* Game Analysis Section - constrained to chessboard container width */}
@@ -232,11 +232,11 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
 
       <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
 
-        <GameMoves
-          gameMoves={gameMoves}
-          currentMoveIndex={currentMoveIndex}
-          goToMove={goToMove}
-        />
+      <GameMoves
+        gameMoves={gameMoves}
+        currentMoveIndex={currentMoveIndex}
+        goToMove={goToMove}
+      />
     </section >
   );
 }

@@ -6,6 +6,8 @@ export interface EvaluationData {
   isMate: boolean;
   mateIn?: number;
   isPlaceholder?: boolean;
+  // Optional flag to indicate a cached evaluation for UI badge rendering
+  isCached?: boolean;
 }
 
 interface EvaluationGraphProps {
@@ -136,6 +138,10 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
               fillColor = 'var(--color-text-secondary)';
               opacity = 0.3;
             }
+            // Use secondary text color for cached evaluations
+            if (!evaluation.isPlaceholder && evaluation.isCached) {
+              fillColor = 'var(--color-text-secondary)';
+            }
             
             // Highlight current move with different opacity or stroke
             const isCurrentMove = index === currentMoveIndex;
@@ -231,7 +237,8 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
                 position: 'absolute',
                 left: `${leftPct}%`,
                 top: `${axisTopPct}%`,
-                transform: 'translateX(-50%) translateY(-8px)',
+                // Move tooltip up to avoid cursor overlap on small bars
+                transform: 'translateX(-50%) translateY(-28px)',
                 background: 'var(--color-bg)',
                 border: '1px solid var(--color-text-secondary)',
                 borderRadius: 3,
@@ -244,6 +251,8 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
             </div>
           );
         })()}
+
+        {/* Cached badge overlay removed per design update */}
       </div>
     </div>
   );

@@ -1,26 +1,35 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import EvaluationGraph from '~/components/ChessGame/EvaluationGraph';
-import { 
-  initializeStockfishWorker, 
-  analyzePosition, 
+import {
+  initializeStockfishWorker,
+  analyzePosition,
   handleEngineMessage,
   stopAnalysis,
   calibrateDepth,
   type EngineEvaluation,
   type EngineCallbacks
 } from '~/lib/stockfish-engine';
-import {Spacer} from '~stzUtils/components/Spacer';
+import { Spacer } from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
-import { CP_LOSS_THRESHOLDS, CALIBRATION_TARGET_MS, CALIBRATION_TEST_FEN, MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
+import {
+  CP_LOSS_THRESHOLDS,
+  CALIBRATION_TARGET_MS,
+  CALIBRATION_TEST_FEN,
+  MIN_ANALYSIS_DEPTH,
+  MAX_ANALYSIS_DEPTH,
+  DEFAULT_ANALYSIS_DEPTH,
+  ENGINE_DEFAULT_OPTIONS,
+  ANALYSIS_CACHE_FULL_MOVES_LIMIT
+} from '~/lib/chess-constants';
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
-import { ENGINE_DEFAULT_OPTIONS } from '~/lib/chess-constants';
+import { makeKey, getCachedEval, setCachedEval, clearPersistentCache, describeFen, debugCompareAgainstCache } from '~/lib/analysis-cache';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
- * 
+ *
  * This component implements a sophisticated reverse analysis system for chess games.
  * The key insight is that the engine benefits from having "seen the future" when 
  * analyzing a given move - by processing moves in reverse chronological order, 
@@ -51,7 +60,7 @@ import { ENGINE_DEFAULT_OPTIONS } from '~/lib/chess-constants';
  *    - Filter nulls before passing to EvaluationGraph component
  * 
  * 5. CONFIGURABLE ANALYSIS SCOPE:
- *    - maxMovesToAnalyze prop allows testing with fewer moves (default: 2)
+ *    - maxMovesToAnalyze prop allows testing with fewer moves (default: 4)
  *    - Useful for development, testing, and performance optimization
  */
 
@@ -63,6 +72,7 @@ interface EvaluationData {
   isMate: boolean;
   mateIn?: number;
   isPlaceholder?: boolean;
+  isCached?: boolean;
 }
 
 interface GameMove {
@@ -79,11 +89,11 @@ interface GameAnalysisProps {
   maxMovesToAnalyze?: number; // Optional prop for testing and development
 }
 
-export default function GameAnalysis({ 
-  gameMoves, 
+export default function GameAnalysis({
+  gameMoves,
   analysisWorkerRef,
   goToMove,
-  maxMovesToAnalyze 
+  maxMovesToAnalyze
 }: GameAnalysisProps) {
   // Moved state from ChessGame
   const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(DEFAULT_ANALYSIS_DEPTH);
@@ -98,8 +108,13 @@ export default function GameAnalysis({
   const targetMovesRef = useRef<string[]>([]);
   const targetPositionsRef = useRef<Chess[]>([]);
   const targetMoveNumbersRef = useRef<number[]>([]);
+  // Track full move numbers and side-to-move for accurate cache gating
+  const targetFullMoveNumbersRef = useRef<number[]>([]);
+  const targetIsWhiteMoveRef = useRef<boolean[]>([]);
   const analysisResultsRef = useRef<EngineEvaluation[]>([]);
   const currentAnalysisIndexRef = useRef<number>(0);
+  // Capture the index of the position currently being analyzed to avoid race conditions
+  const activeAnalysisIndexRef = useRef<number>(0);
   // Use a ref for depth so engine callbacks always see latest value
   const moveAnalysisDepthRef = useRef<number>(DEFAULT_ANALYSIS_DEPTH);
   // Cancellation ref to halt sequencing
@@ -109,10 +124,16 @@ export default function GameAnalysis({
   // Track if we should auto-calibrate on first load when no stored preference
   const needsCalibrationRef = useRef<boolean>(false);
   const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
+  // Cache gating: use full move number (first two full moves / four plies)
 
   useEffect(() => {
     moveAnalysisDepthRef.current = moveAnalysisDepth;
   }, [moveAnalysisDepth]);
+
+  const handleClearCacheClick = useCallback(() => {
+    const removed = clearPersistentCache();
+    console.info(`[analysis-cache] manual clear invoked; removed=${removed}`);
+  }, []);
 
   // Helpers for local storage persistence
   const LS_KEY = 'chesshurdles.analysisDepth';
@@ -220,7 +241,7 @@ export default function GameAnalysis({
         setMoveAnalysisResults(prev => (prev ? prev + "\n\n" : '') + `No stored depth found. Calibrating engine (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s target)...`);
         if (!analysisWorkerRef.current) {
           analysisWorkerRef.current = initializeStockfishWorker(
-            (event: MessageEvent) => {},
+            (event: MessageEvent) => { },
             (error: string) => {
               console.error('Engine error during auto-calibration:', error);
             },
@@ -297,43 +318,52 @@ export default function GameAnalysis({
 
     // Analyze last two moves in reverse order (for debugging)
     const allMoves = gameMoves.slice(1).map(gameMove => gameMove.move!);
-    
+
     // For each move, we need the position BEFORE the move was played
     // gameMoves[0] = initial position, gameMoves[1] = after move 1, etc.
     // So to analyze move N, we need gameMoves[N-1] (position before move N)
     const allPositionsBeforeMoves = gameMoves.slice(0, -1).map(gameMove => gameMove.position); // All positions except the last one
-    
-    // Determine how many moves to analyze (default to 2 for backward compatibility)
-    const movesToAnalyze = maxMovesToAnalyze || 2;
-    
+
+    // Determine how many moves to analyze (default to 4 for expanded caching)
+    const movesToAnalyze = maxMovesToAnalyze || 4;
+
     // Take only the specified number of moves from the end and reverse the order
     const targetMoves = allMoves.slice(-movesToAnalyze).reverse();
     const targetPositions = allPositionsBeforeMoves.slice(-movesToAnalyze).reverse();
-    
-    // Calculate the actual move numbers (specified number of moves from end, in reverse order)
+
+    // Calculate the actual ply numbers (specified number of moves from end, in reverse order)
     const totalMoves = allMoves.length;
     const targetMoveNumbers = Array.from(
-      { length: Math.min(movesToAnalyze, totalMoves) }, 
+      { length: Math.min(movesToAnalyze, totalMoves) },
       (_, i) => totalMoves - i
     );
+
+    // Also capture full move numbers and color for precise cache gating
+    const allMoveNumbers = gameMoves.slice(1).map((gm, idx) => gm.moveNumber ?? Math.floor(idx / 2) + 1);
+    const allIsWhiteMoves = gameMoves.slice(1).map((gm, idx) => gm.isWhiteMove ?? (idx % 2 === 0));
+    const targetFullMoveNumbers = allMoveNumbers.slice(-movesToAnalyze).reverse();
+    const targetIsWhiteMoves = allIsWhiteMoves.slice(-movesToAnalyze).reverse();
 
     // Log what moves we captured for analysis
     console.log(`📋 Total moves in game: ${allMoves.length}`);
     console.log(`🎯 Moves selected for analysis (last ${movesToAnalyze}, reversed):`, targetMoves);
-    console.log(`🔢 Move numbers:`, targetMoveNumbers);
+    console.log(`🔢 Ply numbers (for display index calc):`, targetMoveNumbers);
+    console.log(`🔢 Full move numbers (for cache gating):`, targetFullMoveNumbers);
     console.log(`📊 Analysis depth: ${moveAnalysisDepth}`);
 
     // Store in refs for sequential analysis
     targetMovesRef.current = targetMoves;
     targetPositionsRef.current = targetPositions;
     targetMoveNumbersRef.current = targetMoveNumbers;
+    targetFullMoveNumbersRef.current = targetFullMoveNumbers;
+    targetIsWhiteMoveRef.current = targetIsWhiteMoves;
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
     analysisCancelledRef.current = false;
 
     // Initialize currentEvaluations with zero-value placeholders for progressive updates
-    const placeholderEvaluations = targetMoveNumbers.map((moveNumber) => ({
-      moveNumber,
+    const placeholderEvaluations = targetFullMoveNumbers.map((fullMoveNumber) => ({
+      moveNumber: fullMoveNumber,
       evaluation: 0,
       isMate: false,
       isPlaceholder: true
@@ -343,24 +373,162 @@ export default function GameAnalysis({
     setIsAnalyzingMoves(true);
     setMoveAnalysisResults('Starting analysis of entire game...\n\nInitializing Stockfish engine...');
 
+    // Helper to process the next position in the sequence
+    const processNextPosition = (index: number) => {
+      // Check if we're done
+      if (index >= targetPositionsRef.current.length) {
+        displayTextualAnalysisResults();
+        return;
+      }
+
+      // Check if cancelled
+      if (analysisCancelledRef.current) {
+        setIsAnalyzingMoves(false);
+        return;
+      }
+
+      currentAnalysisIndexRef.current = index;
+      const nextPosition = targetPositionsRef.current[index];
+      const nextMove = targetMovesRef.current[index];
+
+      console.log(`🔍 Starting analysis of move ${index + 1}/${targetPositionsRef.current.length}: "${nextMove}"`);
+      console.log(`📍 Position FEN: ${nextPosition.fen()}`);
+
+      const fingerprint = `Hash=${ENGINE_DEFAULT_OPTIONS.Hash}|MultiPV=${ENGINE_DEFAULT_OPTIONS.MultiPV}`;
+      const key = makeKey(nextPosition.fen(), fingerprint);
+      const nextActualFullMoveNumber = targetFullMoveNumbersRef.current[index];
+
+      // Only serve from cache for FULL moves ≤ limit
+      if (nextActualFullMoveNumber <= ANALYSIS_CACHE_FULL_MOVES_LIMIT) {
+        try {
+          describeFen('lookup-next', nextPosition.fen());
+          debugCompareAgainstCache(nextPosition.fen(), fingerprint);
+        } catch { }
+        const cached = getCachedEval(key);
+        const logMsg = `🔎 Cache lookup: move=${index + 1}/${targetPositionsRef.current.length}, fullMove=${nextActualFullMoveNumber}, isWhiteMove=${targetIsWhiteMoveRef.current[index]}, key="${key}", fen(next)="${nextPosition.fen()}", fingerprint="${fingerprint}"`;
+        console.debug(logMsg);
+
+        if (cached && cached.depth >= moveAnalysisDepthRef.current) {
+          const hitMsg = `⚡ Cache hit: depth=${cached.depth}, key="${key}" (full move ${nextActualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`;
+          console.log(hitMsg);
+
+          try { debugCompareAgainstCache(nextPosition.fen(), fingerprint); } catch { }
+          // Serve cached evaluation and advance
+          const actualFullMoveNumber = targetFullMoveNumbersRef.current[index];
+          const newEvaluation: EngineEvaluation = {
+            evaluation: cached.cp,
+            bestMove: cached.bestMove || '',
+            principalVariation: '',
+            depth: cached.depth,
+            calculationTime: 0,
+          };
+          analysisResultsRef.current[index] = newEvaluation;
+          const newEvaluationData: EvaluationData = {
+            moveNumber: actualFullMoveNumber,
+            evaluation: newEvaluation.evaluation,
+            isMate: isMateScore(newEvaluation.evaluation),
+            mateIn: isMateScore(newEvaluation.evaluation) ? getMateDistance(newEvaluation.evaluation) : undefined,
+            isPlaceholder: false,
+            isCached: true,
+          };
+          setCurrentEvaluations((prev) => {
+            const updated = [...prev];
+            const displayIndex = (targetMoveNumbersRef.current.length - 1) - index;
+            updated[displayIndex] = newEvaluationData;
+            return updated;
+          });
+
+          // Advance to next position immediately (recursive/loop)
+          // Use setTimeout to avoid stack overflow on large cached sequences and allow UI updates
+          setTimeout(() => {
+            processNextPosition(index + 1);
+          }, 50);
+        } else {
+          const missMsg = `🟠 Cache miss: key="${key}", requestedDepth=${moveAnalysisDepthRef.current}, cachedDepth=${cached?.depth} (full move ${nextActualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`;
+          console.log(missMsg);
+
+          // Cache miss: run engine
+          // Capture active index for this engine run
+          activeAnalysisIndexRef.current = index;
+          analyzePosition(
+            analysisWorkerRef.current,
+            nextPosition.fen(),
+            moveAnalysisDepthRef.current,
+            false,
+            setIsAnalyzingMoves,
+            () => { },
+            startTimeRef,
+            analyzingFenRef
+          );
+        }
+      } else {
+        // Policy: Do not use cache beyond limit
+        console.log(`⏭️ Skipping cache (full move ${nextActualFullMoveNumber} > ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`);
+        // Capture active index for this engine run
+        activeAnalysisIndexRef.current = index;
+        analyzePosition(
+          analysisWorkerRef.current,
+          nextPosition.fen(),
+          moveAnalysisDepthRef.current,
+          false,
+          setIsAnalyzingMoves,
+          () => { },
+          startTimeRef,
+          analyzingFenRef
+        );
+      }
+    };
+
     // Initialize Stockfish worker if not already done
     if (!analysisWorkerRef.current) {
       analysisWorkerRef.current = initializeStockfishWorker(
         (event: MessageEvent) => {
           const callbacks: EngineCallbacks = {
             setEvaluation: (evaluation: EngineEvaluation) => {
-              // Store the result for this position
-              analysisResultsRef.current[currentAnalysisIndexRef.current] = evaluation;
+              // Store the result for the actively analyzed position (avoid index races)
+              const currentMoveIndex = activeAnalysisIndexRef.current;
+              analysisResultsRef.current[currentMoveIndex] = evaluation;
+
+              // Persist to cache using minimal normalized FEN key
+              try {
+                const fingerprint = `Hash=${ENGINE_DEFAULT_OPTIONS.Hash}|MultiPV=${ENGINE_DEFAULT_OPTIONS.MultiPV}`;
+                // Use the target position FEN for the current index to align with read path
+                const targetFen = targetPositionsRef.current[currentMoveIndex]?.fen();
+                const currentFen = targetFen;
+                // Debug: log FEN details and compare with in-memory cache entries for same fingerprint
+                try {
+                  describeFen('cache-save-target', currentFen!);
+                  debugCompareAgainstCache(currentFen!, fingerprint);
+                } catch { }
+                const key = makeKey(currentFen!, fingerprint);
+                const actualFullMoveNumber = targetFullMoveNumbersRef.current[currentMoveIndex];
+                // Policy (debug): cache the first N full moves
+                if (actualFullMoveNumber <= ANALYSIS_CACHE_FULL_MOVES_LIMIT) {
+                  setCachedEval(key, {
+                    cp: evaluation.evaluation,
+                    depth: evaluation.depth,
+                    bestMove: evaluation.bestMove,
+                    ts: Date.now()
+                  });
+                  console.log(`💾 Saved eval to cache: depth=${evaluation.depth}, key="${key}" (full move ${actualFullMoveNumber} ≤ ${ANALYSIS_CACHE_FULL_MOVES_LIMIT})`);
+                  console.debug(
+                    `✍️ Cache save context: fullMove=${actualFullMoveNumber}, isWhiteMove=${targetIsWhiteMoveRef.current[currentMoveIndex]}, fen(writeKey)="${currentFen}", fen(target)="${targetFen}"`
+                  );
+                } else {
+                  console.log(`⏭️ Skip cache save: full move ${actualFullMoveNumber} > ${ANALYSIS_CACHE_FULL_MOVES_LIMIT}`);
+                }
+              } catch { }
 
               // Update the graph progressively - create evaluation data for this position
-              const currentMoveIndex = currentAnalysisIndexRef.current;
-              const actualMoveNumber = targetMoveNumbersRef.current[currentMoveIndex];
+              // Use the same index captured above
+              const actualFullMoveNumber = targetFullMoveNumbersRef.current[currentMoveIndex];
               const newEvaluationData: EvaluationData = {
-                moveNumber: actualMoveNumber,
+                moveNumber: actualFullMoveNumber,
                 evaluation: evaluation.evaluation,
                 isMate: isMateScore(evaluation.evaluation),
                 mateIn: isMateScore(evaluation.evaluation) ? getMateDistance(evaluation.evaluation) : undefined,
-                isPlaceholder: false
+                isPlaceholder: false,
+                isCached: false
               };
 
               // Update the current evaluations state to show this position on the graph
@@ -381,32 +549,8 @@ export default function GameAnalysis({
                   return;
                 }
 
-                // Advance index after completion of current position
-                currentAnalysisIndexRef.current++;
-
-                if (currentAnalysisIndexRef.current < targetPositionsRef.current.length) {
-                  const nextPosition = targetPositionsRef.current[currentAnalysisIndexRef.current];
-                  const nextMove = targetMovesRef.current[currentAnalysisIndexRef.current];
-
-                  console.log(`🔍 Starting analysis of move ${currentAnalysisIndexRef.current + 1}/${targetPositionsRef.current.length}: "${nextMove}"`);
-                  console.log(`📍 Position FEN: ${nextPosition.fen()}`);
-
-                  if (nextPosition && !analysisCancelledRef.current) {
-                    analyzePosition(
-                      analysisWorkerRef.current,
-                      nextPosition.fen(),
-                      moveAnalysisDepthRef.current,
-                      false, // allow analyze to start
-                      setIsAnalyzingMoves,
-                      () => {},
-                      startTimeRef,
-                      analyzingFenRef
-                    );
-                  }
-                } else {
-                  // Finished all positions
-                  displayTextualAnalysisResults();
-                }
+                // Advance to next position using the helper
+                processNextPosition(currentAnalysisIndexRef.current + 1);
               }
             },
           };
@@ -428,27 +572,8 @@ export default function GameAnalysis({
     }
 
     // Start analyzing the first position
-    if (targetPositions.length > 0 && targetPositions[0]) {
-      const firstMove = targetMoves[0];
-      console.log(`🔍 Starting analysis of move 1/2: "${firstMove}"`);
-      console.log(`📍 Position FEN: ${targetPositions[0].fen()}`);
-      
-      setTimeout(() => {
-        if (analysisCancelledRef.current) {
-          console.log('Analysis was cancelled before initial analyze call. Skipping.');
-          return;
-        }
-        analyzePosition(
-          analysisWorkerRef.current,
-          targetPositions[0].fen(),
-          moveAnalysisDepthRef.current, // depth
-          isAnalyzingMoves, // Use the actual React state
-          setIsAnalyzingMoves, // Use the state setter
-          () => {}, // setError
-          startTimeRef,
-          analyzingFenRef
-        );
-      }, 1000); // Give Stockfish time to initialize
+    if (targetPositions.length > 0) {
+      processNextPosition(0);
     }
   }, [gameMoves, isAnalyzingMoves, moveAnalysisDepth, analysisWorkerRef]);
 
@@ -461,32 +586,35 @@ export default function GameAnalysis({
   const displayTextualAnalysisResults = useCallback(() => {
     const targetMoves = targetMovesRef.current;
     const results = analysisResultsRef.current;
-    
+
     // Since we only analyze entire games now, this is always a full game analysis
     const analysisType = 'Entire Game';
     const startMoveNumber = 1;
-    
+
     // Use the depth from the user's slider setting
     const analysisDepth = moveAnalysisDepth;
-    
+
     let analysisText = `Game Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
-    
+
     targetMoves.forEach((move, index) => {
       const moveNumber = startMoveNumber + index;
       const result = results[index];
       const isWhiteMove = (moveNumber % 2) === 1;
       const playerColor = isWhiteMove ? 'White' : 'Black';
-      
+
       analysisText += `Move ${moveNumber}: ${playerColor} ${move}\n`;
-      
+
       if (result) {
-        const evalStr = Math.abs(result.evaluation) > 5000 
+        const evalStr = Math.abs(result.evaluation) > 5000
           ? `#${Math.sign(result.evaluation) * (Math.abs(result.evaluation) - 5000)}`
           : (result.evaluation / 100).toFixed(2);
         analysisText += `  Evaluation: ${evalStr}\n`;
         analysisText += `  Best Move: ${result.bestMove}\n`;
         analysisText += `  Time: ${result.calculationTime}ms\n`;
-        
+        if (result.calculationTime === 0) {
+          analysisText += `  Source: Cached\n`;
+        }
+
         // Calculate centipawnLoss if we have a previous result
         if (index > 0) {
           const prevResult = results[index - 1];
@@ -508,7 +636,7 @@ export default function GameAnalysis({
             }
           }
         }
-        
+
         // Check for mate≤5 detection
         if (isMateScore(result.evaluation)) {
           const mateDistance = getMateDistance(result.evaluation);
@@ -517,7 +645,7 @@ export default function GameAnalysis({
             analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
           }
         }
-        
+
       } else {
         analysisText += `  Analysis: Failed\n`;
       }
@@ -547,11 +675,11 @@ export default function GameAnalysis({
         <label>
           <div>Analysis Depth: {moveAnalysisDepth}</div>
           <div style={{
-            display: 'flex', 
+            display: 'flex',
             flexDirection: 'row',
             justifyContent: 'space-evenly',
             fontWeight: 'normal',
-            }}
+          }}
           >
             <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>&nbsp;
             <Spacer orientation="horizontal" />
@@ -565,7 +693,7 @@ export default function GameAnalysis({
           value={moveAnalysisDepth}
           onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
           disabled={isAnalyzingMoves}
-          style={{width: '99%'}}
+          style={{ width: '99%' }}
         />
       </div>
 
@@ -592,6 +720,13 @@ export default function GameAnalysis({
           {isCalibrating
             ? 'Calibrating...'
             : `Calibrate (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s)`}
+        </button>
+        <button
+          onClick={handleClearCacheClick}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          title="Clear analysis cache now"
+        >
+          Clear Cache
         </button>
       </div>
 
