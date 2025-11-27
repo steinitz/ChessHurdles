@@ -26,6 +26,7 @@ import {
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
 import { makeKey, getCachedEval, setCachedEval, clearPersistentCache } from '~/lib/analysis-cache';
+import { processGameAnalysis } from '~/lib/game-analysis-logic';
 
 /**
  * REVERSE ANALYSIS INFRASTRUCTURE
