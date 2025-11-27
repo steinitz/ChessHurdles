@@ -12,7 +12,7 @@ import {
 } from '~/lib/stockfish-engine';
 import { Spacer } from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
-import { getUserAnalysisDepth, setUserAnalysisDepth } from '~/lib/chess-server';
+import { getUserAnalysisDepth, setUserAnalysisDepth, getAIDescription } from '~/lib/chess-server';
 import {
   CP_LOSS_THRESHOLDS,
   CALIBRATION_TARGET_MS,
@@ -106,6 +106,7 @@ export default function GameAnalysis({
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
   const [moveAnalysisResults, setMoveAnalysisResults] = useState<string>('');
   const [currentEvaluations, setCurrentEvaluations] = useState<EvaluationData[]>([]);
+  const [aiDescriptions, setAiDescriptions] = useState<Record<number, string>>({});
   const { data: session } = useSession();
 
   // Moved refs from ChessGame
@@ -362,6 +363,7 @@ export default function GameAnalysis({
     analysisResultsRef.current = [];
     currentAnalysisIndexRef.current = 0;
     analysisCancelledRef.current = false;
+    setAiDescriptions({}); // Clear previous descriptions
 
     // Initialize currentEvaluations with zero-value placeholders for progressive updates
     const placeholderEvaluations = targetFullMoveNumbers.map((fullMoveNumber) => ({
@@ -563,25 +565,40 @@ export default function GameAnalysis({
   }, [analysisWorkerRef, isAnalyzingMoves]);
 
   const displayTextualAnalysisResults = useCallback(() => {
-    const targetMoves = targetMovesRef.current;
-    const results = analysisResultsRef.current;
+    // Create chronological copies for display
+    const displayMoves = [...targetMovesRef.current].reverse();
+    const displayResults = [...analysisResultsRef.current].reverse();
+    const displayMoveNumbers = [...targetMoveNumbersRef.current].reverse();
 
     // Since we only analyze entire games now, this is always a full game analysis
     const analysisType = 'Entire Game';
-    const startMoveNumber = 1;
 
     // Use the depth from the user's slider setting
     const analysisDepth = moveAnalysisDepth;
 
     let analysisText = `Game Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
 
-    targetMoves.forEach((move, index) => {
-      const moveNumber = startMoveNumber + index;
-      const result = results[index];
+    // Identify mistakes that need descriptions
+    const missingDescriptions: { index: number; moveNumber: number; data: any }[] = [];
+
+    displayMoves.forEach((move, index) => {
+      const moveNumber = displayMoveNumbers[index];
+      const result = displayResults[index];
+      // Calculate isWhiteMove based on the actual move number
+      // Move 1 (White), Move 2 (Black), Move 3 (White)...
+      // In ply count (1-based): Odd is White, Even is Black.
+      // But moveNumber here is likely ply number based on how it was generated in handleAnalyzeEntireGame
+      // Let's verify: targetMoveNumbers = totalMoves - i.
+      // If totalMoves=7 (Qxh8). targetMoveNumbers=[7, 6, 5, 4, 3, 2, 1].
+      // Reversed: [1, 2, 3, 4, 5, 6, 7].
+      // Ply 1 = White. Ply 2 = Black.
       const isWhiteMove = (moveNumber % 2) === 1;
       const playerColor = isWhiteMove ? 'White' : 'Black';
+      // Format move number: Math.ceil(moveNumber / 2) + (isWhiteMove ? '.' : '...')
+      const fullMoveNum = Math.ceil(moveNumber / 2);
+      const moveLabel = `${fullMoveNum}${isWhiteMove ? '.' : '...'}`;
 
-      analysisText += `Move ${moveNumber}: ${playerColor} ${move}\n`;
+      analysisText += `Move ${moveLabel} ${playerColor} ${move}\n`;
 
       if (result) {
         const evalStr = Math.abs(result.evaluation) > 5000
@@ -594,24 +611,58 @@ export default function GameAnalysis({
           analysisText += `  Source: Cached\n`;
         }
 
-        // Calculate centipawnLoss if we have a previous result
-        if (index > 0) {
-          const prevResult = results[index - 1];
-          if (prevResult) {
-            // Compute centipawn loss using shared helper (evaluations already normalized to White)
-            const centipawnChange = computeCentipawnChange(prevResult.evaluation, result.evaluation, isWhiteMove);
-            analysisText += `  centipawnChange: ${centipawnChange}\n`;
+        // Calculate centipawnLoss by comparing with the NEXT position's evaluation
+        // We need Eval_before_move (result) and Eval_after_move (displayResults[index + 1])
+        if (index < displayResults.length - 1) {
+          const nextResult = displayResults[index + 1];
+          if (nextResult) {
+            // Compute centipawn loss
+            // If White moved: Loss = Eval_before - Eval_after
+            // If Black moved: Loss = Eval_after - Eval_before
+            // computeCentipawnChange handles this if we pass (before, after, isWhite)
+            // Wait, computeCentipawnChange(pre, post, isWhite)
+            // If White: max(0, pre - post). Correct.
+            // If Black: max(0, post - pre). Correct.
+            const centipawnChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
 
             // Classify and annotate significant loss
             const cls = classifyCpLoss(centipawnChange);
+
             if (cls === 'mistake' || cls === 'blunder') {
               const threshold = cls === 'blunder' ? CP_LOSS_THRESHOLDS.blunder : CP_LOSS_THRESHOLDS.mistake;
+              analysisText += `  centipawnChange: ${centipawnChange}\n`;
               analysisText += `  ⚠️  ${cls.toUpperCase()} (centipawnChange ≥${threshold})\n`;
 
               // Only show PV when a significant mistake/blunder is identified
               if (result.principalVariation) {
                 analysisText += `  Principal Variation: ${result.principalVariation}\n`;
               }
+
+              // Show AI Description if available, otherwise queue for fetch
+              if (aiDescriptions[moveNumber]) {
+                analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
+              } else {
+                // Queue for fetching if not already present
+                missingDescriptions.push({
+                  index,
+                  moveNumber,
+                  data: {
+                    fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(), // Need correct FEN from reversed original array?
+                    // targetPositionsRef is reversed relative to game.
+                    // displayMoves[index] corresponds to targetMoves[len - 1 - index]
+                    // targetPositions[len - 1 - index] is position BEFORE the move.
+                    move,
+                    evaluation: result.evaluation,
+                    bestMove: result.bestMove,
+                    pv: result.principalVariation,
+                    centipawnLoss: centipawnChange
+                  }
+                });
+              }
+            } else {
+              // Show cp change for info even if not a mistake, if desired?
+              // For now, keep it clean.
+              analysisText += `  centipawnChange: ${centipawnChange}\n`;
             }
           }
         }
@@ -632,9 +683,45 @@ export default function GameAnalysis({
     });
 
     analysisText += 'Analysis complete!';
+
+    // If we have missing descriptions, append a loading message
+    if (missingDescriptions.length > 0) {
+      analysisText += `\n\nFetching AI descriptions for ${missingDescriptions.length} mistakes...`;
+    }
+
     setMoveAnalysisResults(analysisText);
     setIsAnalyzingMoves(false);
-  }, [gameMoves.length, moveAnalysisDepth]);
+
+    // Trigger fetches for missing descriptions
+    if (missingDescriptions.length > 0) {
+      // Process one by one or parallel? Parallel is fine for mock.
+      // We'll define an async function to fetch and update
+      const fetchDescriptions = async () => {
+        for (const item of missingDescriptions) {
+          try {
+            const response = await getAIDescription({ data: item.data });
+            if (response?.description) {
+              setAiDescriptions(prev => ({
+                ...prev,
+                [item.moveNumber]: response.description
+              }));
+            }
+          } catch (e) {
+            console.error('Failed to fetch AI description', e);
+          }
+        }
+      };
+      fetchDescriptions();
+    }
+
+  }, [gameMoves.length, moveAnalysisDepth, aiDescriptions]);
+
+  // Re-generate analysis text when AI descriptions are updated
+  useEffect(() => {
+    if (!isAnalyzingMoves && analysisResultsRef.current.length > 0) {
+      displayTextualAnalysisResults();
+    }
+  }, [aiDescriptions, isAnalyzingMoves, displayTextualAnalysisResults]);
 
   // Transform EngineEvaluation to EvaluationData for the graph
   const transformToEvaluationData = (analysisResults: EngineEvaluation[]): EvaluationData[] => {

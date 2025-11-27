@@ -138,3 +138,25 @@ export const setUserAnalysisDepth = createServerFn({ method: 'POST' })
     await ChessGameDatabase.setUserAnalysisDepth(userId, depth)
     return { success: true }
   })
+
+// Mock AI Description generator (Phase 1)
+export const getAIDescription = createServerFn({ method: 'POST' })
+  .validator((data: {
+    fen: string;
+    move: string;
+    evaluation: number;
+    bestMove: string;
+    pv: string;
+    centipawnLoss: number;
+  }) => data)
+  .handler(async ({ data }) => {
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const { move, bestMove, centipawnLoss } = data;
+
+    // Mock response logic
+    return {
+      description: `[MOCK AI] You played **${move}**, resulting in a loss of ${centipawnLoss} centipawns. The engine prefers **${bestMove}** because it better controls the center and develops pieces for a stronger attack. (PV: ${data.pv.substring(0, 20)}...)`
+    };
+  })
