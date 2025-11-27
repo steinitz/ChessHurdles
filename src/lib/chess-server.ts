@@ -140,6 +140,8 @@ export const setUserAnalysisDepth = createServerFn({ method: 'POST' })
   })
 
 // Mock AI Description generator (Phase 1)
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
 export const getAIDescription = createServerFn({ method: 'POST' })
   .validator((data: {
     fen: string;
@@ -150,13 +152,43 @@ export const getAIDescription = createServerFn({ method: 'POST' })
     centipawnLoss: number;
   }) => data)
   .handler(async ({ data }) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn('GEMINI_API_KEY not found. Returning mock response.');
+      // Fallback to mock if no key (useful for dev without key)
+      await new Promise(resolve => setTimeout(resolve, 800));
+      return {
+        description: `[MOCK AI (No Key)] You played **${data.move}** (cp loss: ${data.centipawnLoss}). The engine prefers **${data.bestMove}**. (PV: ${data.pv.substring(0, 20)}...)`
+      };
+    }
 
-    const { move, bestMove, centipawnLoss } = data;
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
-    // Mock response logic
-    return {
-      description: `[MOCK AI] You played **${move}**, resulting in a loss of ${centipawnLoss} centipawns. The engine prefers **${bestMove}** because it better controls the center and develops pieces for a stronger attack. (PV: ${data.pv.substring(0, 20)}...)`
-    };
-  })
+      const prompt = `
+You are a chess coach. Analyze this specific move in a game.
+Position FEN: ${data.fen}
+Player Move: ${data.move}
+Engine Best Move: ${data.bestMove}
+Centipawn Loss: ${data.centipawnLoss}
+Principal Variation (Best Line): ${data.pv}
+
+Explain briefly (max 2 sentences) why the player's move was a mistake compared to the best move. 
+Focus on the strategic or tactical consequence. 
+Do not mention centipawn values directly. 
+Be constructive but clear.
+`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
+
+      return { description: text };
+    } catch (error) {
+      console.error('Gemini API Error:', error);
+      return {
+        description: `(AI Unavailable) The move ${data.move} was a mistake. Best was ${data.bestMove}.`
+      };
+    }
+  });

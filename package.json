@@ -31,6 +31,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.13.1",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@tanstack/react-router": "^1.131.27",
     "@tanstack/react-start": "^1.131.27",
     "@tanstack/react-table": "^8.21.3",
