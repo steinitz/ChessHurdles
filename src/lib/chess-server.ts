@@ -139,8 +139,9 @@ export const setUserAnalysisDepth = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
-// Mock AI Description generator (Phase 1)
+// AI game position description generator
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { dedent } from './utils';
 
 export const getAIDescription = createServerFn({ method: 'POST' })
   .validator((data: {
@@ -166,19 +167,20 @@ export const getAIDescription = createServerFn({ method: 'POST' })
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
-      const prompt = `
-You are a chess coach. Analyze this specific move in a game.
-Position FEN: ${data.fen}
-Player Move: ${data.move}
-Engine Best Move: ${data.bestMove}
-Centipawn Loss: ${data.centipawnLoss}
-Principal Variation (Best Line): ${data.pv}
+      // Tagged template literal. See the dedent function in utils.ts
+      const prompt = dedent`
+        You are an expert chess coach. Analyze this specific move in a game.
+        Position FEN: ${data.fen}
+        Player Move: ${data.move}
+        Engine Best Move: ${data.bestMove}
+        Centipawn Loss: ${data.centipawnLoss}
+        Principal Variation (Best Line): ${data.pv}
 
-Explain briefly (max 2 sentences) why the player's move was a mistake compared to the best move. 
-Focus on the strategic or tactical consequence. 
-Do not mention centipawn values directly. 
-Be constructive but clear.
-`;
+        Explain briefly (max 2 sentences) why the player's move was a mistake compared to the best move.
+        Focus on the strategic, positional or tactical consequences or aspects or deviation from a workable plan.
+        Do not mention centipawn values directly.
+        Be constructive but clear.
+      `;
 
       const result = await model.generateContent(prompt);
       const response = await result.response;
