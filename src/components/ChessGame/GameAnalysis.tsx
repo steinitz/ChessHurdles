@@ -13,6 +13,8 @@ import {
 import { Spacer } from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserAnalysisDepth, setUserAnalysisDepth, getAIDescription } from '~/lib/chess-server';
+import { saveGame } from '~/lib/server/games';
+import { saveHurdle } from '~/lib/server/hurdles';
 import {
   CP_LOSS_THRESHOLDS,
   CALIBRATION_TARGET_MS,
@@ -706,6 +708,29 @@ export default function GameAnalysis({
                 ...prev,
                 [item.moveNumber]: response.description
               }));
+
+              // Auto-save hurdle if user is logged in
+              if (session?.user) {
+                try {
+                  await saveHurdle({
+                    data: {
+                      fen: item.data.fen,
+                      title: `Mistake at move ${Math.ceil(item.moveNumber / 2)}`,
+                      moveNumber: item.moveNumber,
+                      evaluation: item.data.evaluation,
+                      bestMove: item.data.bestMove,
+                      playedMove: item.data.move,
+                      centipawnLoss: item.data.centipawnLoss,
+                      aiDescription: response.description,
+                      depth: moveAnalysisDepth,
+                      difficultyLevel: 3 // Default
+                    }
+                  });
+                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber}`);
+                } catch (e) {
+                  console.error('Failed to auto-save hurdle:', e);
+                }
+              }
             }
           } catch (e) {
             console.error('Failed to fetch AI description', e);

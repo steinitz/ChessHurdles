@@ -49,6 +49,11 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
 
   // Authentication
   const { data: session } = useSession();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Stockfish analysis refs (for game analysis only)
   const analysisWorkerRef = useRef<Worker | null>(null);
@@ -162,7 +167,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
       <GameLoad onPgnLoad={handlePgnLoad} onClear={handlePgnClear} />
 
       {/* Save functionality section */}
-      {session?.user && (
+      {isMounted && session?.user && (
         <div style={{
           marginBottom: '1rem',
           padding: '0.5rem',
@@ -180,7 +185,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         </div>
       )}
 
-      {!session?.user && (
+      {isMounted && !session?.user && (
         <div style={{
           marginBottom: '1rem',
           padding: '0.5rem',
@@ -207,13 +212,15 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           overflow: 'hidden'
         }}>
           <div>
-            <ChessBoard
-              key={currentMoveIndex}
-              game={game}
-              onMove={onMove}
-              boardSize={chessboardHeight}
-              showCoordinates={true}
-            />
+            {isMounted && (
+              <ChessBoard
+                key={currentMoveIndex}
+                game={game}
+                onMove={onMove}
+                boardSize={chessboardHeight}
+                showCoordinates={true}
+              />
+            )}
           </div>
           {/* <Spacer /> */}
           <GameNavigation

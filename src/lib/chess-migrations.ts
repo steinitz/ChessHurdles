@@ -15,11 +15,11 @@ import { chessDb } from './chess-database';
 export async function ensureChessTables(): Promise<void> {
   try {
     console.log('🏁 Starting chess database table creation...');
-    
+
     // First, let's check what tables already exist
     const existingTables = await chessDb.introspection.getTables();
     console.log('📋 Existing tables before chess initialization:', existingTables.map(t => t.name));
-    
+
     // Check if user table exists and count users (safety check)
     try {
       const userCount = await chessDb.selectFrom('user').select(chessDb.fn.count('id').as('count')).executeTakeFirst();
@@ -94,9 +94,58 @@ export async function ensureChessTables(): Promise<void> {
     }
 
     console.log('✅ Chess database tables are ready');
+
+    // Ensure new columns exist (migration)
+    await ensureHurdleColumns();
+
   } catch (error) {
     console.error('❌ Error ensuring chess tables:', error);
     throw error;
+  }
+}
+
+/**
+ * Ensures new columns exist in the hurdles table (Migration)
+ */
+async function ensureHurdleColumns(): Promise<void> {
+  try {
+    console.log('🔄 Checking for missing hurdle columns...');
+
+    // We can't easily check if a column exists in Kysely without raw SQL or introspection
+    // But SQLite's ALTER TABLE ADD COLUMN is safe to run if we catch the error, 
+    // OR we can just try to add them and ignore specific errors.
+    // Better approach: Introspection.
+
+    const tables = await chessDb.introspection.getTables();
+    const hurdlesTable = tables.find(t => t.name === 'hurdles');
+
+    if (!hurdlesTable) {
+      console.log('⚠️ Hurdles table missing during column check (should have been created)');
+      return;
+    }
+
+    const existingColumns = hurdlesTable.columns.map(c => c.name);
+    const newColumns = [
+      { name: 'played_move', type: 'text' },
+      { name: 'centipawn_loss', type: 'integer' },
+      { name: 'ai_description', type: 'text' },
+      { name: 'depth', type: 'integer' }
+    ];
+
+    for (const col of newColumns) {
+      if (!existingColumns.includes(col.name)) {
+        console.log(`➕ Adding missing column: ${col.name}`);
+        await chessDb.schema
+          .alterTable('hurdles')
+          .addColumn(col.name, col.type as any)
+          .execute();
+      }
+    }
+
+    console.log('✅ Hurdle columns verification complete');
+  } catch (error) {
+    console.error('❌ Error ensuring hurdle columns:', error);
+    // Don't throw here, as it might block app startup if something minor fails
   }
 }
 
@@ -210,9 +259,9 @@ export async function checkChessTablesExist(): Promise<{ games: boolean; hurdles
   try {
     const introspection = chessDb.introspection;
     const tables = await introspection.getTables();
-    
+
     const tableNames = tables.map(table => table.name);
-    
+
     return {
       games: tableNames.includes('games'),
       hurdles: tableNames.includes('hurdles')
@@ -230,18 +279,18 @@ export async function checkChessTablesExist(): Promise<{ games: boolean; hurdles
 export async function initializeChessDatabase(): Promise<void> {
   try {
     console.log('🚀 Initializing chess database...');
-    
+
     // Check current state
     const tablesExist = await checkChessTablesExist();
     console.log('📊 Current chess tables:', tablesExist);
-    
+
     // Ensure all tables exist
     await ensureChessTables();
-    
+
     // Verify final state
     const finalState = await checkChessTablesExist();
     console.log('✅ Chess database initialization complete:', finalState);
-    
+
     if (!finalState.games || !finalState.hurdles) {
       throw new Error('Chess database initialization failed - tables missing');
     }

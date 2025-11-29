@@ -29,8 +29,12 @@ export interface HurdleTable {
   move_number: number | null;
   evaluation: number | null; // Stockfish evaluation
   best_move: string | null;
+  played_move: string | null; // The move played by the user
+  centipawn_loss: number | null; // The evaluation drop
+  ai_description: string | null; // AI explanation
+  depth: number | null; // Analysis depth
   difficulty_level: number | null; // 1-5 scale
-  mastery_level: number; // 0-3 (not attempted, struggling, improving, mastered)
+  mastery_level: number; // 0-3 (0=New, 1=Struggling, 2=Improving, 3=Mastered)
   practice_count: number;
   last_practiced: string | null;
   created_at: string;
@@ -61,16 +65,16 @@ export const chessDb = new Kysely<ChessDatabase>({
  * Provides type-safe CRUD operations for chess-related data
  */
 export class ChessGameDatabase {
-  
+
   // ===== GAME OPERATIONS =====
-  
+
   /**
    * Save a new game to the database
    */
   static async saveGame(userId: string, gameData: Omit<GameTable, 'id' | 'user_id' | 'created_at' | 'updated_at'>) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     return await chessDb
       .insertInto('games')
       .values({
@@ -115,7 +119,7 @@ export class ChessGameDatabase {
    */
   static async updateGame(gameId: string, userId: string, updates: Partial<Omit<GameTable, 'id' | 'user_id' | 'created_at'>>) {
     const now = new Date().toISOString();
-    
+
     return await chessDb
       .updateTable('games')
       .set({
@@ -157,7 +161,7 @@ export class ChessGameDatabase {
   static async saveHurdle(userId: string, hurdleData: Omit<HurdleTable, 'id' | 'user_id' | 'created_at' | 'mastery_level' | 'practice_count'>) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    
+
     return await chessDb
       .insertInto('hurdles')
       .values({
@@ -202,7 +206,7 @@ export class ChessGameDatabase {
    */
   static async updateHurdlePractice(hurdleId: string, userId: string, masteryLevel: number) {
     const now = new Date().toISOString();
-    
+
     return await chessDb
       .updateTable('hurdles')
       .set({
@@ -247,7 +251,7 @@ export class ChessGameDatabase {
    */
   static async toggleGameFavorite(gameId: string, userId: string) {
     const now = new Date().toISOString();
-    
+
     return await chessDb
       .updateTable('games')
       .set({

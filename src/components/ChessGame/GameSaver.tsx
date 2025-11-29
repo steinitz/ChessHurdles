@@ -1,6 +1,8 @@
 import React, { useState, useCallback } from 'react';
 import { Chess } from 'chess.js';
 import { useSession } from '~stzUser/lib/auth-client';
+import { saveGame } from '~/lib/server/games';
+import { saveHurdle } from '~/lib/server/hurdles';
 
 interface GameMove {
   position: Chess;
@@ -15,19 +17,25 @@ interface GameSaverProps {
   gameTitle: string;
   gameDescription: string;
   currentMoveIndex: number;
+  onGameSaved?: (gameId: string) => void;
+  onHurdleSaved?: () => void;
 }
 
-export function GameSaver({ 
-  game, 
-  gameTitle, 
-  gameDescription, 
-  gameMoves, 
-  currentMoveIndex 
+export default function GameSaver({
+  game,
+  gameMoves,
+  gameTitle,
+  gameDescription,
+  currentMoveIndex,
+  onGameSaved,
+  onHurdleSaved
 }: GameSaverProps) {
   const { data: session } = useSession();
-  const [savedGameId, setSavedGameId] = useState<string | null>(null);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [savedGameId, setSavedGameId] = useState<string | null>(null);
+
+
 
   // Save game to database
   const handleSaveGame = useCallback(async () => {
@@ -43,14 +51,14 @@ export function GameSaver({
       // Generate PGN from current game history
       const tempGame = new Chess();
       const moves = gameMoves.slice(1).map(gameMove => gameMove.move!); // Skip initial position, get move strings
-      
+
       // Reconstruct the game to generate PGN
       for (const move of moves) {
         tempGame.move(move);
       }
-      
+
       const pgn = tempGame.pgn();
-      
+
       // Prepare game data
       const gameData = {
         title: gameTitle,
@@ -63,40 +71,30 @@ export function GameSaver({
       };
 
       let result;
-      if (savedGameId) {
-        // Update existing game
-        const response = await fetch(`/api/chess/games`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ gameId: savedGameId, ...gameData })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to update game');
+      // We only support creating new games for now in this refactor
+      // Update logic would need gameId passed in props or state
+
+      const response = await saveGame({
+        data: {
+          pgn: pgn,
+          white: 'White', // TODO: Extract from game
+          black: 'Black', // TODO: Extract from game
+          result: '*',    // TODO: Extract from game
+          date: new Date().toISOString()
         }
-        
-        result = await response.json();
-        setSaveMessage('Game updated successfully!');
-      } else {
-        // Save new game
-        const response = await fetch('/api/chess/games', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(gameData)
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to save game');
-        }
-        
-        result = await response.json();
-        setSavedGameId(result.id);
-        setSaveMessage('Game saved successfully!');
+      });
+
+      if (!response) {
+        throw new Error('Failed to save game');
       }
-      
+
+      result = response;
+      setSavedGameId(result.id);
+      setSaveMessage('Game saved successfully!');
+
       // Clear message after 3 seconds
       setTimeout(() => setSaveMessage(null), 3000);
-      
+
     } catch (error) {
       console.error('Error saving game:', error);
       setSaveMessage('Failed to save game. Please try again.');
@@ -124,35 +122,28 @@ export function GameSaver({
     try {
       const currentPosition = game.fen();
       const currentMove = gameMoves[currentMoveIndex]?.move;
-      
-      const hurdleData = {
-        game_id: savedGameId, // Optional reference to parent game
-        fen: currentPosition,
-        title: `${gameTitle} - Move ${currentMoveIndex}`,
-        notes: `Position after ${currentMove}`,
-        move_number: currentMoveIndex,
-        evaluation: null,
-        best_move: null,
-        difficulty_level: null,
-        last_practiced: null
-      };
 
-      const response = await fetch('/api/chess/hurdles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(hurdleData)
+      await saveHurdle({
+        data: {
+          gameId: savedGameId || undefined,
+          fen: currentPosition,
+          title: `${gameTitle} - Move ${currentMoveIndex}`,
+          moveNumber: currentMoveIndex,
+          evaluation: undefined,
+          bestMove: undefined,
+          playedMove: currentMove,
+          centipawnLoss: undefined,
+          aiDescription: `Position after ${currentMove}`,
+          depth: undefined,
+          difficultyLevel: undefined
+        }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to save hurdle');
-      }
-      
-      await response.json();
+
       setSaveMessage('Position saved as hurdle!');
-      
+
       // Clear message after 3 seconds
       setTimeout(() => setSaveMessage(null), 3000);
-      
+
     } catch (error) {
       console.error('Error saving hurdle:', error);
       setSaveMessage('Failed to save hurdle. Please try again.');
@@ -166,28 +157,23 @@ export function GameSaver({
     <div>
       {/* Save functionality section */}
       {session?.user ? (
-        <div style={{ 
-          display: 'flex', 
-          gap: '10px', 
-          alignItems: 'center',
-          marginBottom: '10px'
-        }}>
-          <button 
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button
             onClick={handleSaveGame}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : (savedGameId ? 'Update Game' : 'Save Game')}
+            {isSaving ? 'Saving...' : 'Save Game'}
           </button>
-          <button 
+          <button
             onClick={handleSaveHurdle}
             disabled={isSaving || currentMoveIndex === 0}
           >
             {isSaving ? 'Saving...' : 'Save Position as Hurdle'}
           </button>
           {saveMessage && (
-            <span style={{ 
+            <span style={{
               color: saveMessage.includes('Failed') || saveMessage.includes('Please sign in')
-                ? 'red' 
+                ? 'red'
                 : 'green',
               fontSize: '14px'
             }}>
@@ -196,9 +182,9 @@ export function GameSaver({
           )}
         </div>
       ) : (
-        <div style={{ 
-          padding: '10px', 
-          backgroundColor: '#f0f0f0', 
+        <div style={{
+          padding: '10px',
+          backgroundColor: '#f0f0f0',
           borderRadius: '4px',
           marginBottom: '10px'
         }}>
@@ -208,5 +194,3 @@ export function GameSaver({
     </div>
   );
 }
-
-export default GameSaver;
