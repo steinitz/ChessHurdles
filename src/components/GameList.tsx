@@ -19,9 +19,18 @@ export function GameList() {
         <ul className="list-disc pl-5">
           {games.map(game => (
             <li key={game.id}>
-              <strong>{game.title}</strong> - {new Date(game.created_at).toLocaleDateString()}
-              <br />
-              <span className="text-sm text-gray-600">{game.description}</span>
+              <div className="flex justify-between items-center">
+                <div>
+                  <strong>
+                    <a href={`/?gameId=${game.id}`} className="text-blue-600 hover:underline">
+                      {game.title}
+                    </a>
+                  </strong>
+                  {' '}- {new Date(game.created_at).toLocaleDateString()}
+                  <br />
+                  <span className="text-sm text-gray-600">{game.description}</span>
+                </div>
+              </div>
             </li>
           ))}
         </ul>
