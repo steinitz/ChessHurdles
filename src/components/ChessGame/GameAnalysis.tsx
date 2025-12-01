@@ -96,14 +96,27 @@ interface GameAnalysisProps {
   analysisWorkerRef: React.MutableRefObject<Worker | null>;
   goToMove: (index: number) => void;
   maxMovesToAnalyze?: number; // Optional prop for testing and development
+  onHurdleSaved?: () => void;
 }
 
 export default function GameAnalysis({
   gameMoves,
   analysisWorkerRef,
   goToMove,
-  maxMovesToAnalyze
+  maxMovesToAnalyze,
+  onHurdleSaved
 }: GameAnalysisProps) {
+  // Cleanup worker on unmount
+  useEffect(() => {
+    return () => {
+      if (analysisWorkerRef.current) {
+        console.log('Terminating Stockfish worker on unmount');
+        analysisWorkerRef.current.terminate();
+        analysisWorkerRef.current = null;
+      }
+    };
+  }, []);
+
   // Moved state from ChessGame
   const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(DEFAULT_ANALYSIS_DEPTH);
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
@@ -133,6 +146,8 @@ export default function GameAnalysis({
   // Track if we should auto-calibrate on first load when no stored preference
   const needsCalibrationRef = useRef<boolean>(false);
   const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
+  // Track hurdles currently being processed to avoid duplicates
+  const processingHurdlesRef = useRef<Set<number>>(new Set());
   // Cache gating: use full move number (first two full moves / four plies)
 
   useEffect(() => {
@@ -697,50 +712,62 @@ export default function GameAnalysis({
 
     // Trigger fetches for missing descriptions
     if (missingDescriptions.length > 0) {
-      // Process one by one or parallel? Parallel is fine for mock.
-      // We'll define an async function to fetch and update
-      const fetchDescriptions = async () => {
-        for (const item of missingDescriptions) {
-          try {
-            const response = await getAIDescription({ data: item.data });
-            if (response?.description) {
-              setAiDescriptions(prev => ({
-                ...prev,
-                [item.moveNumber]: response.description
-              }));
+      const processingSet = processingHurdlesRef.current;
+      // Filter out hurdles that are already being processed or saved
+      const newItems = missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
 
-              // Auto-save hurdle if user is logged in
-              if (session?.user) {
-                try {
-                  await saveHurdle({
-                    data: {
-                      fen: item.data.fen,
-                      title: `Mistake at move ${Math.ceil(item.moveNumber / 2)}`,
-                      moveNumber: item.moveNumber,
-                      evaluation: item.data.evaluation,
-                      bestMove: item.data.bestMove,
-                      playedMove: item.data.move,
-                      centipawnLoss: item.data.centipawnLoss,
-                      aiDescription: response.description,
-                      depth: moveAnalysisDepth,
-                      difficultyLevel: 3 // Default
-                    }
-                  });
-                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber}`);
-                } catch (e) {
-                  console.error('Failed to auto-save hurdle:', e);
+      if (newItems.length > 0) {
+        // Mark as processing immediately
+        newItems.forEach(item => processingSet.add(item.moveNumber));
+
+        const fetchDescriptions = async () => {
+          for (const item of newItems) {
+            try {
+              const response = await getAIDescription({ data: item.data });
+              if (response?.description) {
+                setAiDescriptions(prev => ({
+                  ...prev,
+                  [item.moveNumber]: response.description
+                }));
+
+                // Auto-save hurdle if user is logged in
+                if (session?.user) {
+                  try {
+                    await saveHurdle({
+                      data: {
+                        fen: item.data.fen,
+                        title: `Mistake: ${Math.ceil(item.moveNumber / 2)}${item.moveNumber % 2 !== 0 ? '.' : '...'} ${item.data.move}`,
+                        moveNumber: item.moveNumber,
+                        evaluation: item.data.evaluation,
+                        bestMove: item.data.bestMove,
+                        playedMove: item.data.move,
+                        centipawnLoss: item.data.centipawnLoss,
+                        aiDescription: response.description,
+                        depth: moveAnalysisDepth,
+                        difficultyLevel: 3 // Default
+                      }
+                    });
+                    console.log(`💾 Auto-saved hurdle at move ${item.moveNumber}`);
+                    // Notify parent to refresh hurdles list
+                    onHurdleSaved?.();
+                  } catch (e) {
+                    console.error('Failed to auto-save hurdle:', e);
+                    // On failure, maybe remove from processing set to retry?
+                    // For now, let's keep it to avoid infinite retry loops on persistent errors
+                  }
                 }
               }
+            } catch (e) {
+              console.error('Failed to fetch AI description', e);
             }
-          } catch (e) {
-            console.error('Failed to fetch AI description', e);
           }
-        }
-      };
-      fetchDescriptions();
+        };
+        fetchDescriptions();
+      }
     }
+  }, [gameMoves.length, moveAnalysisDepth, aiDescriptions, onHurdleSaved]);
 
-  }, [gameMoves.length, moveAnalysisDepth, aiDescriptions]);
+
 
   // Re-generate analysis text when AI descriptions are updated
   useEffect(() => {

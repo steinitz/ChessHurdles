@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import * as React from 'react'
+import { useState, useEffect } from 'react'
 import { Spacer } from '~stzUtils/components/Spacer'
 import ChessGame from '../components/ChessGame/ChessGame'
 import { getGameById } from '~/lib/chess-server'
@@ -29,28 +29,67 @@ export const Route = createFileRoute('/')({
   component: Home,
 })
 
+import { HurdleTrainer } from '~/components/HurdleTrainer'
+import { HurdleTable } from '~/lib/chess-database'
 function Home() {
   const { initialPGN } = Route.useLoaderData() as { initialPGN?: string }
   const { data: session } = useSession()
-  const [isMounted, setIsMounted] = React.useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  const [view, setView] = useState<'review' | 'train'>('review')
+  const [hurdlesRefreshKey, setHurdlesRefreshKey] = useState(0)
+  const [selectedHurdle, setSelectedHurdle] = useState<HurdleTable | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setIsMounted(true)
   }, [])
 
-  return (
-    <main>
-      <section>
-        <h1>Chess Hurdles</h1>
-        <ChessGame initialPGN={initialPGN} />
+  const handleHurdleSaved = () => {
+    setHurdlesRefreshKey(prev => prev + 1)
+  }
 
-        {isMounted && session?.user && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-            <GameList />
-            <HurdleReview />
+  return (
+    <div className="p-2">
+      <h1>Chess Hurdles</h1>
+      <ChessGame initialPGN={initialPGN} onHurdleSaved={handleHurdleSaved} />
+
+      {isMounted && session?.user && (
+        <div className="mt-8 max-w-4xl mx-auto">
+          <div className="flex gap-4 mb-4 border-b">
+            <button
+              className={`px-4 py-2 ${view === 'review' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
+              onClick={() => setView('review')}
+            >
+              Review Hurdles
+            </button>
+            <button
+              className={`px-4 py-2 ${view === 'train' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
+              onClick={() => setView('train')}
+            >
+              Training Mode
+            </button>
           </div>
-        )}
-      </section>
-    </main>
+
+          {view === 'review' ? (
+            <HurdleReview
+              key={hurdlesRefreshKey}
+              onSelectHurdle={(hurdle) => {
+                setSelectedHurdle(hurdle)
+                setView('train')
+              }}
+            />
+          ) : (
+            <HurdleTrainer
+              hurdle={selectedHurdle || undefined}
+              onBack={() => {
+                setSelectedHurdle(null)
+                setView('review')
+              }}
+            />
+          )}
+        </div>
+      )}
+
+      <GameList />
+    </div>
   )
 }

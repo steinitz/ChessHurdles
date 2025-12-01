@@ -27,13 +27,13 @@ export function parseUciOkMessage(message: string): boolean {
 
 export function parseDepthInfo(message: string) {
   if (!message.includes('info depth')) return null;
-  
+
   const depthMatch = message.match(/depth (\d+)/);
   const scoreMatch = message.match(/score cp (-?\d+)/) || message.match(/score mate (-?\d+)/);
   const pvMatch = message.match(/\bpv ([a-h1-8qrnbk\s]+)/i);
-  
+
   if (!depthMatch || !scoreMatch) return null;
-  
+
   return {
     depth: parseInt(depthMatch[1]),
     score: parseInt(scoreMatch[1]),
@@ -78,16 +78,16 @@ export function handleEngineMessage(
       if (depthInfo.depth >= depth) {
         console.log('Engine message (target depth reached):', message);
         const calculationTime = Date.now() - startTime;
-        
+
         // Extract the first move from the principal variation and convert to algebraic
         // PV format from Stockfish is UCI notation: "f4d6 d8d6 a5b3 a8d5..."
         const firstMoveUci = depthInfo.pv.split(' ')[0] || '';
         const firstMoveAlgebraic = firstMoveUci ? uciToAlgebraic(firstMoveUci, analyzingFen) || firstMoveUci : '';
         const bestMoveFormatted = firstMoveAlgebraic ? formatMoveWithNumber(firstMoveAlgebraic, analyzingFen) : '';
-        
+
         // Convert the entire principal variation to algebraic notation
         const pvAlgebraic = formatPrincipalVariation(depthInfo.pv, analyzingFen);
-        
+
         // Stockfish reports scores from the perspective of the side to move.
         // Normalize evaluations so that positive values always indicate an advantage for White.
         const isWhiteToMove = analyzingFen.split(' ')[1] === 'w';
@@ -107,13 +107,13 @@ export function handleEngineMessage(
           depth: depthInfo.depth,
           calculationTime
         };
-        
+
         callbacks.setEvaluation(newEvaluation);
-        
+
         if (callbacks.onEvaluation) {
           callbacks.onEvaluation(newEvaluation.evaluation, newEvaluation.bestMove, newEvaluation.principalVariation);
         }
-        
+
         if (callbacks.onCalculationTime) {
           callbacks.onCalculationTime(calculationTime);
         }
@@ -123,7 +123,7 @@ export function handleEngineMessage(
       console.log('Engine message (analysis complete):', message);
       callbacks.setIsAnalyzing(false);
       const calculationTime = Date.now() - startTime;
-      
+
       if (callbacks.onCalculationTime) {
         callbacks.onCalculationTime(calculationTime);
       }
@@ -144,12 +144,12 @@ export function initializeStockfishWorker(
     if (typeof window === 'undefined') return null;
 
     // Create worker with stockfish.js
-    const wasmSupported = typeof WebAssembly === 'object' && 
+    const wasmSupported = typeof WebAssembly === 'object' &&
       WebAssembly.validate(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
-    
+
     // Load stockfish.js from the public directory
     const worker = new Worker('/stockfish.js');
-    
+
     worker.addEventListener('message', onMessage);
     worker.addEventListener('error', (e) => {
       console.error('Stockfish worker error:', e);
@@ -198,8 +198,8 @@ export function initializeStockfishWorker(
     }
 
     // Signal readiness after applying options
-    try { worker.postMessage('isready'); } catch {}
-    
+    try { worker.postMessage('isready'); } catch { }
+
     return worker;
   } catch (err) {
     console.error('Failed to initialize Stockfish:', err);
@@ -226,11 +226,11 @@ export function analyzePosition(
   analyzingFenRef: MutableRefObject<string>
 ): void {
   if (!worker || isAnalyzing) return;
-  
+
   setIsAnalyzing(true);
   setError(null);
   startTimeRef.current = Date.now();
-  
+
   // Set position and start analysis
   // Store the FEN being analyzed for move conversion
   analyzingFenRef.current = fen;
@@ -280,7 +280,7 @@ export async function runDepthOnFen(
           worker.postMessage(`position fen ${fen}`);
           start = Date.now();
           worker.postMessage(`go depth ${depth}`);
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -303,7 +303,7 @@ export async function runDepthOnFen(
         worker.removeEventListener('message', onMessage as any);
         worker.removeEventListener('error', onError as any);
         worker.postMessage('stop');
-      } catch {}
+      } catch { }
     };
 
     const timeout = setTimeout(() => {
@@ -323,7 +323,7 @@ export async function runDepthOnFen(
       // Ask engine to report readiness; proceed on 'readyok'
       ready = false;
       worker.postMessage('isready');
-    } catch {}
+    } catch { }
   });
 }
 
@@ -359,7 +359,7 @@ export async function calibrateDepth(options: {
     }
 
     if (typeof onProgress === 'function') {
-      try { onProgress(depth, ms); } catch {}
+      try { onProgress(depth, ms); } catch { }
     }
 
     const diff = Math.abs(ms - targetMs);

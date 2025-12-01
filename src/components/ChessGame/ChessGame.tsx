@@ -39,7 +39,7 @@ const SAMPLE_GAME_MOVES = [
   'e4', 'e5', 'Qh5', 'g6', 'Qxe5+', 'Qe7', 'Qxh8'
 ];
 
-export function ChessGame({ initialPGN }: { initialPGN?: string }) {
+export function ChessGame({ initialPGN, onHurdleSaved }: { initialPGN?: string; onHurdleSaved?: () => void }) {
   const [game, setGame] = useState(() => new Chess());
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
@@ -158,7 +158,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
 
   return (
-    <section>
+    <div className="flex flex-col md:flex-row gap-4 p-4 max-w-7xl mx-auto">
       <header>
         <h2>{gameTitle}</h2>
         <p>{gameDescription}</p>
@@ -239,6 +239,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
           gameMoves={gameMoves}
           goToMove={goToMove}
           maxMovesToAnalyze={gameMoves.length - 1}
+          onHurdleSaved={onHurdleSaved}
         />
       </div>
 
@@ -249,7 +250,7 @@ export function ChessGame({ initialPGN }: { initialPGN?: string }) {
         currentMoveIndex={currentMoveIndex}
         goToMove={goToMove}
       />
-    </section >
+    </div>
   );
 }
 

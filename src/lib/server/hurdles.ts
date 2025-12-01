@@ -47,6 +47,24 @@ export const saveHurdle = createServerFn({ method: 'POST' })
     return await ChessGameDatabase.saveHurdle(session.user.id, hurdleData);
   });
 
+export const deleteHurdle = createServerFn({ method: 'POST' })
+  .validator((hurdleId: string) => hurdleId)
+  .handler(async ({ data: hurdleId }) => {
+    const request = getWebRequest()
+    if (!request?.headers) {
+      throw new Error('Request headers not available')
+    }
+
+    const session = await auth.api.getSession({ headers: request.headers })
+    if (!session?.user?.id) {
+      throw new Error('Not authenticated')
+    }
+
+    const userId = session.user.id
+    await ChessGameDatabase.deleteHurdle(hurdleId, userId)
+    return { success: true, hurdleId }
+  });
+
 export const getUserHurdles = createServerFn({ method: 'GET' })
   .handler(async () => {
     const request = getWebRequest();

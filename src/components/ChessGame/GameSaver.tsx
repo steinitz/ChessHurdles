@@ -120,13 +120,14 @@ export default function GameSaver({
     setSaveMessage(null);
 
     try {
-      const currentPosition = game.fen();
+      // For a hurdle, we want the position BEFORE the move was played
+      const preMovePosition = gameMoves[currentMoveIndex - 1]?.position.fen() || game.fen();
       const currentMove = gameMoves[currentMoveIndex]?.move;
 
       await saveHurdle({
         data: {
           gameId: savedGameId || undefined,
-          fen: currentPosition,
+          fen: preMovePosition,
           title: `${gameTitle} - Move ${currentMoveIndex}`,
           moveNumber: currentMoveIndex,
           evaluation: undefined,
