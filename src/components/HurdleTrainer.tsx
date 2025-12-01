@@ -17,6 +17,7 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
   const [message, setMessage] = useState<string>('Find the best move');
   const [isSolved, setIsSolved] = useState(false);
   const [loading, setLoading] = useState(!initialHurdle);
+  const [showHint, setShowHint] = useState(false);
 
   // Load hurdles if not provided
   useEffect(() => {
@@ -39,8 +40,49 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
       setGame(new Chess(activeHurdle.fen));
       setMessage('Find the best move');
       setIsSolved(false);
+      setShowHint(false);
     }
   }, [activeHurdle]);
+
+  // Calculate hint styles
+  const hintStyles = React.useMemo(() => {
+    if (!showHint || !activeHurdle?.best_move) return {};
+
+    // Best move could be SAN (e.g. "Nf3") or UCI (e.g. "g1f3")
+    // We need the source square.
+    let sourceSquare = '';
+
+    // Try to parse as UCI first (4 chars, e.g. "e2e4")
+    if (activeHurdle.best_move.match(/^[a-h][1-8][a-h][1-8][qrbn]?$/)) {
+      sourceSquare = activeHurdle.best_move.substring(0, 2);
+    } else {
+      // Parse SAN using chess.js
+      try {
+        // Clean the move string: remove move numbers (e.g. "2...", "1.") and whitespace
+        const cleanMove = activeHurdle.best_move.replace(/^\d+\.+/, '').trim();
+        console.log(`💡 Parsing best move for hint: "${activeHurdle.best_move}" -> "${cleanMove}"`);
+
+        // We need a temp game to parse the SAN relative to the position
+        const tempGame = new Chess(activeHurdle.fen);
+        const move = tempGame.move(cleanMove);
+        if (move) {
+          sourceSquare = move.from;
+        }
+      } catch (e) {
+        console.error('Failed to parse best move for hint:', e, activeHurdle.best_move);
+      }
+    }
+
+    if (!sourceSquare) return {};
+
+    return {
+      [sourceSquare]: {
+        backgroundColor: 'rgba(255, 170, 0, 0.4)',
+        boxShadow: 'inset 0 0 0 4px rgba(255, 170, 0, 0.8)',
+        borderRadius: '50%'
+      }
+    };
+  }, [showHint, activeHurdle]);
 
   const onMove = useCallback((moveSan: string) => {
     if (isSolved || !activeHurdle) return;
@@ -115,16 +157,26 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
         <p className="text-gray-600 italic">{activeHurdle.ai_description}</p>
       </div>
 
-      <div className="mb-4 p-4 rounded bg-blue-50 text-center min-w-[300px]">
+      <div className="mb-4 p-4 rounded bg-blue-50 text-center min-w-[300px] flex flex-col items-center gap-2">
         <p className={`text-lg font-bold ${isSolved ? 'text-green-600' : 'text-blue-800'}`}>
           {message}
         </p>
+        {!isSolved && (
+          <button
+            onClick={() => setShowHint(true)}
+            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+            title="Show hint"
+          >
+            💡 Hint
+          </button>
+        )}
       </div>
 
       <ChessBoard
         game={game}
         onMove={onMove}
         boardSize="60vh"
+        customSquareStyles={hintStyles}
       />
     </div>
   );

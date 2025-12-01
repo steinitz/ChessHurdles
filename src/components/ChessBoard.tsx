@@ -7,13 +7,15 @@ interface ChessBoardProps {
   onMove?: (move: string) => void;
   boardSize?: string;
   showCoordinates?: boolean;
+  customSquareStyles?: Record<string, any>;
 }
 
-export function ChessBoard({ 
-  game, 
-  onMove, 
-  boardSize = '60vh', 
-  showCoordinates = true 
+export function ChessBoard({
+  game,
+  onMove,
+  boardSize = '60vh',
+  showCoordinates = true,
+  customSquareStyles = {}
 }: ChessBoardProps) {
   const [moveFrom, setMoveFrom] = useState<string>('');
   const [moveTo, setMoveTo] = useState<string | null>(null);
@@ -111,9 +113,9 @@ export function ChessBoard({
   );
 
   return (
-    <div 
+    <div
       className="chess-board-container"
-      style={{ 
+      style={{
         width: boardSize,
         height: boardSize,
         maxWidth: '100%',
@@ -126,7 +128,7 @@ export function ChessBoard({
           onPieceDrop: onPieceDrop,
           onSquareClick: onSquareClick,
           boardOrientation: 'white',
-          squareStyles: optionSquares
+          squareStyles: { ...optionSquares, ...customSquareStyles }
         }}
       />
     </div>
