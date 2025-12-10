@@ -9,7 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { clientEnv } from '~stzUser/lib/env'
 
-import {MainLayout} from '~/components/MainLayout'
+import { MainLayout } from '~/components/MainLayout'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -19,10 +19,10 @@ export const Route = createRootRoute({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        content: 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover',
       },
       {
-        title: 'TanStack Start App',
+        title: 'Chess Hurdles',
       },
     ],
     links: [

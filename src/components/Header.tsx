@@ -1,10 +1,10 @@
-import {Link} from "@tanstack/react-router";
-import {UserBlock, navLinkStyle} from "~stzUser/components/Other/userBlock";
-import {Spacer} from "~stzUtils/components/Spacer";
+import { Link } from "@tanstack/react-router";
+import { UserBlock, navLinkStyle } from "~stzUser/components/Other/userBlock";
+import { Spacer } from "~stzUtils/components/Spacer";
 
 export const Header = () => {
 
-  return(
+  return (
     <section
       style={{
         display: 'flex',
@@ -42,7 +42,20 @@ export const Header = () => {
       >
         Games
       </Link>
-      <Spacer orientation={'horizontal'} space={1}/>
+      <Spacer orientation={'horizontal'} space={1} />
+      <Link
+        to="/play"
+        style={navLinkStyle}
+        activeProps={{
+          style: {
+            backgroundColor: 'var(--color-accent)',
+            color: 'var(--color-bg)',
+          },
+        }}
+      >
+        Computer
+      </Link>
+      <Spacer orientation={'horizontal'} space={1} />
       <Link
         to="/contact"
         style={navLinkStyle}
@@ -55,7 +68,7 @@ export const Header = () => {
       >
         Contact
       </Link>
-      <UserBlock/>
+      <UserBlock />
     </section>
   )
 }

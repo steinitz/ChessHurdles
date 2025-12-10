@@ -53,7 +53,8 @@ export function ChessBoard({
   const makeAMove = useCallback(
     (sourceSquare: string, targetSquare: string) => {
       try {
-        const move = game.move({
+        const gameCopy = new Chess(game.fen());
+        const move = gameCopy.move({
           from: sourceSquare,
           to: targetSquare,
           promotion: 'q', // Always promote to queen for simplicity
@@ -105,9 +106,13 @@ export function ChessBoard({
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
       if (!targetSquare) return false;
       const moveSuccessful = makeAMove(sourceSquare, targetSquare);
-      setMoveFrom('');
-      setOptionSquares({});
-      return moveSuccessful;
+      // Wait for React to process the move before clearing UI state
+      if (moveSuccessful) {
+        setMoveFrom('');
+        setOptionSquares({});
+        return true;
+      }
+      return false;
     },
     [makeAMove]
   );
@@ -127,6 +132,7 @@ export function ChessBoard({
           position: game.fen(),
           onPieceDrop: onPieceDrop,
           onSquareClick: onSquareClick,
+          onPieceClick: ({ square }) => onSquareClick({ square }),
           boardOrientation: 'white',
           squareStyles: { ...optionSquares, ...customSquareStyles }
         }}
