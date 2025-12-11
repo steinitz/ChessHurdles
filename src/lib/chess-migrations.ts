@@ -80,6 +80,21 @@ export async function ensureChessTables(): Promise<void> {
       .execute();
     console.log('✅ User preferences table created successfully');
 
+    console.log('📊 Creating user_stats table...');
+    // Create user stats table for Elo and records
+    await chessDb.schema
+      .createTable('user_stats')
+      .ifNotExists()
+      .addColumn('user_id', 'text', (col) => col.primaryKey())
+      .addColumn('elo', 'integer', (col) => col.notNull().defaultTo(1200)) // Standard/Rapid Elo
+      .addColumn('exercise_elo', 'integer', (col) => col.notNull().defaultTo(1200))
+      .addColumn('wins', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('losses', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('draws', 'integer', (col) => col.notNull().defaultTo(0))
+      .addColumn('updated_at', 'text', (col) => col.notNull())
+      .execute();
+    console.log('✅ User stats table created successfully');
+
     console.log('🔍 Creating database indexes...');
     // Create indexes for better query performance
     await createIndexes();

@@ -2,8 +2,10 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../ChessBoard';
 import { initializeStockfishWorker, type EngineOptions } from '~/lib/stockfish-engine';
-import { eloToStockfishLevel, stockfishLevelToElo } from '~/lib/elo-utils';
+import { eloToStockfishLevel, stockfishLevelToElo, calculateNewElo } from '~/lib/elo-utils';
 import { ChessClockDisplay } from './ChessClockDisplay';
+import { useSession } from '~stzUser/lib/auth-client';
+import { getUserStats, updateUserStats, savePlayedGame } from '~/lib/chess-server';
 
 export function PlayVsEngine() {
   const [game, setGame] = useState(() => new Chess());
@@ -19,6 +21,64 @@ export function PlayVsEngine() {
   const [blackTime, setBlackTime] = useState(INITIAL_TIME_MS);
   const [lastTick, setLastTick] = useState<number | null>(null);
   const [gameResult, setGameResult] = useState<{ winner: 'White' | 'Black' | 'Draw', reason: string } | null>(null);
+  const processedRef = useRef(false);
+
+  // Auth & Stats
+  const { data: session } = useSession();
+  const userId = session?.user.id;
+
+  // Fetch User Stats
+  useEffect(() => {
+    if (userId) {
+      getUserStats()
+        .then(stats => setUserElo(stats.elo))
+        .catch(console.error);
+    }
+  }, [userId]);
+
+  // Handle Game Over persistence
+  useEffect(() => {
+    if (gameResult && userId && !processedRef.current) {
+      processedRef.current = true;
+
+      const engineElo = stockfishLevelToElo(engineLevel);
+      let score: 0 | 0.5 | 1 = 0;
+      if (gameResult.winner === 'White') score = 1;
+      else if (gameResult.winner === 'Draw') score = 0.5;
+
+      const newElo = calculateNewElo(userElo, engineElo, score);
+      const delta = newElo - userElo;
+
+      // Update Database
+      Promise.all([
+        updateUserStats({
+          data: {
+            elo: newElo,
+            // Simple increment if we wanted to track wins strictly, but Elo is the main thing here
+          }
+        }),
+        savePlayedGame({
+          data: {
+            pgn: game.pgn(),
+            game_type: 'game',
+            difficulty_rating: engineElo,
+            is_favorite: false,
+            title: `Vs Stockfish (Level ${engineLevel})`,
+            description: `Result: ${gameResult.winner} (${gameResult.reason}). Elo: ${userElo} -> ${newElo} (${delta > 0 ? '+' : ''}${delta})`,
+            tags: JSON.stringify({ engineLevel, result: gameResult.winner })
+          }
+        })
+      ]).then(() => {
+        setUserElo(newElo);
+        console.log('Game saved and Elo updated');
+      }).catch(err => console.error('Failed to save game:', err));
+    }
+  }, [gameResult, userId, userElo, engineLevel, game]);
+
+  // Reset processed flag on new game
+  useEffect(() => {
+    if (!gameResult) processedRef.current = false;
+  }, [gameResult]);
 
   const engineWorkerRef = useRef<Worker | null>(null);
 
@@ -333,6 +393,12 @@ export function PlayVsEngine() {
           <div className="mt-2 text-xs text-gray-500">
             User Elo: {userElo} (Default)
           </div>
+          <button
+            onClick={() => setGameResult({ winner: 'White', reason: 'Claimed (Debug)' })}
+            className="mt-2 text-xs bg-green-100 hover:bg-green-200 text-green-800 px-2 py-1 rounded border border-green-300"
+          >
+            Debug: Claim Win
+          </button>
         </div>
       )}
     </div>

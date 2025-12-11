@@ -46,11 +46,22 @@ export interface UserPreferencesTable {
   updated_at: string;
 }
 
+export interface UserStatsTable {
+  user_id: string;
+  elo: number;
+  exercise_elo: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  updated_at: string;
+}
+
 // Extended database interface including chess tables
 export interface ChessDatabase extends Database {
   games: GameTable;
   hurdles: HurdleTable;
   user_preferences: UserPreferencesTable;
+  user_stats: UserStatsTable;
 }
 
 // Kysely instance for chess operations
@@ -310,5 +321,51 @@ export class ChessGameDatabase {
         .values({ user_id: userId, analysis_depth: depth, updated_at: now })
         .executeTakeFirst();
     }
+  }
+
+
+  /**
+   * Get user stats (Elo, W/L/D) - Creates default if missing
+   */
+  static async getUserStats(userId: string): Promise<UserStatsTable> {
+    const stats = await chessDb
+      .selectFrom('user_stats')
+      .selectAll()
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+
+    if (stats) return stats;
+
+    // Create default stats if not found
+    const now = new Date().toISOString();
+    return await chessDb
+      .insertInto('user_stats')
+      .values({
+        user_id: userId,
+        elo: 1200,
+        exercise_elo: 1200,
+        wins: 0,
+        losses: 0,
+        draws: 0,
+        updated_at: now
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow();
+  }
+
+  /**
+   * Update user stats
+   */
+  static async updateUserStats(userId: string, updates: Partial<Omit<UserStatsTable, 'user_id'>>) {
+    const now = new Date().toISOString();
+    return await chessDb
+      .updateTable('user_stats')
+      .set({
+        ...updates,
+        updated_at: now
+      })
+      .where('user_id', '=', userId)
+      .returningAll()
+      .executeTakeFirst();
   }
 }

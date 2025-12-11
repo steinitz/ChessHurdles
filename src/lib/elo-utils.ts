@@ -3,6 +3,17 @@
  */
 
 /**
+ * Calculate expected score (win probability) for Player A
+ * 
+ * @param ratingA Player A's rating
+ * @param ratingB Player B's rating
+ * @returns Probability of Player A winning (0.0 to 1.0)
+ */
+export function getWinProbability(ratingA: number, ratingB: number): number {
+  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+}
+
+/**
  * Calculates the new Elo rating for a player after a game.
  * Uses standard FIDE Elo formula with K-factor of 40 (provisional/rapid).
  * 

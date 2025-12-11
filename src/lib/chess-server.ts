@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { getWebRequest } from '@tanstack/react-start/server'
 import { auth } from '~stzUser/lib/auth'
-import { ChessGameDatabase } from './chess-database'
+
+import { ChessGameDatabase, type UserStatsTable, type GameTable } from './chess-database'
 
 // Minimal server function to save a hard-coded sample game for the current user
 export const saveSampleGame = createServerFn({ method: 'POST' })
@@ -136,8 +137,41 @@ export const setUserAnalysisDepth = createServerFn({ method: 'POST' })
 
     const userId = session.user.id
     await ChessGameDatabase.setUserAnalysisDepth(userId, depth)
+
     return { success: true }
   })
+
+export const getUserStats = createServerFn({ method: 'GET' })
+  .handler(async () => {
+    const request = getWebRequest();
+    if (!request?.headers) throw new Error('Request headers not available');
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user?.id) throw new Error('Not authenticated');
+
+    return await ChessGameDatabase.getUserStats(session.user.id);
+  });
+
+export const updateUserStats = createServerFn({ method: 'POST' })
+  .validator((data: Partial<Omit<UserStatsTable, 'user_id' | 'updated_at'>>) => data)
+  .handler(async ({ data }) => {
+    const request = getWebRequest();
+    if (!request?.headers) throw new Error('Request headers not available');
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user?.id) throw new Error('Not authenticated');
+
+    return await ChessGameDatabase.updateUserStats(session.user.id, data);
+  });
+
+export const savePlayedGame = createServerFn({ method: 'POST' })
+  .validator((data: Omit<GameTable, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => data)
+  .handler(async ({ data }) => {
+    const request = getWebRequest();
+    if (!request?.headers) throw new Error('Request headers not available');
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user?.id) throw new Error('Not authenticated');
+
+    return await ChessGameDatabase.saveGame(session.user.id, data);
+  });
 
 // AI game position description generator
 import { GoogleGenerativeAI } from '@google/generative-ai';
