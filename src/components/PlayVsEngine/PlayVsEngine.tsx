@@ -3,6 +3,7 @@ import { Chess } from 'chess.js';
 import { ChessBoard } from '../ChessBoard';
 import { initializeStockfishWorker, type EngineOptions } from '~/lib/stockfish-engine';
 import { eloToStockfishLevel, stockfishLevelToElo, calculateNewElo } from '~/lib/elo-utils';
+import { getOpeningMove, getBookMoveDelay } from '~/lib/opening-book';
 import { ChessClockDisplay } from './ChessClockDisplay';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserStats, updateUserStats, savePlayedGame } from '~/lib/chess-server';
@@ -13,6 +14,8 @@ export function PlayVsEngine() {
   const [userElo, setUserElo] = useState(1200); // Default, will fetch later
   const [engineLevel, setEngineLevel] = useState(5); // ~1350 Elo
   const [isEngineThinking, setIsEngineThinking] = useState(false);
+  const [isOutOfBook, setIsOutOfBook] = useState(false);
+  const [lastMoveSource, setLastMoveSource] = useState<'Book' | 'Engine' | null>(null);
 
   // Clock State (30m + 20s increment)
   const INITIAL_TIME_MS = 30 * 60 * 1000;
@@ -134,7 +137,8 @@ export function PlayVsEngine() {
 
   // Timer Effect
   useEffect(() => {
-    if (game.isGameOver() || gameResult) return;
+    // Only run timer if game is in progress AND at least one move has been made
+    if (game.isGameOver() || gameResult || game.history().length === 0) return;
 
     const timer = setInterval(() => {
       const now = Date.now();
@@ -191,21 +195,71 @@ export function PlayVsEngine() {
     }
   }, [engineLevel]);
 
-  // Trigger Engine Logic
+  // Trigger Engine / Book Logic
   useEffect(() => {
-    // If it's engine's turn and game is not over
+    // If it's black's turn and game is not over and not thinking
     if (game.turn() === 'b' && !game.isGameOver() && !isEngineThinking && engineWorkerRef.current) {
       setIsEngineThinking(true);
-      // Small delay for realism
-      setTimeout(() => {
+
+      const makeEngineMove = () => {
+        setLastMoveSource('Engine');
         engineWorkerRef.current?.postMessage(`position fen ${game.fen()}`);
-        // Go for a fixed time or depth? 
-        // For "Play vs Computer", we usually want a time limit or flexible depth.
-        // Let's use movetime 1000ms for now for snappy play in Phase 2
         engineWorkerRef.current?.postMessage('go movetime 1000');
-      }, 500);
+      };
+
+      const tryBookMove = async () => {
+        // Calculate delay
+        const delay = getBookMoveDelay(INITIAL_TIME_MS, INCREMENT_MS);
+
+        // Wait first
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        // Check verification (double check turn hasn't changed)
+        if (game.turn() !== 'b' || game.isGameOver()) {
+          setIsEngineThinking(false);
+          return;
+        }
+
+        const bookMoveUci = await getOpeningMove(game.fen());
+
+        if (bookMoveUci) {
+          console.log('Playing Book Move:', bookMoveUci);
+          setLastMoveSource('Book');
+
+          setGame(prev => {
+            const next = new Chess(prev.fen());
+            try {
+              const from = bookMoveUci.substring(0, 2);
+              const to = bookMoveUci.substring(2, 4);
+              const promotion = bookMoveUci.length > 4 ? bookMoveUci.substring(4, 5) : undefined;
+
+              next.move({ from, to, promotion: promotion || 'q' });
+              setBlackTime(t => t + INCREMENT_MS);
+            } catch (e) {
+              console.error('Failed to apply book move:', bookMoveUci);
+              // Fallback to engine if book move is invalid (unlikely)
+              makeEngineMove();
+              return next; // Wait for engine to reply
+            }
+            return next;
+          });
+          setIsEngineThinking(false);
+        } else {
+          console.log('Out of Book');
+          setIsOutOfBook(true);
+          makeEngineMove();
+        }
+      };
+
+      if (!isOutOfBook) {
+        tryBookMove();
+      } else {
+        // Engine Move
+        // Small delay for realism if it's engine
+        setTimeout(makeEngineMove, 500);
+      }
     }
-  }, [game, isEngineThinking]);
+  }, [game, isEngineThinking, isOutOfBook]);
 
   const onMove = useCallback((moveSan: string) => {
     // Only allow move if it's white's turn (user)
@@ -280,6 +334,20 @@ export function PlayVsEngine() {
 
   const boardSize = zenMode ? '100vmin' : '60vh';
 
+  const startNewGame = useCallback(() => {
+    setGame(new Chess());
+    setWhiteTime(INITIAL_TIME_MS);
+    setBlackTime(INITIAL_TIME_MS);
+    setGameResult(null);
+    setLastTick(null);
+    setIsOutOfBook(false);
+    setLastMoveSource(null);
+    setShowAbandonConfirm(false);
+  }, []);
+
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const isGameActive = !gameResult && game.history().length > 0;
+
   return (
     <div style={containerStyles}>
       {/* HUD Bar */}
@@ -288,6 +356,11 @@ export function PlayVsEngine() {
         <div className="flex flex-col">
           <h2 className={zenMode ? 'text-sm opacity-50' : 'text-xl font-bold'}>
             {!zenMode && "Play vs Stockfish"}
+            {lastMoveSource && (
+              <span className="ml-2 text-sm font-normal px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+                {lastMoveSource === 'Book' ? 'Book Move' : `Engine (Lvl ${engineLevel})`}
+              </span>
+            )}
           </h2>
           {/* Engine Clock */}
           <div className="mt-1">
@@ -304,18 +377,20 @@ export function PlayVsEngine() {
           <div className="flex gap-2">
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to start a new game?')) {
-                  setGame(new Chess());
-                  setWhiteTime(INITIAL_TIME_MS);
-                  setBlackTime(INITIAL_TIME_MS);
-                  setGameResult(null);
-                  setLastTick(null);
+                if (isGameActive) {
+                  setShowAbandonConfirm(true);
+                } else {
+                  startNewGame();
                 }
               }}
-              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm flex items-center gap-2"
-              title="New Game"
+              className={`px-3 py-1 rounded text-sm flex items-center gap-2 ${isGameActive
+                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                }`}
+              title={isGameActive ? "Abandon Game" : "New Game"}
             >
-              <i className="fas fa-redo" /> New Game
+              {isGameActive ? <i className="fas fa-times-circle" /> : <i className="fas fa-redo" />}
+              {isGameActive ? " Abandon" : " New Game"}
             </button>
 
             <button
@@ -359,6 +434,27 @@ export function PlayVsEngine() {
           showCoordinates={true}
         />
 
+        {/* Abandon Game Confirmation Modal */}
+        {showAbandonConfirm && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-20">
+            <h3 className="text-xl font-bold mb-4">Abandon current game?</h3>
+            <div className="flex gap-4">
+              <button
+                onClick={startNewGame}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded"
+              >
+                Yes, Abandon
+              </button>
+              <button
+                onClick={() => setShowAbandonConfirm(false)}
+                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Game Over Overlay */}
         {gameResult && (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-10">
@@ -367,7 +463,7 @@ export function PlayVsEngine() {
               {gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`} by {gameResult.reason}
             </div>
             <button
-              onClick={() => window.location.reload()}
+              onClick={startNewGame}
               className="px-6 py-2 bg-white text-black font-bold rounded hover:scale-105 transition-transform"
             >
               New Game

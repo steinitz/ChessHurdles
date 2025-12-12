@@ -1,4 +1,5 @@
 import { chessDb } from './chess-database';
+import { sql } from 'kysely';
 
 /**
  * Chess Database Migration System
@@ -112,6 +113,7 @@ export async function ensureChessTables(): Promise<void> {
 
     // Ensure new columns exist (migration)
     await ensureHurdleColumns();
+    await ensureUserStatsColumns();
 
   } catch (error) {
     console.error('❌ Error ensuring chess tables:', error);
@@ -161,6 +163,57 @@ async function ensureHurdleColumns(): Promise<void> {
   } catch (error) {
     console.error('❌ Error ensuring hurdle columns:', error);
     // Don't throw here, as it might block app startup if something minor fails
+  }
+}
+
+/**
+ * Ensures user_stats table has the correct schema (Migration)
+ * Handles renaming 'puzzle_elo' to 'exercise_elo'
+ */
+async function ensureUserStatsColumns(): Promise<void> {
+  try {
+    console.log('🔄 Checking user_stats schema...');
+
+    const tables = await chessDb.introspection.getTables();
+    const statsTable = tables.find(t => t.name === 'user_stats');
+
+    if (!statsTable) {
+      console.log('⚠️ user_stats table missing during migration check');
+      return;
+    }
+
+    const columns = statsTable.columns.map(c => c.name);
+    const hasPuzzleElo = columns.includes('puzzle_elo');
+    const hasExerciseElo = columns.includes('exercise_elo');
+
+    if (hasPuzzleElo && !hasExerciseElo) {
+      console.log('🔄 Migrating user_stats: Renaming puzzle_elo to exercise_elo...');
+      try {
+        await chessDb.executeQuery(
+          // Kysely doesn't have a direct 'renameColumn' in vanilla query builder often, 
+          // so raw SQL is safest for SQLite specific RENAME COLUMN
+          sql`ALTER TABLE user_stats RENAME COLUMN puzzle_elo TO exercise_elo`.compile(chessDb)
+        );
+        console.log('✅ Successfully renamed puzzle_elo to exercise_elo');
+      } catch (err) {
+        console.error('❌ Failed to rename column (older SQLite?):', err);
+        // Fallback: Add new column if renaming fails
+        await chessDb.schema
+          .alterTable('user_stats')
+          .addColumn('exercise_elo', 'integer', (col) => col.notNull().defaultTo(1200))
+          .execute();
+      }
+    } else if (!hasExerciseElo) {
+      console.log('➕ Adding missing column: exercise_elo');
+      await chessDb.schema
+        .alterTable('user_stats')
+        .addColumn('exercise_elo', 'integer', (col) => col.notNull().defaultTo(1200))
+        .execute();
+    }
+
+    console.log('✅ user_stats schema verification complete');
+  } catch (error) {
+    console.error('❌ Error ensuring user_stats columns:', error);
   }
 }
 
