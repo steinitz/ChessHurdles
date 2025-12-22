@@ -13,6 +13,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth/verify-email'
 import { Route as AuthUsersRouteImport } from './routes/auth/users'
@@ -36,6 +37,11 @@ const PlayRoute = PlayRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalysisRoute = AnalysisRouteImport.update({
+  id: '/analysis',
+  path: '/analysis',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -103,6 +109,7 @@ const ApiAuthSplatServerRoute = ApiAuthSplatServerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analysis'
     | '/contact'
     | '/play'
     | '/auth/forRouteTroubleshooting'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analysis'
     | '/contact'
     | '/play'
     | '/auth/forRouteTroubleshooting'
@@ -176,6 +187,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/analysis'
     | '/contact'
     | '/play'
     | '/auth/forRouteTroubleshooting'
@@ -191,6 +203,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalysisRoute: typeof AnalysisRoute
   ContactRoute: typeof ContactRoute
   PlayRoute: typeof PlayRoute
   AuthForRouteTroubleshootingRoute: typeof AuthForRouteTroubleshootingRoute
@@ -243,6 +256,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analysis': {
+      id: '/analysis'
+      path: '/analysis'
+      fullPath: '/analysis'
+      preLoaderRoute: typeof AnalysisRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -338,6 +358,7 @@ declare module '@tanstack/react-start/server' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalysisRoute: AnalysisRoute,
   ContactRoute: ContactRoute,
   PlayRoute: PlayRoute,
   AuthForRouteTroubleshootingRoute: AuthForRouteTroubleshootingRoute,

@@ -19,7 +19,7 @@ export function pgnToGameMoves(pgnString: string): {
   error?: string;
 } {
   const parseResult = parsePgn(pgnString);
-  
+
   if (!parseResult.isValid) {
     return {
       gameMoves: [{ position: new Chess() }], // Initial position only
@@ -28,18 +28,18 @@ export function pgnToGameMoves(pgnString: string): {
       error: parseResult.error
     };
   }
-  
+
   // Recreate the game step by step to build GameMove objects
   const game = new Chess();
   const gameMoves: GameMove[] = [{ position: new Chess() }]; // Start with initial position
-  
+
   // Load PGN again to get the moves in order
   game.loadPgn(pgnString.trim());
   const pgnMoves = game.history();
-  
+
   // Reset and replay moves to build GameMove objects
   game.reset();
-  
+
   for (let i = 0; i < pgnMoves.length; i++) {
     const move = pgnMoves[i];
     try {
@@ -47,7 +47,7 @@ export function pgnToGameMoves(pgnString: string): {
       if (moveResult) {
         const moveNumber = Math.floor(i / 2) + 1;
         const isWhiteMove = i % 2 === 0;
-        
+
         gameMoves.push({
           position: new Chess(game.fen()),
           move: moveResult.san,
@@ -60,7 +60,7 @@ export function pgnToGameMoves(pgnString: string): {
       break;
     }
   }
-  
+
   return {
     gameMoves,
     headers: parseResult.headers,
@@ -81,7 +81,7 @@ export function parsePgn(pgnString: string): {
 } {
   try {
     const game = new Chess();
-    
+
     // Load the PGN - chess.js will parse it automatically
     try {
       game.loadPgn(pgnString.trim());
@@ -93,7 +93,7 @@ export function parsePgn(pgnString: string): {
         error: pgnError instanceof Error ? pgnError.message : 'PGN parsing failed'
       };
     }
-    
+
     // Check if any moves were loaded
     if (game.history().length === 0 && !pgnString.includes('[')) {
       return {
@@ -103,21 +103,21 @@ export function parsePgn(pgnString: string): {
         error: 'Invalid PGN format'
       };
     }
-    
+
     // Get the move history
     const moves = game.history();
-    
+
     // Get headers (chess.js extracts these automatically)
     const rawHeaders = game.header();
     const headers: Record<string, string> = {};
-    
+
     // Filter out null values from headers
     Object.entries(rawHeaders).forEach(([key, value]) => {
       if (value !== null) {
         headers[key] = value;
       }
     });
-    
+
     return {
       moves,
       headers,
@@ -146,7 +146,7 @@ export function pgnToGameHistory(pgnString: string): {
   error?: string;
 } {
   const parseResult = parsePgn(pgnString);
-  
+
   if (!parseResult.isValid) {
     return {
       history: [new Chess()],
@@ -156,19 +156,19 @@ export function pgnToGameHistory(pgnString: string): {
       error: parseResult.error
     };
   }
-  
+
   // Recreate the game step by step to build history
   const game = new Chess();
   const history: Chess[] = [new Chess()]; // Start with initial position
   const moves: string[] = [];
-  
+
   // Load PGN again to get the moves in order
   game.loadPgn(pgnString.trim());
   const pgnMoves = game.history();
-  
+
   // Reset and replay moves to build history
   game.reset();
-  
+
   for (const move of pgnMoves) {
     try {
       const moveResult = game.move(move);
@@ -181,7 +181,7 @@ export function pgnToGameHistory(pgnString: string): {
       break;
     }
   }
-  
+
   return {
     history,
     moves,
@@ -214,13 +214,13 @@ export function uciToAlgebraic(uciMove: string, fen: string): string {
  * @returns Array of algebraic moves
  */
 export function uciSequenceToAlgebraic(
-  uciMoves: string[] | string, 
+  uciMoves: string[] | string,
   startingFen: string = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 ): string[] {
   const moves = Array.isArray(uciMoves) ? uciMoves : uciMoves.split(' ').filter(Boolean);
   const game = new Chess(startingFen);
   const algebraicMoves: string[] = [];
-  
+
   for (const uciMove of moves) {
     try {
       const moveResult = game.move(uciMove);
@@ -236,12 +236,12 @@ export function uciSequenceToAlgebraic(
       algebraicMoves.push(notation);
       // If we converted to SAN, try to advance the game; otherwise stop
       if (notation && notation !== uciMove) {
-        try { game.move(notation); } catch {}
+        try { game.move(notation); } catch { }
       }
       break;
     }
   }
-  
+
   return algebraicMoves;
 }
 
@@ -255,7 +255,7 @@ export function formatMoveWithNumber(move: string, fen: string): string {
   const fenParts = fen.split(' ');
   const isWhiteToMove = fenParts[1] === 'w';
   const fullMoveNumber = parseInt(fenParts[5]) || 1;
-  
+
   if (isWhiteToMove) {
     return `${fullMoveNumber}.${move}`;
   } else {
@@ -271,23 +271,23 @@ export function formatMoveWithNumber(move: string, fen: string): string {
  */
 export function formatPrincipalVariation(pvString: string, fen: string): string {
   if (!pvString.trim()) return '';
-  
+
   const algebraicMoves = uciSequenceToAlgebraic(pvString, fen);
   if (algebraicMoves.length === 0) return '';
-  
+
   // Parse the FEN to get the current move number and whose turn it is
   const fenParts = fen.split(' ');
   const isWhiteToMove = fenParts[1] === 'w';
   const fullMoveNumber = parseInt(fenParts[5]) || 1;
-  
+
   // Loop variables that track state as we iterate through moves
   const formattedMoves: string[] = [];
   let currentMoveNumber = fullMoveNumber;
   let isWhiteTurn = isWhiteToMove;
-  
+
   for (let i = 0; i < algebraicMoves.length; i++) {
     const move = algebraicMoves[i];
-    
+
     if (isWhiteTurn) {
       // White's move: show move number
       formattedMoves.push(`${currentMoveNumber}.${move}`);
@@ -302,9 +302,9 @@ export function formatPrincipalVariation(pvString: string, fen: string): string 
       }
       currentMoveNumber++;
     }
-    
+
     isWhiteTurn = !isWhiteTurn;
   }
-  
+
   return formattedMoves.join(' ');
 }

@@ -8,7 +8,25 @@ import { ChessClockDisplay } from './ChessClockDisplay';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserStats, updateUserStats, savePlayedGame } from '~/lib/chess-server';
 
+import { useNavigate } from '@tanstack/react-router';
+
+// Helper to clone game state while preserving full history
+function cloneGame(game: Chess): Chess {
+  const newGame = new Chess();
+  try {
+    newGame.loadPgn(game.pgn());
+    // Also copy headers directly if needed, but loadPgn usually handles it
+    // If PGN is empty (start), newGame is already correct
+  } catch (e) {
+    console.error('Failed to clone game via PGN:', e);
+    // Fallback to FEN if PGN fails (loses history but keeps position)
+    return new Chess(game.fen());
+  }
+  return newGame;
+}
+
 export function PlayVsEngine() {
+  const navigate = useNavigate();
   const [game, setGame] = useState(() => new Chess());
   const [zenMode, setZenMode] = useState(false);
   const [userElo, setUserElo] = useState(1200); // Default, will fetch later
@@ -24,6 +42,7 @@ export function PlayVsEngine() {
   const [blackTime, setBlackTime] = useState(INITIAL_TIME_MS);
   const [lastTick, setLastTick] = useState<number | null>(null);
   const [gameResult, setGameResult] = useState<{ winner: 'White' | 'Black' | 'Draw', reason: string } | null>(null);
+  const [savedGameId, setSavedGameId] = useState<string | null>(null);
   const processedRef = useRef(false);
 
   // Auth & Stats
@@ -71,7 +90,11 @@ export function PlayVsEngine() {
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
         })
-      ]).then(() => {
+
+      ]).then(([_stats, savedGame]) => {
+        if (savedGame && savedGame.id) {
+          setSavedGameId(savedGame.id);
+        }
         setUserElo(newElo);
         console.log('Game saved and Elo updated');
       }).catch(err => console.error('Failed to save game:', err));
@@ -100,7 +123,7 @@ export function PlayVsEngine() {
               console.log('Engine played:', bestMove);
               // Apply move
               setGame(prev => {
-                const next = new Chess(prev.fen());
+                const next = cloneGame(prev);
                 try {
                   // bestMove is UCI (e.g. e2e4), chess.js needs object for promotion usually, or robust SAN parser
                   // safest is {from, to, promotion}
@@ -227,7 +250,7 @@ export function PlayVsEngine() {
           setLastMoveSource('Book');
 
           setGame(prev => {
-            const next = new Chess(prev.fen());
+            const next = cloneGame(prev);
             try {
               const from = bookMoveUci.substring(0, 2);
               const to = bookMoveUci.substring(2, 4);
@@ -267,7 +290,7 @@ export function PlayVsEngine() {
 
     setGame((prevGame) => {
       try {
-        const newGame = new Chess(prevGame.fen());
+        const newGame = cloneGame(prevGame);
         const result = newGame.move(moveSan);
         if (result) {
           // Add increment for White
@@ -339,6 +362,7 @@ export function PlayVsEngine() {
     setWhiteTime(INITIAL_TIME_MS);
     setBlackTime(INITIAL_TIME_MS);
     setGameResult(null);
+    setSavedGameId(null);
     setLastTick(null);
     setIsOutOfBook(false);
     setLastMoveSource(null);
@@ -468,6 +492,23 @@ export function PlayVsEngine() {
             >
               New Game
             </button>
+            {savedGameId ? (
+              <button
+                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId } })}
+                className="px-6 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded hover:scale-105 transition-transform"
+              >
+                Analyze Game
+              </button>
+            ) : (
+              !session?.user && (
+                <div className="mt-4 text-center">
+                  <p className="text-sm mb-1">Sign in to save and analyze your games</p>
+                  <a href="/auth/signin" className="inline-block px-4 py-1 bg-white/10 hover:bg-white/20 rounded border border-white/20 text-sm transition-colors">
+                    Sign In
+                  </a>
+                </div>
+              )
+            )}
           </div>
         )}
       </div>

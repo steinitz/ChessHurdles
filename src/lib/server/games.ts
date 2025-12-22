@@ -59,3 +59,16 @@ export const deleteGameById = createServerFn({ method: 'POST' })
 
     return await ChessGameDatabase.deleteGame(gameId, session.user.id);
   });
+
+export const getGameById = createServerFn({ method: 'GET' })
+  .validator((gameId: string) => gameId)
+  .handler(async ({ data: gameId }) => {
+    const request = getWebRequest();
+    const session = await auth.api.getSession({ headers: request!.headers });
+
+    if (!session) {
+      throw new Error('Unauthorized');
+    }
+
+    return await ChessGameDatabase.getGame(gameId, session.user.id);
+  });
