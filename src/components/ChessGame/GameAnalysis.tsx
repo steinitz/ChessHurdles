@@ -96,6 +96,7 @@ interface GameAnalysisProps {
   analysisWorkerRef: React.MutableRefObject<Worker | null>;
   goToMove: (index: number) => void;
   maxMovesToAnalyze?: number; // Optional prop for testing and development
+  autoAnalyze?: boolean;
   onHurdleSaved?: () => void;
 }
 
@@ -104,6 +105,7 @@ export default function GameAnalysis({
   analysisWorkerRef,
   goToMove,
   maxMovesToAnalyze,
+  autoAnalyze,
   onHurdleSaved
 }: GameAnalysisProps) {
   // Cleanup worker on unmount
@@ -766,6 +768,13 @@ export default function GameAnalysis({
       }
     }
   }, [gameMoves.length, moveAnalysisDepth, aiDescriptions, onHurdleSaved]);
+  // Auto-start analysis if requested and moves are available
+  useEffect(() => {
+    if (autoAnalyze && gameMoves.length > 1 && !isAnalyzingMoves && analysisResultsRef.current.length === 0) {
+      handleAnalyzeEntireGame();
+    }
+  }, [autoAnalyze, gameMoves.length, handleAnalyzeEntireGame]);
+
 
 
 

@@ -370,6 +370,7 @@ export function PlayVsEngine() {
   }, []);
 
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
   const isGameActive = !gameResult && game.history().length > 0;
 
   return (
@@ -419,9 +420,7 @@ export function PlayVsEngine() {
 
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to resign?')) {
-                  setGameResult({ winner: 'Black', reason: 'Resignation' });
-                }
+                setShowResignConfirm(true);
               }}
               disabled={!!gameResult}
               className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm flex items-center gap-2 disabled:opacity-50"
@@ -479,6 +478,30 @@ export function PlayVsEngine() {
           </div>
         )}
 
+        {/* Resign Confirmation Modal */}
+        {showResignConfirm && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-20">
+            <h3 className="text-xl font-bold mb-4">Resign this game?</h3>
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setGameResult({ winner: 'Black', reason: 'Resignation' });
+                  setShowResignConfirm(false);
+                }}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded"
+              >
+                Yes, Resign
+              </button>
+              <button
+                onClick={() => setShowResignConfirm(false)}
+                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Game Over Overlay */}
         {gameResult && (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-10">
@@ -494,7 +517,7 @@ export function PlayVsEngine() {
             </button>
             {savedGameId ? (
               <button
-                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId } })}
+                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId, autoAnalyze: true } })}
                 className="px-6 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded hover:scale-105 transition-transform"
               >
                 Analyze Game

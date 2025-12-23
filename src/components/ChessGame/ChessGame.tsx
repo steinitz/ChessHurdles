@@ -8,7 +8,7 @@ import {
   cleanupWorker
 } from '~/lib/stockfish-engine';
 import { useSession } from '~stzUser/lib/auth-client';
-import GameLoad from './GameLoad';
+// GameLoad removed (moved to parent)
 import GameAnalysis from './GameAnalysis';
 import GameMoves from './GameMoves';
 import GameSaver from './GameSaver';
@@ -39,7 +39,7 @@ const SAMPLE_GAME_MOVES = [
   'e4', 'e5', 'Qh5', 'g6', 'Qxe5+', 'Qe7', 'Qxh8'
 ];
 
-export function ChessGame({ initialPGN, onHurdleSaved }: { initialPGN?: string; onHurdleSaved?: () => void }) {
+export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialPGN?: string; autoAnalyze?: boolean; onHurdleSaved?: () => void }) {
   const [game, setGame] = useState(() => new Chess());
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
@@ -136,10 +136,6 @@ export function ChessGame({ initialPGN, onHurdleSaved }: { initialPGN?: string; 
     };
   }, []);
 
-  // Handle clearing PGN and returning to sample game
-  const handlePgnClear = useCallback(() => {
-    loadSampleGame();
-  }, [loadSampleGame]);
 
   const goToMove = useCallback((moveIndex: number) => {
     if (moveIndex >= 0 && moveIndex < gameMoves.length) {
@@ -164,7 +160,6 @@ export function ChessGame({ initialPGN, onHurdleSaved }: { initialPGN?: string; 
         <p>{gameDescription}</p>
       </header>
 
-      <GameLoad onPgnLoad={handlePgnLoad} onClear={handlePgnClear} />
 
       {/* Save functionality section */}
       {isMounted && session?.user && (
@@ -239,6 +234,7 @@ export function ChessGame({ initialPGN, onHurdleSaved }: { initialPGN?: string; 
           gameMoves={gameMoves}
           goToMove={goToMove}
           maxMovesToAnalyze={gameMoves.length - 1}
+          autoAnalyze={autoAnalyze}
           onHurdleSaved={onHurdleSaved}
         />
       </div>
