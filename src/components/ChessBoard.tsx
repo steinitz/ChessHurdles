@@ -132,7 +132,9 @@ export function ChessBoard({
           position: game.fen(),
           onPieceDrop: onPieceDrop,
           onSquareClick: onSquareClick,
-          onPieceClick: ({ square }) => onSquareClick({ square }),
+          onPieceClick: ({ square }) => {
+            if (square) onSquareClick({ square });
+          },
           boardOrientation: 'white',
           squareStyles: { ...optionSquares, ...customSquareStyles }
         }}

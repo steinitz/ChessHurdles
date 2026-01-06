@@ -8,6 +8,7 @@ export const Route = createFileRoute('/analysis')({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       gameId: search.gameId as string | undefined,
+      autoAnalyze: search.autoAnalyze === true || search.autoAnalyze === 'true',
     }
   },
   loaderDeps: ({ search }) => ({ gameId: search.gameId }),

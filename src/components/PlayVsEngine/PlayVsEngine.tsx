@@ -517,7 +517,7 @@ export function PlayVsEngine() {
             </button>
             {savedGameId ? (
               <button
-                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId, autoAnalyze: true } })}
+                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}
                 className="px-6 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded hover:scale-105 transition-transform"
               >
                 Analyze Game
