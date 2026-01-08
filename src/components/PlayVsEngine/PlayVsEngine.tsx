@@ -376,19 +376,18 @@ export function PlayVsEngine() {
   return (
     <div style={containerStyles}>
       {/* HUD Bar */}
-      <div className="flex justify-between w-full max-w-2xl mb-4 items-center" style={{ width: zenMode ? '90vmin' : '60vh' }}>
-        {/* Left Side: Stats / Engine Info */}
-        <div className="flex flex-col">
-          <h2 className={zenMode ? 'text-sm opacity-50' : 'text-xl font-bold'}>
+      <div style={{ width: zenMode ? '90vmin' : '60vh' }}>
+        <div>
+          <h2 style={zenMode ? { opacity: 0.5 } : undefined}>
             {!zenMode && "Play vs Stockfish"}
             {lastMoveSource && (
-              <span className="ml-2 text-sm font-normal px-2 py-0.5 rounded bg-blue-100 text-blue-800">
+              <span>
                 {lastMoveSource === 'Book' ? 'Book Move' : `Engine (Lvl ${engineLevel})`}
               </span>
             )}
           </h2>
           {/* Engine Clock */}
-          <div className="mt-1">
+          <div>
             <ChessClockDisplay
               timeMs={blackTime}
               isActive={game.turn() === 'b' && !gameResult}
@@ -398,8 +397,8 @@ export function PlayVsEngine() {
         </div>
 
         {/* Right Side: Controls / User Clock */}
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-2">
+        <div>
+          <div>
             <button
               onClick={() => {
                 if (isGameActive) {
@@ -408,10 +407,6 @@ export function PlayVsEngine() {
                   startNewGame();
                 }
               }}
-              className={`px-3 py-1 rounded text-sm flex items-center gap-2 ${isGameActive
-                ? 'bg-amber-100 hover:bg-amber-200 text-amber-800'
-                : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                }`}
               title={isGameActive ? "Abandon Game" : "New Game"}
             >
               {isGameActive ? <i className="fas fa-times-circle" /> : <i className="fas fa-redo" />}
@@ -423,7 +418,6 @@ export function PlayVsEngine() {
                 setShowResignConfirm(true);
               }}
               disabled={!!gameResult}
-              className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-sm flex items-center gap-2 disabled:opacity-50"
               title="Resign"
             >
               <i className="fas fa-flag" /> Resign
@@ -431,7 +425,6 @@ export function PlayVsEngine() {
 
             <button
               onClick={toggleZenMode}
-              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm flex items-center gap-2"
               title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
             >
               {zenMode ? <i className="fas fa-compress" /> : <i className="fas fa-expand" />}
@@ -449,7 +442,7 @@ export function PlayVsEngine() {
         </div>
       </div>
 
-      <div className="relative">
+      <div>
         <ChessBoard
           game={game}
           onMove={onMove}
@@ -459,18 +452,17 @@ export function PlayVsEngine() {
 
         {/* Abandon Game Confirmation Modal */}
         {showAbandonConfirm && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-20">
-            <h3 className="text-xl font-bold mb-4">Abandon current game?</h3>
-            <div className="flex gap-4">
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 20 }}>
+            <h3>Abandon current game?</h3>
+            <div style={{ display: 'flex', gap: '1rem' }}>
               <button
                 onClick={startNewGame}
-                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded"
+                style={{ backgroundColor: 'var(--color-error)' }}
               >
                 Yes, Abandon
               </button>
               <button
                 onClick={() => setShowAbandonConfirm(false)}
-                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded"
               >
                 Cancel
               </button>
@@ -480,21 +472,20 @@ export function PlayVsEngine() {
 
         {/* Resign Confirmation Modal */}
         {showResignConfirm && (
-          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-20">
-            <h3 className="text-xl font-bold mb-4">Resign this game?</h3>
-            <div className="flex gap-4">
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 20 }}>
+            <h3>Resign this game?</h3>
+            <div style={{ display: 'flex', gap: '1rem' }}>
               <button
                 onClick={() => {
                   setGameResult({ winner: 'Black', reason: 'Resignation' });
                   setShowResignConfirm(false);
                 }}
-                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded"
+                style={{ backgroundColor: 'var(--color-error)' }}
               >
                 Yes, Resign
               </button>
               <button
                 onClick={() => setShowResignConfirm(false)}
-                className="px-6 py-2 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded"
               >
                 Cancel
               </button>
@@ -504,29 +495,27 @@ export function PlayVsEngine() {
 
         {/* Game Over Overlay */}
         {gameResult && (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white rounded-lg backdrop-blur-sm z-10">
-            <h2 className="text-3xl font-bold mb-2">Game Over</h2>
-            <div className="text-xl mb-4">
+          <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 10 }}>
+            <h2>Game Over</h2>
+            <div style={{ fontSize: '1.25rem' }}>
               {gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`} by {gameResult.reason}
             </div>
             <button
               onClick={startNewGame}
-              className="px-6 py-2 bg-white text-black font-bold rounded hover:scale-105 transition-transform"
             >
               New Game
             </button>
             {savedGameId ? (
               <button
                 onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}
-                className="px-6 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded hover:scale-105 transition-transform"
               >
                 Analyze Game
               </button>
             ) : (
               !session?.user && (
-                <div className="mt-4 text-center">
-                  <p className="text-sm mb-1">Sign in to save and analyze your games</p>
-                  <a href="/auth/signin" className="inline-block px-4 py-1 bg-white/10 hover:bg-white/20 rounded border border-white/20 text-sm transition-colors">
+                <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+                  <p style={{ fontSize: '0.875rem' }}>Sign in to save and analyze your games</p>
+                  <a href="/auth/signin">
                     Sign In
                   </a>
                 </div>
@@ -537,9 +526,9 @@ export function PlayVsEngine() {
       </div>
 
       {!zenMode && (
-        <div className="mt-4 p-4 border rounded bg-gray-50 w-full max-w-lg">
-          <h3 className="font-bold mb-2">Debug Controls (Phase 2)</h3>
-          <label className="flex items-center gap-2">
+        <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--color-bg-secondary)' }}>
+          <h3>Debug Controls (Phase 2)</h3>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             Difficulty (0-20):
             <input
               type="range"
@@ -550,12 +539,11 @@ export function PlayVsEngine() {
             />
             {engineLevel}
           </label>
-          <div className="mt-2 text-xs text-gray-500">
+          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
             User Elo: {userElo} (Default)
           </div>
           <button
             onClick={() => setGameResult({ winner: 'White', reason: 'Claimed (Debug)' })}
-            className="mt-2 text-xs bg-green-100 hover:bg-green-200 text-green-800 px-2 py-1 rounded border border-green-300"
           >
             Debug: Claim Win
           </button>
