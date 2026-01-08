@@ -375,74 +375,37 @@ export function PlayVsEngine() {
 
   return (
     <div style={containerStyles}>
-      {/* HUD Bar */}
-      <div style={{ width: zenMode ? '90vmin' : '60vh' }}>
-        <div>
-          <h2 style={zenMode ? { opacity: 0.5 } : undefined}>
+      {/* Top Row: Engine Info (Left) and Engine Clock (Right) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        width: boardSize,
+        marginBottom: '10px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h2 style={{ margin: 0, fontSize: zenMode ? '1.2rem' : '1.5rem', opacity: zenMode ? 0.7 : 1 }}>
             {!zenMode && "Play vs Stockfish"}
             {lastMoveSource && (
-              <span>
-                {lastMoveSource === 'Book' ? 'Book Move' : `Engine (Lvl ${engineLevel})`}
-              </span>
+              <small style={{
+                marginLeft: '8px',
+                fontWeight: 'normal',
+                opacity: 0.8
+              }}>
+                {lastMoveSource === 'Book' ? '(Book Move)' : `(Engine Lvl ${engineLevel})`}
+              </small>
             )}
           </h2>
-          {/* Engine Clock */}
-          <div>
-            <ChessClockDisplay
-              timeMs={blackTime}
-              isActive={game.turn() === 'b' && !gameResult}
-              side="Black"
-            />
-          </div>
         </div>
 
-        {/* Right Side: Controls / User Clock */}
-        <div>
-          <div>
-            <button
-              onClick={() => {
-                if (isGameActive) {
-                  setShowAbandonConfirm(true);
-                } else {
-                  startNewGame();
-                }
-              }}
-              title={isGameActive ? "Abandon Game" : "New Game"}
-            >
-              {isGameActive ? <i className="fas fa-times-circle" /> : <i className="fas fa-redo" />}
-              {isGameActive ? " Abandon" : " New Game"}
-            </button>
-
-            <button
-              onClick={() => {
-                setShowResignConfirm(true);
-              }}
-              disabled={!!gameResult}
-              title="Resign"
-            >
-              <i className="fas fa-flag" /> Resign
-            </button>
-
-            <button
-              onClick={toggleZenMode}
-              title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
-            >
-              {zenMode ? <i className="fas fa-compress" /> : <i className="fas fa-expand" />}
-              {zenMode ? " Exit" : " Zen Mode"}
-            </button>
-          </div>
-
-          {/* User Clock */}
-          <ChessClockDisplay
-            timeMs={whiteTime}
-            isActive={game.turn() === 'w' && !gameResult}
-            side="White"
-            isLowTime={whiteTime < 60000}
-          />
-        </div>
+        <ChessClockDisplay
+          timeMs={blackTime}
+          isActive={game.turn() === 'b' && !gameResult}
+          side="Black"
+        />
       </div>
 
-      <div>
+      <div style={{ position: 'relative' }}>
         <ChessBoard
           game={game}
           onMove={onMove}
@@ -523,6 +486,59 @@ export function PlayVsEngine() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Bottom Row: Action Buttons (Left) and User Clock (Right) */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        width: boardSize,
+        marginTop: '10px'
+      }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => {
+              if (isGameActive) {
+                setShowAbandonConfirm(true);
+              } else {
+                startNewGame();
+              }
+            }}
+            title={isGameActive ? "Abandon Game" : "New Game"}
+            style={{ padding: '0.4rem 0.8rem' }}
+          >
+            {isGameActive ? <i className="fas fa-times-circle" /> : <i className="fas fa-redo" />}
+            {isGameActive ? " Abandon" : " New Game"}
+          </button>
+
+          <button
+            onClick={() => {
+              setShowResignConfirm(true);
+            }}
+            disabled={!!gameResult}
+            title="Resign"
+            style={{ padding: '0.4rem 0.8rem' }}
+          >
+            <i className="fas fa-flag" /> Resign
+          </button>
+
+          <button
+            onClick={toggleZenMode}
+            title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+            style={{ padding: '0.4rem 0.8rem' }}
+          >
+            {zenMode ? <i className="fas fa-compress" /> : <i className="fas fa-expand" />}
+            {zenMode ? " Exit" : " Zen Mode"}
+          </button>
+        </div>
+
+        <ChessClockDisplay
+          timeMs={whiteTime}
+          isActive={game.turn() === 'w' && !gameResult}
+          side="White"
+          isLowTime={whiteTime < 60000}
+        />
       </div>
 
       {!zenMode && (

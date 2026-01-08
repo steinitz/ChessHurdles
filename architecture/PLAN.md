@@ -1,25 +1,16 @@
-# PlayVsEngine Refinement Plan (Tomorrow)
+# Chess Hurdles: Deployment & Refinement Plan
 
-## Objective
-Finalize the "Aligned Vertical Sandwich" HUD and clean up all non-functional styling.
+## 1. Deployment Phase
+- [ ] **Test Deploy to Netlify**:
+    - Verify production build finishes without errors.
+    - Check routing consistency on Netlify (redirects for TanStack Router).
+- [ ] **Domain & Email Setup**:
+    - Acquire/Configure `chesshurdles.com`.
+    - Set up a professional email address (e.g., `hello@chesshurdles.com`).
+    - Note: Check Apple hosting domain availability/quota.
 
-## 1. HUD Structural Changes
-Restructure `PlayVsEngine.tsx` to use two horizontal flex rows tied to the 60vh board width:
-- **Top Row**: Engine Name/Level (Left) and Engine Clock (Right).
-- **Center**: ChessBoard (as before).
-- **Bottom Row**: Action Buttons (Left) and User Clock (Right).
-- All items in the rows will use `justify-content: space-between` to ensure clocks are strictly vertically aligned on the right.
-
-## 2. Confirmation Modals
-- Replace existing `abandon` and `resign` local state/overlays with `stzUtils/components/Dialog.tsx`.
-- Use `makeDialogRef()` for cleaner control.
-- Style the "Yes" buttons in these dialogs with `var(--color-error)` (red) for destructive signaling.
-
-## 3. [DONE] Zombie Tailwind Removal 🧟
-- [x] Strip every single `className` containing Tailwind classes from `PlayVsEngine.tsx`.
-- [ ] Replace necessary layouts with standard inline CSS (flexbox) to match the desired spacing (Next Step).
-- [x] Ensure HUD buttons stay their default `mvp.css` blue.
-
-## 4. Verification
-- [x] `pnpm run typecheck`
-- [ ] Manual check of alignment at different viewport sizes (Pending layout refactor).
+## 2. Completed Milestones (Review)
+- [x] **HUD Layout**: "Aligned Vertical Sandwich" implemented in `PlayVsEngine.tsx`.
+- [x] **Tailwind Purge**: Successfully stripped Tailwind from the primary play component. 🧟
+- [x] **Clocks**: Vertical alignment strictly enforced.
+- [x] **Modals**: Working custom confirmation overlays (centering verified).
