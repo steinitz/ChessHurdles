@@ -2,7 +2,8 @@ import Database from "better-sqlite3";
 import { Kysely, SqliteDialect } from "kysely";
 
 // Database instance (legacy)
-export const appDatabase = new Database("sqlite.db");
+const dbPath = process.env.DATABASE_PATH || "sqlite.db";
+export const appDatabase = new Database(dbPath);
 
 /**
  * User-related database types

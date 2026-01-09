@@ -1,9 +1,10 @@
 # Chess Hurdles: Deployment & Refinement Plan
 
 ## 1. Deployment Phase
-- [ ] **Test Deploy to Netlify**:
-    - Verify production build finishes without errors.
-    - Check routing consistency on Netlify (redirects for TanStack Router).
+- [ ] **Test Deploy to Railway**:
+    - Build and verify production output.
+    - Provision persistent volume for SQLite at `/data`.
+    - Configure environment variables and verify persistence.
 - [ ] **Domain & Email Setup**:
     - Acquire/Configure `chesshurdles.com`.
     - Set up a professional email address (e.g., `hello@chesshurdles.com`).
