@@ -47,7 +47,8 @@
     "react-dom": "^19.1.1",
     "stockfish.js": "^10.0.2",
     "valibot": "^1.1.0",
-    "vite": "^7.1.3"
+    "vite": "^7.1.3",
+    "dotenv": "^17.2.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
@@ -60,7 +61,6 @@
     "@types/react-dom": "^19.1.8",
     "@vitejs/plugin-react-swc": "^4.0.1",
     "@vitest/ui": "^3.2.4",
-    "dotenv": "^17.2.1",
     "dotenv-cli": "^10.0.0",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.2",

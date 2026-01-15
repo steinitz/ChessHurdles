@@ -35,6 +35,9 @@ importers:
       chess.js:
         specifier: ^1.4.0
         version: 1.4.0
+      dotenv:
+        specifier: ^17.2.1
+        version: 17.2.1
       kysely:
         specifier: ^0.28.5
         version: 0.28.5
@@ -90,9 +93,6 @@ importers:
       '@vitest/ui':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4)
-      dotenv:
-        specifier: ^17.2.1
-        version: 17.2.1
       dotenv-cli:
         specifier: ^10.0.0
         version: 10.0.0
