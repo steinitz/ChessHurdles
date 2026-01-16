@@ -1,11 +1,11 @@
 import * as v from 'valibot'
-import {type SyntheticEvent, useState} from 'react'
-import {Link, useNavigate} from '@tanstack/react-router'
-import {signIn, sendVerificationEmail} from '~stzUser/lib/auth-client'
-import {PasswordInput} from "~stzUtils/components/InputFields";
-import {FormFieldError} from "~stzUtils/components/FormFieldError";
-import {niceValidationIssues, sharedFormSubmission} from "~stzUser/lib/form";
-import {requiredPasswordValidation} from '~stzUser/lib/password-validation';
+import { type SyntheticEvent, useState } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { signIn, sendVerificationEmail } from '~stzUser/lib/auth-client'
+import { PasswordInput } from "~stzUtils/components/InputFields";
+import { FormFieldError } from "~stzUtils/components/FormFieldError";
+import { niceValidationIssues, sharedFormSubmission } from "~stzUser/lib/form";
+import { requiredPasswordValidation } from '~stzUser/lib/password-validation';
 
 // TypeScript - sugggested by Valibot docs and comes in handy later
 type SignInData = {
@@ -29,9 +29,9 @@ export const SignIn = () => {
   const [validationIssues, setValidationIssues] = useState<any>({})
   const validateFormFields = (fields: SignInData) => {
     const valibotResult = v.safeParse(
-    SignupSchema,
-    fields,
-    {abortPipeEarly: true} // max one issue per key
+      SignupSchema,
+      fields,
+      { abortPipeEarly: true } // max one issue per key
     )
     if (!valibotResult.success) {
       setValidationIssues(niceValidationIssues(valibotResult))
@@ -40,9 +40,9 @@ export const SignIn = () => {
   }
 
   const doSignIn = async (
-    {email, password}: SignInData
+    { email, password }: SignInData
   ) => {
-    console.log('doSignin call to signIn.email()\n', {email, password})
+    console.log('doSignin call to signIn.email()\n', { email, password })
 
     const {
       data,
@@ -55,14 +55,14 @@ export const SignIn = () => {
       },
       {
         onRequest: async (ctx) => {
-          console.log('signin.email - onRequest', {ctx})
+          console.log('signin.email - onRequest', { ctx })
         },
         onSuccess: async (ctx) => {
-          console.log('signin.email - onSuccess', {ctx})
+          console.log('signin.email - onSuccess', { ctx })
           window.location.href = '/' // TanStack navigation doesn't work here
         },
         onError: async (ctx) => {
-          if(ctx.error.status === 403) {
+          if (ctx.error.status === 403) {
             // Send verification email for existing unverified users
             try {
               await sendVerificationEmail({
@@ -78,11 +78,11 @@ export const SignIn = () => {
           else {
             alert(ctx.error.message)
           }
-          console.log({ctxError: ctx.error.message})
+          console.log({ ctxError: ctx.error.message })
         },
       }
     )
-    console.log({data, error})
+    console.log({ data, error })
   }
 
   const handleSignIn = async (event: SyntheticEvent<HTMLFormElement>) => {

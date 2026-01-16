@@ -34,8 +34,22 @@ ssh-copy-id -i ~/.ssh/id_rsa.pub root@163.47.117.74
 ### 4. Verify
 Try to log in as both. They should not ask for passwords:
 ```bash
-ssh chesshurdles@163.47.117.74
 ssh root@163.47.117.74
+```
+
+### 5. Recommended SSH Config (Local)
+To avoid key conflicts and make automation easier, add this to your local `~/.ssh/config`:
+
+```sshconfig
+Host github.com
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentityFile ~/.ssh/github
+
+Host *
+    AddKeysToAgent yes
+    UseKeychain yes
+    IdentityFile ~/.ssh/id_rsa
 ```
 
 ## 1. Pre-flight Check (Recommended)
@@ -65,6 +79,7 @@ Before committing to a full deployment, verify the VPS can handle the dependenci
    
    # Install and Rebuild
    pnpm install --prod
+   pnpm approve-builds
    pnpm rebuild better-sqlite3
    ```
    *Note: If the rebuild fails, ensure `build-essential` is installed via root.*
@@ -78,6 +93,13 @@ location ~ \.db$ {
     deny all;
     return 404;
 }
+
+# Add Reverse Proxy Headers (CRITICAL for Auth)
+# Add these inside your 'location /' block or the main site configuration
+proxy_set_header Host $host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
 ## 3. Environment Variables (.env.production)
@@ -136,13 +158,14 @@ Before starting the app, ensure the port is clear and everything is installed.
 # 1. Source NVM (Required)
 export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use v22.21.1
 
-# 2. Kill existing process on port 3000
-fuser -k 3000/tcp
+# 2. Delete default/zombie processes (Cleanup)
+pm2 delete chesshurdles || true
 
 # 3. Install and build
 cd /home/chesshurdles/htdocs/chesshurdles.com/
 pnpm config set only-built-dependencies better-sqlite3
 pnpm install --prod
+pnpm approve-builds
 pnpm rebuild better-sqlite3
 ```
 

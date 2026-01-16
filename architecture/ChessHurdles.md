@@ -60,3 +60,7 @@
 ## Agent Credentials
 - **Email**: antigravity@stzdev.com
 - **Password**: gemini-antigravity
+
+## Development Guidelines
+> [!IMPORTANT]
+> **Do NOT modify files in `stzUser/` or `stzUtils/` directly.** These are upstream folders. Any necessary changes or overrides should be handled via environment variables, wrappers, or by contributing to the upstream projects.
