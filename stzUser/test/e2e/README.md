@@ -150,6 +150,24 @@ When tests run, you'll see output like:
 ✅ Contact form email test completed successfully
 ```
 
+## Bot Protection Testing (Cloudflare Turnstile)
+
+The application uses Cloudflare Turnstile to protect the sign-up flow from bots. This presents a challenge for automated tests, which we handle using Cloudflare's dedicated test keys.
+
+### How It Works in Tests
+
+1.  **Always Pass Keys**: In `.env.test`, we use Cloudflare's "Always Pass" dummy keys:
+    *   `TURNSTILE_SITE_KEY`: `1x00000000000000000000AA`
+    *   `TURNSTILE_SECRET_KEY`: `1x0000000000000000000000000000000AA`
+2.  **Health Checks**: The `ensureServerRunning()` utility in `utils/server-check.ts` includes the `x-turnstile-token` header when verifying the sign-up endpoint's readiness.
+3.  **Client-Side**: The Turnstile widget automatically "solves" the challenge in the test environment because of the dummy site key, rendering a valid token that is sent to the server.
+
+### Manual Verification of Protection
+
+To verify that the server correctly *rejects* sign-ups without a token:
+- Temporarily remove the `x-turnstile-token` from the request in `SignUp.tsx`.
+- The server will return a `400 Bad Request` with an `INVALID_TURNSTILE_TOKEN` error code.
+
 ## Key Benefits
 
 ### 🔒 **Production Safety**

@@ -10,8 +10,7 @@ We use a multi-layered testing approach:
 
 ## File Structure
 
-```
-src/test/
+stzUser/test/
 ├── README.md              # This file - comprehensive testing documentation
 ├── e2e/
 │   ├── config/
@@ -23,6 +22,7 @@ src/test/
 │   │   └── server-check.ts      # Development server utilities
 │   ├── contact-form-shows-email-success.spec.ts # Contact form email functionality tests
 │   ├── smoke-navigation.spec.ts # E2E navigation and functionality tests
+│   ├── wallet-visibility.spec.ts # Ledger balance and badge reactivity tests
 │   └── README.md                # Email testing documentation
 ├── output/
 │   ├── playwright-report/ # E2E test reports (auto-generated)
@@ -31,7 +31,9 @@ src/test/
 │   ├── setup.ts           # Test environment setup (jest-dom matchers)
 │   ├── test-utils.tsx     # TanStack Router testing utilities
 │   ├── routes.test.tsx    # Simple component smoke tests
-│   └── route-imports.test.tsx # Route import and rendering tests
+│   ├── route-imports.test.tsx # Route import and rendering tests
+│   ├── users-integration.test.ts # Direct database/Kysely interaction tests
+│   └── wallet.integration.test.ts # Ledger and consumption logic tests
 ```
 
 ## Quick Start
@@ -414,7 +416,8 @@ pnpm test:all         # Complete test suite (unit + E2E)
 - **Performance Testing**: Monitor component render times and memory usage
 
 ### E2E Testing
-- **Email Testing**: Comprehensive email functionality testing with Ethereal Email (✅ **IMPLEMENTED**)
+- **Email Testing**: Comprehensive email functionality testing with Ethereal Email
+- **Wallet Testing**: Integrated tests for Ledger balances and UI badge reactivity
 - **Visual Regression**: Add screenshot comparison testing
 - **Authentication Flows**: Test sign-in/sign-up user journeys
 - **Form Interactions**: Comprehensive form validation and submission testing

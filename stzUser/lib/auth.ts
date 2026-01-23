@@ -10,6 +10,8 @@ import { transportOptions, sendEmail } from "~stzUser/lib/mail-utilities"
 import { routeStrings } from "~/constants"
 import { appDatabase } from "./database"
 import { minPasswordLength } from "./password-validation"
+import { verifyTurnstileToken } from "~stzUser/lib/turnstile.server"
+import { APIError } from "better-auth/api"
 
 // import { getEnvVar } from "./env"
 
@@ -58,18 +60,20 @@ export const auth = betterAuth({
         console.log('🔧 sendChangeEmailVerification called:', { user: user.email, newEmail, url });
         console.log('🔧 DEBUG: This function should send email to NEW address:', newEmail);
         // Send verification email to the NEW email address for email changes
-        await sendEmail({ data: {
-          to: newEmail, // Send to the new email address, not the old one
-          from: from || 'test@example.com',
-          subject: verifyChangeEmailSubject /* + ' - sendChangeEmailVerification' */,
-          text: `${verifyChangeEmailInstructions} ${newEmail} 
+        await sendEmail({
+          data: {
+            to: newEmail, // Send to the new email address, not the old one
+            from: from || 'test@example.com',
+            subject: verifyChangeEmailSubject /* + ' - sendChangeEmailVerification' */,
+            text: `${verifyChangeEmailInstructions} ${newEmail} 
 
           ${verifyChangeEmailLinkText}
           ${url}`,
-          html: `<p>${verifyChangeEmailInstructions} ${newEmail}</p>
+            html: `<p>${verifyChangeEmailInstructions} ${newEmail}</p>
           <br />
           <a href=${url}>${verifyChangeEmailLinkText}</a>`,
-        }})
+          }
+        })
       }
     },
     deleteUser: {
@@ -85,14 +89,16 @@ export const auth = betterAuth({
     ) => {
       console.log('🔄 sendResetPassword called for user:', user.email);
       console.log('🔄 Current time:', new Date().toISOString());
-      
-      await sendEmail({ data: {
-        to: user.email,
-        from: from || 'test@example.com',
-        subject: passwordResetSubject,
-        text: `${passwordResetLinkText}${url}`,
-        html: `<a href="${url}">${passwordResetLinkText}</a>`,
-      }})
+
+      await sendEmail({
+        data: {
+          to: user.email,
+          from: from || 'test@example.com',
+          subject: passwordResetSubject,
+          text: `${passwordResetLinkText}${url}`,
+          html: `<a href="${url}">${passwordResetLinkText}</a>`,
+        }
+      })
     },
     onPasswordReset: async ({ user }, request) => {
       console.log('✅ Password reset completed for user:', user.email);
@@ -124,23 +130,25 @@ export const auth = betterAuth({
       console.log('🔍 DEBUG: isEmailChange =', isEmailChange);
       if (!isEmailChange) {
         console.log('📧 sendVerificationEmail: sending signup verification email to', user.email);
-        
-        await sendEmail({ data: {
-          to: user.email,
-          from: from || 'test@example.com',
-          subject: verifyEmailSubject /* + ' - sendVerificationEmail' */,
-          text: `${verifyEmailInstructions}
+
+        await sendEmail({
+          data: {
+            to: user.email,
+            from: from || 'test@example.com',
+            subject: verifyEmailSubject /* + ' - sendVerificationEmail' */,
+            text: `${verifyEmailInstructions}
 
 ${verifyEmailLinkText}
 ${url}`,
-          html: `<p>${verifyEmailInstructions}</p>
+            html: `<p>${verifyEmailInstructions}</p>
           <br />
           <a href="${url}">${verifyEmailLinkText}</a>`,
-        }})
-      } 
+          }
+        })
+      }
       else {
         console.log('🚫 sendVerificationEmail: skipping old-email verification for change-email flow.  Calling verifyEmail directly, maybe for no good reason');
-        
+
         // Experiment - get the token and verify the email address old email address.
         // I may have observed the changed email address not being verified but now i'm not sure. 
         // The following uses server-side auth.api.verifyEmail instead of client-side verifyEmail
@@ -149,7 +157,7 @@ ${url}`,
         const token = searchParams.get("token") ?? ""
         await auth.api.verifyEmail({
           query: {
-            token 
+            token
           }
         })
       }
@@ -159,6 +167,27 @@ ${url}`,
   //   expiresIn: 60 * 60 * 24 * 7, // 7 days
   //   updateAge: 60 * 60 * 24, // 1 day (how often the session expiration is updated)
   // },
+  hooks: {
+    before: async (context) => {
+      // Better Auth paths are relative to the auth base path (usually /api/auth)
+      // but the context.request URL might vary depending on how it's called.
+      if (context.request?.url.includes("/sign-up/email")) {
+        const token = context.request.headers.get("x-turnstile-token");
+        if (!token) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Anti-bot verification required",
+          });
+        }
+        const isValid = await verifyTurnstileToken(token);
+        if (!isValid) {
+          throw new APIError("BAD_REQUEST", {
+            message: "Anti-bot verification failed",
+          });
+        }
+      }
+      return { context };
+    },
+  },
   plugins: [
     admin({
       ac: createAccessControl({

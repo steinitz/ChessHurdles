@@ -1,5 +1,5 @@
-import {spawn, ChildProcess, exec} from 'child_process';
-import {promisify} from 'util';
+import { spawn, ChildProcess, exec } from 'child_process';
+import { promisify } from 'util';
 
 const sleep = promisify(setTimeout);
 const execAsync = promisify(exec);
@@ -19,7 +19,7 @@ export async function findProcessOnPort(port: number = 3000): Promise<number | n
     // If lsof fails, try netstat approach (fallback)
     try {
       const { stdout } = await execAsync(`netstat -tulpn 2>/dev/null | grep :${port}`);
-      const match = stdout.match(/\s+(\d+)\//); 
+      const match = stdout.match(/\s+(\d+)\//);
       return match ? parseInt(match[1], 10) : null;
     } catch {
       return null;
@@ -38,7 +38,7 @@ export async function terminateProcess(pid: number, timeoutMs: number = 5000): P
     // First try graceful termination with SIGTERM
     process.kill(pid, 'SIGTERM');
     console.log(`📤 Sent SIGTERM to process ${pid}`);
-    
+
     // Wait for graceful shutdown
     const startTime = Date.now();
     while (Date.now() - startTime < timeoutMs) {
@@ -52,15 +52,15 @@ export async function terminateProcess(pid: number, timeoutMs: number = 5000): P
         return;
       }
     }
-    
+
     // If we reach here, graceful termination failed - use SIGKILL
     console.log(`⚠️  Process ${pid} didn't respond to SIGTERM, using SIGKILL`);
     process.kill(pid, 'SIGKILL');
     console.log(`💀 Sent SIGKILL to process ${pid}`);
-    
+
     // Wait a bit to ensure process is killed
     await sleep(500);
-    
+
   } catch (error: any) {
     if (error.code === 'ESRCH') {
       // Process doesn't exist - already terminated
@@ -125,7 +125,10 @@ export async function checkServerReadiness(baseURL: string = 'http://localhost:3
     try {
       const signupTestResponse = await fetch(`${baseURL}/api/auth/sign-up/email`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-turnstile-token': '1x00000000000000000000AA'
+        },
         body: JSON.stringify({
           email: 'readiness-test@example.com',
           password: 'TestPassword123!',
@@ -234,7 +237,7 @@ export async function ensureServerRunning(baseURL: string = 'http://localhost:30
   // Check if server is running but not ready
   if (await checkServerStatus(baseURL)) {
     const pid = await findProcessOnPort(3000);
-    
+
     if (pid && process.env.SKIP_SERVER_TERMINATION_COUNTDOWN === 'true') {
       console.log('⚠️  Server running without test environment. Auto-terminating due to SKIP_SERVER_TERMINATION_COUNTDOWN=true');
       await terminateProcess(pid);
@@ -245,13 +248,13 @@ export async function ensureServerRunning(baseURL: string = 'http://localhost:30
       console.log('⚠️  Server is running but not with test environment.');
       console.log('🔄 Starting countdown to auto-terminate server...');
       console.log('💡 Set SKIP_SERVER_TERMINATION_COUNTDOWN=true to skip countdown, or Ctrl+C to cancel');
-      
+
       // 10-second countdown
       for (let i = 10; i > 0; i--) {
         console.log(`⏰ Terminating server in ${i} seconds... (Ctrl+C to cancel)`);
         await sleep(1000);
       }
-      
+
       console.log('🛑 Terminating existing server...');
       await terminateProcess(pid);
       // Wait a moment for port to be freed
@@ -307,7 +310,7 @@ export async function ensureServerRunning(baseURL: string = 'http://localhost:30
       // Additional stabilization time for better-auth and database
       console.log('🔄 Server ready, allowing stabilization time...');
       await sleep(2000); // 2 seconds for better-auth to fully initialize
-      
+
       // Final readiness verification
       if (await checkServerReadiness(baseURL)) {
         console.log('✅ Development server started and fully ready');
@@ -320,4 +323,4 @@ export async function ensureServerRunning(baseURL: string = 'http://localhost:30
   }
 
   throw new Error('Failed to start development server within timeout period');
-}``
+} ``

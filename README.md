@@ -4,8 +4,9 @@ A production-ready starter template with authentication, database integration, a
 
 ## What You Get
 
-- 🔐 **Complete Authentication System** - Sign up, login, password reset, email verification
-- 🗄️ **Database Ready** - SQLite with Drizzle ORM, easily switchable to PostgreSQL/MySQL
+- 🔐 **Complete Authentication System** - Sign up, login, password reset, email verification, and **bot protection with Cloudflare Turnstile**
+- 🗄️ **Database Ready** - SQLite with Kysely, easily switchable to PostgreSQL/MySQL
+- 💳 **Usage & Credit Ledger** - Built-in "Wallet" system with daily allowance and credit-based consumption
 - 🎨 **Clean UI Foundation** - MVP.css styling with custom components
 - 🧪 **Full Testing Suite** - Unit tests (Vitest) and E2E tests (Playwright) with email testing
 - 📧 **Email Integration** - Transactional emails with Resend API
@@ -52,10 +53,11 @@ A production-ready starter template with authentication, database integration, a
 
 **Authentication & Security**
 - **Better Auth** - Comprehensive auth with social providers, 2FA, sessions
-- **Secure by default** - CSRF protection, secure headers, input validation
+- **Cloudflare Turnstile** - Non-interactive bot protection for the sign-up flow
+- **Secure by default** - CSRF protection, secure headers, input validation, and server-side Turnstile verification
 
 **Database & Backend**
-- **Drizzle ORM** - Type-safe database operations with migrations
+- **Kysely** - Type-safe SQL builder for database operations
 - **SQLite** - Zero-config database (PostgreSQL/MySQL ready)
 - **Server-side rendering** - SEO-friendly with hydration
 

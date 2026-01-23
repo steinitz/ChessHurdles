@@ -32,6 +32,7 @@ type ClientEnv = {
   SUPPORT_EMAIL_ADDRESS: string | undefined
   COMPANY_NAME: string
   BETTER_AUTH_BASE_URL: string
+  TURNSTILE_SITE_KEY: string
 }
 
 // Load environment variables based on NODE_ENV
@@ -40,23 +41,28 @@ if (isServer()) {
 }
 
 // Client-safe environment variables (exposed to browser)
-export const clientEnv: ClientEnv = isServer() 
+export const clientEnv: ClientEnv = isServer()
   ? {
-      APP_NAME: process.env.APP_NAME || 'TanStack Start with Better Auth',
-      SMTP_FROM_ADDRESS: process.env.SMTP_FROM_ADDRESS,
-      SUPPORT_EMAIL_ADDRESS: process.env.SUPPORT_EMAIL_ADDRESS,
-      COMPANY_NAME: process.env.COMPANY_NAME || 'Your Company',
-      BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || 'http://localhost:3000',
-    }
-  : (typeof window !== 'undefined' && window.__ENV) 
+    APP_NAME: process.env.APP_NAME || 'TanStack Start with Better Auth',
+    SMTP_FROM_ADDRESS: process.env.SMTP_FROM_ADDRESS,
+    SUPPORT_EMAIL_ADDRESS: process.env.SUPPORT_EMAIL_ADDRESS,
+    COMPANY_NAME: process.env.COMPANY_NAME || 'Your Company',
+    BETTER_AUTH_BASE_URL:
+      process.env.BETTER_AUTH_URL ||
+      process.env.BETTER_AUTH_BASE_URL ||
+      'http://localhost:3000',
+    TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY || '1x00000000000000000000AA',
+  }
+  : (typeof window !== 'undefined' && window.__ENV)
     ? window.__ENV
     : {
-        APP_NAME: 'TanStack Start with Better Auth',
-        SMTP_FROM_ADDRESS: undefined,
-        SUPPORT_EMAIL_ADDRESS: undefined,
-        COMPANY_NAME: 'Your Company',
-        BETTER_AUTH_BASE_URL: 'http://localhost:3000',
-      }
+      APP_NAME: 'TanStack Start with Better Auth',
+      SMTP_FROM_ADDRESS: undefined,
+      SUPPORT_EMAIL_ADDRESS: undefined,
+      COMPANY_NAME: 'Your Company',
+      BETTER_AUTH_BASE_URL: (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
+      TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+    }
 
 // console.log({clientEnv});
 

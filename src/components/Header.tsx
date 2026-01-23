@@ -68,6 +68,7 @@ export const Header = () => {
       >
         Contact
       </Link>
+      <Spacer orientation={'horizontal'} space={1} />
       <UserBlock />
     </section>
   )

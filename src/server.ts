@@ -5,12 +5,19 @@ import {
 } from '@tanstack/react-start/server'
 import { createRouter } from './router'
 import { initializeChessDatabase } from './lib/chess-migrations'
+import { ensureAdditionalTables } from '~stzUser/lib/migrations'
 
-// Initialize chess database on server startup
-initializeChessDatabase().catch(error => {
-  console.error('Failed to initialize chess database:', error)
-  // Don't exit the process - let the app start but log the error
-})
+// Initialize databases on server startup
+const initDatabases = async () => {
+  try {
+    await initializeChessDatabase()
+    await ensureAdditionalTables()
+  } catch (error) {
+    console.error('Failed to initialize databases:', error)
+  }
+}
+
+initDatabases()
 
 export default createStartHandler({
   createRouter,

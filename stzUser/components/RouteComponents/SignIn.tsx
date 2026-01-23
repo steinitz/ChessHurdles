@@ -42,7 +42,7 @@ export const SignIn = () => {
   const doSignIn = async (
     { email, password }: SignInData
   ) => {
-    console.log('doSignin call to signIn.email()\n', { email, password })
+    // console.log('doSignin call to signIn.email()\n', {email, password})
 
     const {
       data,
@@ -55,10 +55,10 @@ export const SignIn = () => {
       },
       {
         onRequest: async (ctx) => {
-          console.log('signin.email - onRequest', { ctx })
+          // console.log('signin.email - onRequest', {ctx})
         },
         onSuccess: async (ctx) => {
-          console.log('signin.email - onSuccess', { ctx })
+          // console.log('signin.email - onSuccess', {ctx})
           window.location.href = '/' // TanStack navigation doesn't work here
         },
         onError: async (ctx) => {

@@ -11,6 +11,11 @@ This directory contains the "pure foundation" authentication components and util
   - `form.tsx` - Form utilities and validation helpers
   - `EmailTestUtils.ts` - General utility functions
 
+  - `turnstile.server.ts` - Cloudflare Turnstile server-side verification
+  - `wallet.logic.ts` - Core ledger and consumption business logic
+  - `wallet.server.ts` - Resource usage and credit ledger server functions
+  - `migrations.ts` - Declarative database schema sync
+
 - **`components/`** - Reusable UI components
   - `SignIn.tsx` - Sign-in form component
   - `userBlock.tsx` - User authentication status display
@@ -48,6 +53,16 @@ npx @better-auth/cli migrate --config stzUser/lib/auth.ts
 # Other CLI commands
 npx @better-auth/cli [command] --config stzUser/lib/auth.ts
 ```
+
+## Database Migrations
+
+This foundation uses a dual-engine migration strategy:
+
+1. **Better Auth Tables**: Managed by the Better Auth CLI (`npx @better-auth/cli migrate`). This handles users, sessions, accounts, etc.
+2. **Custom Foundation Tables**: Managed by **"Slim Sync"** logic in `stzUser/lib/migrations.ts`.
+   - **How it works**: Uses Kysely's `.ifNotExists()` pattern to declaratively define tables.
+   - **Execution**: Triggered automatically on application startup in `src/server.ts`.
+   - **Benefits**: Zero-configuration, no migration history files, and immediate consistency across environments.
 
 ## Important Configuration Notes
 
@@ -91,6 +106,7 @@ SMTP_HOST=your_smtp_host
 SMTP_PORT=587
 SMTP_USER=your_smtp_username
 SMTP_PASS=your_smtp_password
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA # Dummy key for dev
 ```
 
 ### Client-Safe Environment Variables
@@ -100,6 +116,7 @@ These variables are safely exposed to the browser via the hydration mechanism:
 APP_NAME="Your App Name"
 COMPANY_NAME="Your Company"
 SMTP_FROM_ADDRESS="noreply@yourcompany.com"
+TURNSTILE_SITE_KEY=1x00000000000000000000AA # Dummy key for dev
 ```
 
 ### Environment Variable Hydration
