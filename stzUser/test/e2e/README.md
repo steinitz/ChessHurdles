@@ -6,6 +6,7 @@ This directory contains comprehensive end-to-end testing utilities and documenta
 
 - **`signup-flow.spec.ts`** - Tests the complete user signup flow with form validation and success confirmation
 - **`contact-form-shows-email-success.spec.ts`** - Tests contact form submission and email functionality
+- **`wallet-visibility.spec.ts`** - Tests ledger balance visibility and UI reactivity
 - **`smoke.spec.ts`** - Basic smoke tests for core application functionality
 
 ## Email Testing with Mailpit

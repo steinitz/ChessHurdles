@@ -128,6 +128,9 @@ More comprehensive tests that verify actual route imports and component renderin
 - Route component rendering
 - Loader function execution
 
+**Framework Resilience Mocks:**
+This file includes generic mocks for `@tanstack/react-start` and `@tanstack/react-start/server`. This ensures application-specific routes that use `createServerFn` or `getWebRequest` can be safely imported and rendered in foundation tests without project-specific configuration.
+
 ### `unit/test-utils.tsx`
 Provides utilities for testing TanStack Router components with proper context setup, including memory history.
 
@@ -182,6 +185,14 @@ Comprehensive navigation and functionality tests:
 - 9 tests across 3 browsers (27 total test executions)
 - Core user journeys and page functionality
 - Visual element verification and interaction testing
+
+### `e2e/wallet-visibility.spec.ts`
+Tests the ledger balance and UI badge reactivity:
+
+**Tests:**
+- **Badge Visibility**: Confirms the wallet badge appears after login
+- **Reactivity**: Verifies the balance updates immediately after transactions (grants/consumption)
+- **Allowance Exhaustion**: Tests visual transitions as daily allowance is used up
 
 ### `e2e/contact-form-shows-email-success.spec.ts`
 Comprehensive contact form functionality testing:
