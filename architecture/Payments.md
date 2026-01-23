@@ -20,12 +20,13 @@ We have adopted a phased approach to balance **security (preventing abuse)**, **
 - **Fulfillment**: The admin manually increments the user's credit balance using an internal tool upon receipt of funds.
 - **Pros**: 100% revenue retention; zero "scrutiny" from Paddle/LS; no tax automation required for low volumes.
 
-### Phase 3: Automated MoR (Scalability)
-**Goal**: Fully automate the revenue and compliance flow.
-- **Logic**: Integrate a **Merchant of Record (MoR)** like Paddle or Lemon Squeezy.
+### Phase 3: Automated Stripe (Scalability & Transparency)
+**Goal**: Fully automate the revenue flow with maximum control and minimal latency.
+- **Logic**: Integrate **Stripe Checkout** directly.
 - **Fulfillment**: Webhooks handle credit grants automatically.
-- **Pros**: Passive income; global tax compliance (VAT/GST) handled by the provider.
-- **Cons**: High fees (~5%); rigorous manual website verification.
+- **Compliance**: Use **Stripe Tax** to handle automated tax calculation and reporting (GST/VAT) once thresholds are met.
+- **Pros**: Low latency; 100% transparency; world-class developer tools; slightly lower fees than MoRs.
+- **Cons**: You occupy the "compliance seat" (though Stripe Tax automates most of the legwork).
 
 ---
 
