@@ -25,3 +25,21 @@ Extract granular, logic-wrapped components that downstream projects can import a
 - **`LegalLinksBundle`**: A small layout component that groups these links (useful for Footers).
 
 This allows the application's `Header` and `Footer` to stay in `src/components` (for maximum layout control) while "plugging in" foundation-managed elements.
+
+## Footer & Legal Compliance
+
+### Bare-Bones Compliance Footer
+To satisfy Stripe/Merchant compliance audits, the footer should prioritize low-friction access to contact and legal information over aesthetic flourishes.
+
+**Proposed Change:**
+- **Two-Row Layout**: A left-justified, two-row footer.
+    - Row 1 (User Interaction): Contact | Acknowledgements | About.
+    - Row 2 (Legal Compliance): Terms of Service | Refunds | Privacy Policy | Copyright.
+- **Standalone Policy Pages**: Create audit-friendly URLs for compliance bots/auditors.
+    - `About`: Mission, Legal Entity Name, Registered Address, Support Email.
+    - `Acknowledgements`: Centralizes attributions (e.g., Flaticon) and tech stack nods (React, TanStack, etc.) to declutter the UI.
+    - `Refunds`: Explicit policy on non-refundability for instantly consumed digital assets.
+- **Implementation Strategy**:
+    - **Deep Linking**: Link from Terms of Service directly to the standalone Refund Policy.
+    - **Styling Constraints**: Use a minimalist "bare-bones" aesthetic (e.g., `0.75rem`, left-justified) to maintain professional neutrality for financial compliance.
+    - **Extension Pattern**: Provide these as local components in `src/components/Legal/` initially, allowing downstream projects to "override" or customize them before they are eventually promoted to a shared upstream package.
