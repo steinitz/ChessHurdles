@@ -5,6 +5,13 @@ import { Kysely, SqliteDialect } from "kysely";
 const dbPath = process.env.DATABASE_PATH || "sqlite.db";
 export const appDatabase = new Database(dbPath);
 
+// Enable WAL mode for better concurrency with local SQLite
+try {
+  appDatabase.pragma('journal_mode = WAL');
+} catch (e) {
+  console.error("Failed to enable WAL mode:", e);
+}
+
 /**
  * User-related database types
  * 
@@ -61,12 +68,15 @@ export interface UserTable {
   banned: number | null; // SQLite stores booleans as 0/1
   banReason: string | null;
   banExpires: string | null; // SQLite stores dates as strings
+  credits: number; // For performance-optimized balance access
+  welcome_claimed: number; // Acting as boolean (0 or 1)
 }
 
 export interface TransactionTable {
   id: string;
   user_id: string;
   amount: number; // Positive for credits, negative for debits
+  type: 'daily_grant' | 'consumption' | 'purchase' | 'manual_adjustment';
   description: string;
   created_at: string;
 }
@@ -77,6 +87,7 @@ export interface ResourceUsageTable {
   resource_type: string; // e.g., 'chess_game_analysis'
   created_at: string;
 }
+
 
 // Initialize Kysely instance
 export const db = new Kysely<Database>({

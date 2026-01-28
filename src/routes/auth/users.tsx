@@ -1,9 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { UserManagement } from '~stzUser/components/Other/UserManagement'
 import { useGetAllUsers } from '~stzUser/lib/users-client'
 import { useSession } from '~stzUser/lib/auth-client'
 import { useEffect, useState } from 'react'
 import type { User } from '~stzUser/lib/users-client'
+import { userRoles } from '~stzUser/constants'
 
 function UsersPage() {
   const { data: session } = useSession()
@@ -30,11 +31,12 @@ function UsersPage() {
     loadUsers()
   }, [session?.user?.id, session?.user?.role]) // Reload when user or role changes
 
-  if (!session?.user) {
+  if (!session?.user || session?.user?.role !== userRoles.admin) {
     return (
-      <div>
-        <h1>User Management</h1>
-        <p>Please sign in to view user management.</p>
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <h1>Access Denied</h1>
+        <p>You must be an administrator to view this page.</p>
+        <Link to="/">Return to Home</Link>
       </div>
     )
   }

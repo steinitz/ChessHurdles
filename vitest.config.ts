@@ -13,4 +13,7 @@ export default defineConfig({
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/*.spec.ts', '**/*.spec.tsx', 'node_modules/**'],
   },
+  ssr: {
+    noExternal: ['better-auth', 'kysely-libsql', '@libsql/client'],
+  },
 })

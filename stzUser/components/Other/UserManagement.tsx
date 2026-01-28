@@ -1,10 +1,10 @@
-import {useDeleteUserById, useSetUserRole, useDemoteUserToUserRole, useUpdateEmailVerificationStatus, type User} from '~stzUser/lib/users-client'
-import {Spacer} from '~stzUtils/components/Spacer'
-import {useState, useEffect, useMemo} from 'react'
-import {admin, useSession} from '~stzUser/lib/auth-client'
-import {userRoles, userRolesType} from '~stzUser/constants'
-import {testConstants} from '~stzUser/test/constants'
-import {useReactTable, getCoreRowModel, getSortedRowModel, createColumnHelper, flexRender} from '@tanstack/react-table'
+import { useDeleteUserById, useSetUserRole, useDemoteUserToUserRole, useUpdateEmailVerificationStatus, type User } from '~stzUser/lib/users-client'
+import { Spacer } from '~stzUtils/components/Spacer'
+import { useState, useEffect, useMemo } from 'react'
+import { admin } from '~stzUser/lib/auth-client'
+import { userRoles, userRolesType } from '~stzUser/constants'
+import { testConstants } from '~stzUser/test/constants'
+import { useReactTable, getCoreRowModel, getSortedRowModel, createColumnHelper, flexRender } from '@tanstack/react-table'
 
 // takes a database date and formats it as 5 Aug 25
 const niceFormattedDate = (dateStringFromDB) => {
@@ -15,19 +15,15 @@ const niceFormattedDate = (dateStringFromDB) => {
   }
 
   const date = new Date(dateStringFromDB)
-  
+
   // 'en-US' for English (United States) locale, but 'au',
   // miraculously, gets the format I want: 5 Aug 25
-  const formatter = new Intl.DateTimeFormat('au', options); 
+  const formatter = new Intl.DateTimeFormat('au', options);
 
   return formatter.format(date);
 }
 
-export function UserManagement({users}) {
-  const {data: session} = useSession()
-  const signedInUser = session?.user
-  const signedInUserHasAdminRole = signedInUser?.role === userRoles.admin
-
+export function UserManagement({ users }) {
   const [adminUsers, setAdminUsers] = useState<Set<string>>(new Set())
   const [sorting, setSorting] = useState([])
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -36,7 +32,7 @@ export function UserManagement({users}) {
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
       try {
-        await useDeleteUserById({data: userId})
+        await useDeleteUserById({ data: userId })
         // Refresh the page to show updated user list
         window.location.reload()
       } catch (error) {
@@ -49,7 +45,7 @@ export function UserManagement({users}) {
   }
 
   const handleCleanTestUsers = async () => {
-    const testUsers = users.filter(user => 
+    const testUsers = users.filter(user =>
       // user.name === testConstants.defaultUserName && // this prevented deletion of certain test users
       (user.email.endsWith('@example.com') || user.email.endsWith(`@${testConstants.defaultUserDomain}`))
     )
@@ -63,7 +59,7 @@ export function UserManagement({users}) {
       try {
         // Delete users in sequence to avoid overwhelming the server
         for (const user of testUsers) {
-          await useDeleteUserById({data: user.id})
+          await useDeleteUserById({ data: user.id })
         }
         // Refresh the page to show updated user list
         window.location.reload()
@@ -82,11 +78,11 @@ export function UserManagement({users}) {
     try {
       if (isCurrentlyAdmin) {
         // Demote from admin to regular user
-        await useDemoteUserToUserRole({data: {userId}})
+        await useDemoteUserToUserRole({ data: { userId } })
         newAdminUsers.delete(userId)
       } else {
         // Add admin role
-        await useSetUserRole({data: {userId, role: userRoles.admin as userRolesType}})
+        await useSetUserRole({ data: { userId, role: userRoles.admin as userRolesType } })
         newAdminUsers.add(userId)
       }
 
@@ -104,10 +100,10 @@ export function UserManagement({users}) {
     const newEmailVerified = !selectedUser.emailVerified
 
     try {
-      await useUpdateEmailVerificationStatus({data: {userId, emailVerified: newEmailVerified}})
+      await useUpdateEmailVerificationStatus({ data: { userId, emailVerified: newEmailVerified } })
 
       // Update the selected user state to reflect the change immediately
-      setSelectedUser({...selectedUser, emailVerified: newEmailVerified})
+      setSelectedUser({ ...selectedUser, emailVerified: newEmailVerified })
 
       console.log('Email verification status updated for user:', userId, 'Verified:', newEmailVerified)
     } catch (error) {
@@ -125,7 +121,7 @@ export function UserManagement({users}) {
   useEffect(() => {
     const loadAdminUsers = async () => {
       try {
-        const {data: usersData, error} = await admin.listUsers({
+        const { data: usersData, error } = await admin.listUsers({
           query: {}
         })
         if (!error && usersData) {
@@ -178,53 +174,51 @@ export function UserManagement({users}) {
         return valueA === valueB ? 0 : valueA ? 1 : -1
       },
     }),
-    ...(signedInUserHasAdminRole ? [
     // This could be a columnHelper.display but sorting
     // doesn't seem to get enabled for that column type
     // Other have reported this issue/bug since 2022.
     columnHelper.accessor('id', {
-        id: 'role',
-        header: 'Role',
-        cell: ({row}) => {
-          const user = row.original
-          return (
-            <div
-              style={{
-                color: (adminUsers.has(user.id) ?
-                  'var(--color-text)' :
-                  'var(--color-text-secondary)')
-              }}
-            >
-              {adminUsers.has(user.id) ? userRoles.admin : userRoles.user}&nbsp;
-              {adminUsers.has(user.id) ? '👑' : '👤'}
-            </div>
-          )
-        },
-        enableSorting: true,
-        sortingFn: (rowA, rowB) => {
-          // utility function to determine if user is an admin
-          const isAdmin = (userId) => adminUsers.has(userId)
+      id: 'role',
+      header: 'Role',
+      cell: ({ row }) => {
+        const user = row.original
+        return (
+          <div
+            style={{
+              color: (adminUsers.has(user.id) ?
+                'var(--color-text)' :
+                'var(--color-text-secondary)')
+            }}
+          >
+            {adminUsers.has(user.id) ? userRoles.admin : userRoles.user}&nbsp;
+            {adminUsers.has(user.id) ? '👑' : '👤'}
+          </div>
+        )
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        // utility function to determine if user is an admin
+        const isAdmin = (userId) => adminUsers.has(userId)
 
-          // we just compare booleans
-          const valueA = isAdmin(rowA.original.id)
-          const valueB = isAdmin(rowB.original.id)
+        // we just compare booleans
+        const valueA = isAdmin(rowA.original.id)
+        const valueB = isAdmin(rowB.original.id)
 
-          // first sort will put admins at the top
-          return  valueA === valueB ? 0 : 
-                  valueA > valueB ? -1 : 1
-        },
-      })
-    ] : []),
+        // first sort will put admins at the top
+        return valueA === valueB ? 0 :
+          valueA > valueB ? -1 : 1
+      },
+    }),
     columnHelper.display({
       id: 'userId',
       header: 'User ID',
-      cell: ({row}) => {
+      cell: ({ row }) => {
         const user = row.original
         return (
-          <div style={{fontSize: '12px', fontFamily: 'monospace'}}>
+          <div style={{ fontSize: '12px', fontFamily: 'monospace' }}>
             <span
               onClick={() => copyUserId(user.id)}
-              style={{cursor: 'pointer', textDecoration: 'underline', color: '#0066cc'}}
+              style={{ cursor: 'pointer', textDecoration: 'underline', color: '#0066cc' }}
               title="Click to copy User ID"
             >
               ID: {user.id.substring(0, 8)}...
@@ -234,7 +228,7 @@ export function UserManagement({users}) {
       },
     }),
 
-  ], [adminUsers, signedInUserHasAdminRole, handleAdminToggle, handleDeleteUser, copyUserId])
+  ], [adminUsers, handleAdminToggle, handleDeleteUser, copyUserId])
 
   // Create computed users data that incorporates selectedUser updates
   const tableData = useMemo(() => {
@@ -255,13 +249,13 @@ export function UserManagement({users}) {
     getSortedRowModel: getSortedRowModel(),
   })
 
-  const checkboxAndLabelFlexStyle =  {
+  const checkboxAndLabelFlexStyle = {
     display: 'flex', // don't need because mvc.css inlines
-    alignItems: 'center', 
+    alignItems: 'center',
     width: '50px', // without this box and label are really wide
     marginLeft: '-20px',
     marginTop: '-13px', // why needed?
-    
+
 
     // marginTop: '-10px' // can't get them verticallyl aligned without
 
@@ -278,36 +272,36 @@ export function UserManagement({users}) {
     // padding: '0',
   }
   const checkboxLabelStyle = {
-    whiteSpace: 'nowrap', 
+    whiteSpace: 'nowrap',
     marginTop: '-12px' // aligns label and check box and packs the whole row tighter to match the other fields
     // margin: '0', 
-    
+
 
     //marginTop: '5px',
   }
 
   const CheckboxAndLabel = (
     {
-      selectedUser, 
+      selectedUser,
       changeHandler,
       label,
       inputId,
     }
   ) => {
     return (
-      <div 
+      <div
         style={checkboxAndLabelFlexStyle}
       >
         <input
-            style={checkboxStyle}
-            type="checkbox"
-            id={inputId}
-            checked={selectedUser.emailVerified}
-            onChange={() => changeHandler(selectedUser.id)}
+          style={checkboxStyle}
+          type="checkbox"
+          id={inputId}
+          checked={selectedUser.emailVerified}
+          onChange={() => changeHandler(selectedUser.id)}
         />
-        <label 
+        <label
           style={checkboxLabelStyle}
-          htmlFor={inputId} 
+          htmlFor={inputId}
         >
           {label}
         </label>
@@ -318,33 +312,29 @@ export function UserManagement({users}) {
   return (
     <main>
       <section>
-        <div style={{display: 'flex', justifyContent: 'center', gap: '2rem'}}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '2rem' }}>
           <h3>Registered Users ({users.length})</h3>
-          {signedInUserHasAdminRole && (
-            <>
-              <div style={{marginBottom: '1rem'}}>
-                <button
-                  type="button"
-                  onClick={handleCleanTestUsers}
-                  style={{
-                    backgroundColor: "var(--color-warning, #ff9800)",
-                    borderColor: "var(--color-warning, #ff9800)",
-                    fontSize: '0.9rem',
-                    padding: '0.5rem 1rem'
-                  }}
-                >
-                  Clean Test Users
-                </button>
-              </div>
-            </>
-          )}
+          <div style={{ marginBottom: '1rem' }}>
+            <button
+              type="button"
+              onClick={handleCleanTestUsers}
+              style={{
+                backgroundColor: "var(--color-warning, #ff9800)",
+                borderColor: "var(--color-warning, #ff9800)",
+                fontSize: '0.9rem',
+                padding: '0.5rem 1rem'
+              }}
+            >
+              Clean Test Users
+            </button>
+          </div>
         </div>
         <Spacer space={0} />
         {users.length === 0 ? (
           <p>No users registered yet.</p>
         ) : (
-          <div style={{display: 'flex', flexDirection: 'column', width: 'fit-content', margin: '0 auto'}}>
-            <table style={{borderCollapse: 'collapse'}}>
+          <div style={{ display: 'flex', flexDirection: 'column', width: 'fit-content', margin: '0 auto' }}>
+            <table style={{ borderCollapse: 'collapse' }}>
               <thead>
                 {table.getHeaderGroups().map(headerGroup => (
                   <tr key={headerGroup.id}>
@@ -370,7 +360,7 @@ export function UserManagement({users}) {
                           e.currentTarget.style.backgroundColor = 'transparent'
                         }}
                       >
-                        <div style={{display: 'flex', alignItems: 'center', gap: '6px'}}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -401,20 +391,20 @@ export function UserManagement({users}) {
                 {table.getRowModel().rows.map(row => (
                   <tr
                     key={row.id}
-                    onClick={signedInUserHasAdminRole ? () => {
+                    onClick={() => {
                       const user = row.original
                       setSelectedUser(user)
-                    } : undefined}
+                    }}
                     style={{
-                      cursor: signedInUserHasAdminRole ? 'pointer' : 'default',
+                      cursor: 'pointer',
                       transition: 'background-color 0.2s ease'
                     }}
-                    onMouseEnter={signedInUserHasAdminRole ? (e) => {
+                    onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)'
-                    } : undefined}
-                    onMouseLeave={signedInUserHasAdminRole ? (e) => {
+                    }}
+                    onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent'
-                    } : undefined}
+                    }}
                   >
                     {row.getVisibleCells().map(cell => (
                       <td
@@ -439,13 +429,13 @@ export function UserManagement({users}) {
           <>
             <Spacer />
             <section>
-              <h3><span style={{fontWeight: 'normal'}}>Edit User &nbsp;</span>{selectedUser.name || selectedUser.email}</h3>
+              <h3><span style={{ fontWeight: 'normal' }}>Edit User &nbsp;</span>{selectedUser.name || selectedUser.email}</h3>
               <Spacer space={0} />
 
-              <div 
+              <div
                 style={{
-                  display: 'flex', 
-                  flexDirection: 'column', 
+                  display: 'flex',
+                  flexDirection: 'column',
                   // no effect: justifyContent: 'flex-start', 
                   // no effect: alignItems: 'flex-start', 
                   gap: '1rem'
@@ -455,37 +445,31 @@ export function UserManagement({users}) {
                   <p><strong>ID:</strong> {selectedUser.id}</p>
                 </div>
 
-                {signedInUserHasAdminRole && (
-                  <CheckboxAndLabel 
-                    selectedUser={selectedUser} 
-                    changeHandler={handleEmailVerificationToggle}
-                    label={'Email Verified'}
-                    inputId={'email-verified-checkbox'}
-                  />
-                )}
+                <CheckboxAndLabel
+                  selectedUser={selectedUser}
+                  changeHandler={handleEmailVerificationToggle}
+                  label={'Email Verified'}
+                  inputId={'email-verified-checkbox'}
+                />
 
-                {signedInUserHasAdminRole && (
-                  <CheckboxAndLabel 
-                    selectedUser={selectedUser} 
-                    changeHandler={handleAdminToggle}
-                    label={'Admin Role'}
-                    inputId={'admin-role-checkbox'}
-                  />
-                )}
+                <CheckboxAndLabel
+                  selectedUser={selectedUser}
+                  changeHandler={handleAdminToggle}
+                  label={'Admin Role'}
+                  inputId={'admin-role-checkbox'}
+                />
 
-                <div style={{display: 'flex', justifyContent: 'stretch'}}>
-                  {signedInUserHasAdminRole && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteUser(selectedUser.id, selectedUser.name || selectedUser.email)}
-                      style={{
-                        backgroundColor: "var(--color-error)",
-                        borderColor: "var(--color-error)"
-                      }}
-                    >
-                      Delete User
-                    </button>
-                  )}
+                <div style={{ display: 'flex', justifyContent: 'stretch' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteUser(selectedUser.id, selectedUser.name || selectedUser.email)}
+                    style={{
+                      backgroundColor: "var(--color-error)",
+                      borderColor: "var(--color-error)"
+                    }}
+                  >
+                    Delete User
+                  </button>
                   <Spacer orientation='horizontal' />
                   <button
                     type="button"

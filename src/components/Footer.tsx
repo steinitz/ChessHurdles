@@ -1,86 +1,83 @@
-import { DeveloperTools } from './DeveloperTools'
+import { clientEnv } from '~stzUser/lib/env'
+import { useSession } from '~stzUser/lib/auth-client'
+import { userRoles } from '~stzUser/constants'
 import { Link } from '@tanstack/react-router'
+import {
+  AboutLink,
+  AcknowledgementsLink,
+  ContactLink,
+  PrivacyLink,
+  RefundsLink,
+  TermsLink
+} from '~stzUser/components/Legal/Links'
 
 export const Footer = () => {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === userRoles.admin
+
+  const currentYear = new Date().getFullYear()
+  const copyrightYear = clientEnv.COPYRIGHT_START_YEAR === currentYear.toString()
+    ? currentYear
+    : `${clientEnv.COPYRIGHT_START_YEAR}-${currentYear}`
+
   return (
-    <div
+    <footer
       style={{
-        position: 'fixed',
-        bottom: '0rem',
-        left: '0',
         width: '100%',
-        height: '5rem', // Increased height
         backgroundColor: 'var(--color-bg)',
         borderTop: '1px solid var(--color-bg-secondary)',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'center',
-        zIndex: 1000,
+        padding: '1rem 0',
+        marginTop: '2rem',
       }}
     >
-      <main style={{
+      <div style={{
         width: '100%',
-        padding: '0 1rem',
-        height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-evenly'
+        gap: '0.75rem',
       }}>
-        {/* Top Row: Legal & Site Links */}
+        {/* Row 1: Site Information & Interaction */}
         <section
           style={{
             display: 'flex',
-            justifyContent: 'center',
-            gap: '2rem',
+            justifyContent: 'flex-start',
+            gap: '1.5rem',
             fontSize: '0.85rem',
           }}
         >
-          <Link to="/legal/terms" style={{ textDecoration: 'none', color: 'var(--color-text)' }}>Terms of Service</Link>
-          <Link to="/legal/privacy" style={{ textDecoration: 'none', color: 'var(--color-text)' }}>Privacy Policy</Link>
-          <Link to="/contact" style={{ textDecoration: 'none', color: 'var(--color-text)' }}>Contact</Link>
+          <ContactLink />
+          <AcknowledgementsLink />
+          <AboutLink />
         </section>
 
-        {/* Bottom Row: Tech Stack & Tools */}
+        {/* Row 2: Legal & Copyright */}
         <section
           style={{
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            fontSize: '0.75rem',
             opacity: 0.8,
           }}
         >
-          <div>
-            <p style={{ fontSize: '0.75rem', margin: 0 }}>
-              Built with React, TanStack Start, Better-Auth and MVP.css
-            </p>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <TermsLink />
+            <RefundsLink />
+            <PrivacyLink />
+            <span>Copyright © {copyrightYear} {clientEnv.COMPANY_NAME}. All Rights Reserved.</span>
           </div>
 
-          <div style={{ transform: 'scale(0.9)' }}>
-            <DeveloperTools
-              detailItemsStyleAttribute={{
-                position: 'absolute',
-                bottom: '100%', // Open upwards
-                left: '21%',
-              }}
-            />
-          </div>
-
-          <div>
-            <a
-              style={{
-                fontSize: '0.75rem',
-                textWrap: 'nowrap',
-                fontWeight: '400',
-                textDecoration: 'none',
-              }}
-              href="https://www.flaticon.com/free-icons/ecology"
-              title="landscape icons"
-            >
-              Ecology icon by Maan Icons
-            </a>
-          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <Link to="/admin" style={{ color: 'inherit', textDecoration: 'underline' }}>
+                Admin Tools
+              </Link>
+            </div>
+          )}
         </section>
-      </main>
-    </div>
+      </div>
+    </footer>
   )
 }

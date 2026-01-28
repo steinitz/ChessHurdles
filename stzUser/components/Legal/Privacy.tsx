@@ -1,4 +1,5 @@
 import React from 'react'
+import { ContactLink } from './Links'
 
 export const Privacy = () => {
   return (
@@ -23,7 +24,7 @@ export const Privacy = () => {
 
       <section style={{ marginTop: '1.5rem' }}>
         <h3>4. Your Rights</h3>
-        <p>You have the right to access, export, or delete your data at any time. You can use the "Delete Account" button in your profile, or email us if you need help cleaning things up.</p>
+        <p>You have the right to access or delete your data at any time. You can use the "Delete Account" button in your profile, or <ContactLink /> if you need help cleaning things up.</p>
       </section>
 
       <p style={{ marginTop: '3rem', fontSize: '0.9rem', color: 'gray' }}>

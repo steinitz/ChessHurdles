@@ -1,7 +1,7 @@
 'use server'
 
 import { auth } from './auth'
-import { appDatabase, UserWithRole, ListUsersResponse, db } from './database'
+import { UserWithRole, ListUsersResponse, db } from './database'
 
 /**
  * Query users directly from the database using Kysely
@@ -13,16 +13,16 @@ export async function queryUsersWithKysely(): Promise<UserWithRole[]> {
       .selectFrom('user')
       .selectAll()
       .execute()
-    
+
     // Convert string dates to Date objects and add role-related fields
-    return basicUsers.map(user => ({ 
+    return basicUsers.map(user => ({
       ...user,
       createdAt: new Date(user.createdAt),
-      updatedAt: new Date(user.updatedAt), 
-      role: null, 
-      banned: null, 
-      banReason: null, 
-      banExpires: null 
+      updatedAt: new Date(user.updatedAt),
+      role: null,
+      banned: null,
+      banReason: null,
+      banExpires: null
     })) as UserWithRole[]
   } catch (dbError) {
     console.error('Database query failed:', dbError)
@@ -41,11 +41,11 @@ export async function queryUserWithKysely(email: string): Promise<UserWithRole |
       .selectAll()
       .where('email', '=', email)
       .executeTakeFirst()
-    
+
     if (!user) {
       return null
     }
-    
+
     // Convert string dates to Date objects and add role-related fields
     return {
       ...user,
@@ -69,7 +69,7 @@ export async function getAllUsers(headers: Headers): Promise<UserWithRole[]> {
       query: {},
       headers
     }) as ListUsersResponse
-    
+
     // Return the users array from the response
     return result.users || []
   } catch (error) {
@@ -81,20 +81,20 @@ export async function getAllUsers(headers: Headers): Promise<UserWithRole[]> {
 
 export async function deleteUserById(userId: string, headers: Headers) {
   console.log('deleteUserById', userId)
-  
+
   try {
     // Get current session
     const session = await auth.api.getSession({ headers })
-    
+
     if (!session) {
       throw new Error('Not authenticated')
     }
-    
+
     // Prevent self-deletion for all users
     if (session.user.id === userId) {
       throw new Error('Cannot delete your own account. Please have another admin delete your account.')
     }
-    
+
     // Use Better-auth's admin API to remove user by ID
     const result = await auth.api.removeUser({
       body: {
@@ -102,7 +102,7 @@ export async function deleteUserById(userId: string, headers: Headers) {
       },
       headers
     })
-    
+
     return { success: true, result }
   } catch (error) {
     console.error('Error deleting user:', error)
@@ -120,7 +120,7 @@ export async function setUserRole(data: { userId: string; role: "admin" | "user"
       },
       headers
     })
-    
+
     return { success: true, result }
   } catch (error) {
     console.error('Error setting user role:', error)
@@ -138,7 +138,7 @@ export async function demoteUserToUserRole(data: { userId: string }, headers: He
       },
       headers
     })
-    
+
     return { success: true, result }
   } catch (error) {
     console.error('Error demoting user to regular user role:', error)
@@ -150,22 +150,22 @@ export async function updateEmailVerificationStatus(data: { userId: string; emai
   try {
     // Get current session to verify admin access
     const session = await auth.api.getSession({ headers })
-    
+
     if (!session) {
       throw new Error('Not authenticated')
     }
-    
+
     // Update email verification status using Kysely
     const result = await db
       .updateTable('user')
       .set({ emailVerified: data.emailVerified })
       .where('id', '=', data.userId)
       .executeTakeFirst()
-    
+
     if (!result || result.numUpdatedRows === 0n) {
       throw new Error('User not found or no changes made')
     }
-    
+
     return { success: true, result }
   } catch (error) {
     console.error('Error updating email verification status:', error)

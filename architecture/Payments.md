@@ -6,12 +6,10 @@ This document covers the strategic roadmap, technical ledger, and operational ri
 
 We have adopted a phased approach to balance **security (preventing abuse)**, **cost (avoiding AI fees)**, and **legality (tax compliance)**.
 
-### Phase 1: Resource Brakes (Rate Limiting)
-**Goal**: Prevent AI cost spikes and database bloat without financial setup.
-- **Logic**: Limit non-admin users to **3 analyzed AND saved games per 24 hours**.
-- **The "Bot Brake"**: By limiting *saves*, we prevent malicious actors or bots from creating thousands of low-value database entries.
-- **Implementation**: A `daily_usage` counter in the user profile or a global `usage_log` table.
-- **User UX**: When the limit is hit, the "Analyze" and "Save" actions are disabled with a clear explanation: *"Daily free quota reached (3/3). Wait until tomorrow."*
+- **Goal**: Prevent AI cost spikes and database bloat without financial setup.
+- **Logic**: Use the **Unified Credit System** with a conservative daily grant.
+- **Implementation**: The system automatically grants +3 credits on the first activity of the day.
+- **User UX**: When the balance reaches 0, the "Analyze" action triggers the `CreditsRequiredDialog`.
 
 ### Phase 2: Manual Wallet (The "Human MoR")
 **Goal**: Allow power users to pay for more usage while avoiding foreign gatekeepers and fees.
@@ -33,9 +31,9 @@ We have adopted a phased approach to balance **security (preventing abuse)**, **
 ## 🏛 Upstream "Wallet" Architecture (stzUser)
 The core architecture remains identical across Phases 2 and 3. The app (ChessHurdles) only talks to the **Universal Wallet API**, ensuring it is provider-agnostic.
 
-### The Generalization Principle
-*   **Credits as a Proxy**: Credits represent a generic unit of value (e.g., 1 credit = 1 game analysis).
-*   **Service Agnostic**: The ledger tracks atomic balance changes.
+### Philosophy: Unified Credits
+- **One Pool**: Users have a single `credits` balance. Daily grants and purchases all flow into this same bucket.
+- **Insufficient Credits**: Verifies the credits-required dialog appears when balance is too low
 
 ### 1. Unified Ledger Schema
 We use a transaction ledger for full auditability and idempotency.
@@ -44,10 +42,8 @@ We use a transaction ledger for full auditability and idempotency.
 export interface TransactionTable {
   id: string;             // UUID
   user_id: string;        // FK to user.id
-  amount: number;         // Credits (+ve for deposit, -ve for usage)
-  type: 'purchase' | 'usage' | 'refund' | 'adjustment' | 'bonus';
-  provider: 'lemonsqueezy' | 'paddle' | 'internal';
-  provider_ref: string | null; // Unique ID (e.g., Order ID) to prevent double-crediting
+  amount: number;         // Credits (+ve for deposit/grant, -ve for consumption)
+  type: 'purchase' | 'consumption' | 'daily_grant' | 'refund' | 'adjustment';
   description: string | null;  // Human readable label
   created_at: string;     // ISO Timestamp
 }

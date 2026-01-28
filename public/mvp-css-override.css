@@ -1,16 +1,25 @@
 :root {
-    --color-error: darkred;
+  --color-error: darkred;
 }
 
 @media (prefers-color-scheme: dark) {
   :root[color-mode="user"] {
-    --color-bg: #222; /* darker background for better readability */
+    --color-bg: #222;
+    /* darker background for better readability */
     --color-error: red
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: var(--color-bg);
+    color: var(--color-text);
   }
 }
 
 button[type="reset"] {
-  background-color: var(--color-text-secondary); /* rgb(110, 152, 178);*/
+  background-color: var(--color-text-secondary);
+  /* rgb(110, 152, 178);*/
   border-color: var(--color-text-secondary);
 }
 
@@ -19,7 +28,8 @@ button {
 }
 
 input {
-  min-width: 91%; /* this might be extreme and mess up certain inputs */
+  min-width: 91%;
+  /* this might be extreme and mess up certain inputs */
 }
 
 textarea, textarea[readonly] {

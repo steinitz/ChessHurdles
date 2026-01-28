@@ -2,8 +2,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { signOut, useSession } from '~stzUser/lib/auth-client'
 import { routeStrings } from "~/constants";
 import { activeLinkStyle } from "~stzUtils/components/styles";
-import { getWalletStatus, type WalletStatus } from '~stzUser/lib/wallet.server'
-import { useEffect, useState } from 'react'
+import { WalletWidget } from './WalletWidget'
 
 const loggedInTextTopMarginTweak = 21
 
@@ -18,53 +17,50 @@ export const adjustVerticalLocationStyle = (fineAdjustment = 0) => {
 }
 
 export const navLinkStyle = {
-  ...adjustVerticalLocationStyle(),
-  marginRight: '21px',
   whiteSpace: 'nowrap',
   overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
 }
 
 export function UserBlock() {
   const navigate = useNavigate()
   const { data: session } = useSession()
-  const [wallet, setWallet] = useState<WalletStatus | null>(null)
-
-  useEffect(() => {
-    if (session?.user?.id) {
-      getWalletStatus()
-        .then(setWallet)
-        .catch(err => console.error('Failed to fetch wallet status:', err))
-    }
-  }, [session?.user?.id])
 
   return (
     <div
       style={{
         display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        ...adjustVerticalLocationStyle(1),
       }}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', marginRight: '5rem' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem',
+        marginRight: '1rem',
+        fontSize: '0.9rem',
+      }}>
         <p style={{
-          ...adjustVerticalLocationStyle(1),
-          marginBottom: '0', // keep wallet badge close
           fontWeight: '200',
-          fontSize: '0.95rem',
+          margin: 0,
+          opacity: 0.8
         }}
         >
           {session?.user.email}
         </p>
-        {wallet && (
-          <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '-0.3rem' }}>
-            Actions: {wallet.allowance - wallet.usageToday}/{wallet.allowance} | Credits: {wallet.credits}
-          </span>
-        )}
+        <WalletWidget style={{
+          whiteSpace: 'nowrap',
+        }} />
       </div>
-      <div>
+      <div style={{ display: 'flex', alignItems: 'center' }}>
         <Link
-          style={navLinkStyle}
+          style={{ ...navLinkStyle, marginRight: '1rem' }}
           to={'/auth/profile'}
           activeProps={{
-            style: activeLinkStyle
+            style: { ...navLinkStyle, ...activeLinkStyle, marginRight: '1rem' }
           }}
         >
           Profile
@@ -72,7 +68,7 @@ export function UserBlock() {
       </div>
       {
         session?.user ?
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <Link
               onClick={() => {
                 signOut({
@@ -90,13 +86,12 @@ export function UserBlock() {
             </Link>
           </div>
           :
-          // !isSignInRoute &&
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <Link
               to={routeStrings.signin}
               style={navLinkStyle}
               activeProps={{
-                style: activeLinkStyle
+                style: { ...navLinkStyle, ...activeLinkStyle }
               }}
             >
               Sign In

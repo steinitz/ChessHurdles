@@ -18,4 +18,10 @@ export const routeStrings = {
   signin: '/auth/signin',
   signup: '/auth/signup',
   profile: '/auth/profile',
+  terms: '/legal/terms',
+  privacy: '/legal/privacy',
+  about: '/legal/about',
+  acknowledgements: '/legal/acknowledgements',
+  refunds: '/legal/refunds',
+  pricing: '/legal/pricing',
 }

@@ -28,6 +28,34 @@ This directory contains the "pure foundation" authentication components and util
   - `profile.tsx` - User profile management
   - `api/auth/` - Authentication API endpoints
 
+## Credit Ledger & Wallet System
+
+The foundation includes a robust, "bulletproof" wallet system designed for usage-based SaaS applications.
+
+### Key Features
+- **Unified Credit Balance**: A single cached `credits` field on the user profile for high-performance UI display.
+- **Immutable Ledger**: Every change to a user's balance is recorded in the `transactions` table, providing a complete audit trail.
+- **High-Precision Economy**: Standardized on a **$0.001 per credit** (milli-credit) baseline for granular resource pricing (e.g. 35 credits = $0.035).
+- **Lazy Daily Grant**: Users receive a "Daily Grant" (e.g., +100 credits) upon their first activity or visit of the day. This is calculated server-side using UTC time for consistency.
+- **Atomic Concurrency**: 
+  - **Double-Grant Protection**: Uses database transactions to ensure a daily grant is only applied once, even if multiple requests arrive simultaneously.
+  - **Negative Balance Safeguard**: Uses atomic `WHERE credits >= amount` updates to guarantee that a user's balance never drops below zero.
+
+### Event-Driven UI
+The wallet system uses browser-native `CustomEvents` to decouple the UI from the underlying logic:
+- `stz-event-insufficient-credits`: Dispatched when an action fails due to lack of funds. Listened to by the global `CreditsRequiredDialog`.
+- `stz-event-wallet-updated`: Dispatched after any credit change. Listened to by the `WalletWidget` to trigger an immediate re-fetch of the balance.
+
+### Components
+- `WalletWidget.tsx` - A clean, responsive display of the current credit balance, linking to the user's credits page.
+- `CreditsRequiredDialog.tsx` - A self-triggering singleton dialog that elegantly handles insufficient credit states across the entire application, providing a direct link to top up.
+- `/auth/credits` - A user-facing route for viewing the ledger, claiming grants, and requesting bank transfer purchases with smart adaptive UI that dims completed tasks.
+- **Robust Claim Detection**: Uses a dedicated `welcome_claimed` database column for bulletproof one-time onboarding grant management.
+- **UI Logic Polish**: Includes fixes for the React "sticky zero" numeric input issue, theme-aware input styling (inherited from global CSS), and perfect vertical alignment for numeric labels.
+
+### Admin Tools (Admin-Only)
+- Enhanced `/admin` dashboard with manual credit grant tools (amount and description) to facilitate processing offline payments.
+
 ## Path Aliases
 
 stzUser components use the `~stzUser/` path alias:
@@ -60,7 +88,7 @@ This foundation uses a dual-engine migration strategy:
 
 1. **Better Auth Tables**: Managed by the Better Auth CLI (`npx @better-auth/cli migrate`). This handles users, sessions, accounts, etc.
 2. **Custom Foundation Tables**: Managed by **"Slim Sync"** logic in `stzUser/lib/migrations.ts`.
-   - **How it works**: Uses Kysely's `.ifNotExists()` pattern to declaratively define tables.
+   - **How it works**: Uses Kysely's `.ifNotExists()` pattern to declaratively define tables for LibSQL/SQLite.
    - **Execution**: Triggered automatically on application startup in `src/server.ts`.
    - **Benefits**: Zero-configuration, no migration history files, and immediate consistency across environments.
 
@@ -100,7 +128,8 @@ This foundation includes a sophisticated environment variable system designed fo
 These variables are only accessible on the server and should contain sensitive information:
 
 ```env
-DATABASE_URL=your_database_connection_string
+DATABASE_URL=your_database_connection_string (e.g., file:sqlite.db or libsql://...)
+TURSO_AUTH_TOKEN=your_turso_auth_token (required for remote LibSQL)
 BETTER_AUTH_SECRET=your_auth_secret
 SMTP_HOST=your_smtp_host
 SMTP_PORT=587

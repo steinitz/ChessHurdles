@@ -4,10 +4,10 @@ This directory contains comprehensive end-to-end testing utilities and documenta
 
 ## Test Files Overview
 
-- **`signup-flow.spec.ts`** - Tests the complete user signup flow with form validation and success confirmation
-- **`contact-form-shows-email-success.spec.ts`** - Tests contact form submission and email functionality
-- **`wallet-visibility.spec.ts`** - Tests ledger balance visibility and UI reactivity
-- **`smoke.spec.ts`** - Basic smoke tests for core application functionality
+- **signup-flow.spec.ts** - Tests the complete user signup flow with form validation and success confirmation
+- **contact-form-shows-email-success.spec.ts** - Tests contact form submission and email functionality
+- **wallet-visibility.spec.ts** - Tests credit balance visibility, daily grants, and reactive UI updates
+- **smoke.spec.ts** - Basic smoke tests for core application functionality
 
 ## Email Testing with Mailpit
 
@@ -117,9 +117,16 @@ expect(verificationStatus.verified).toBe(true);
 ### `contact-form-email.spec.ts`
 Comprehensive E2E tests for contact form email functionality:
 - **Email sending verification** - Confirms emails are sent when form is submitted
-- **Content validation** - Verifies email contains user's name, email, and message
 - **Error handling** - Tests graceful failure when email service is unavailable
 - **Form validation** - Ensures invalid forms don't trigger emails
+
+### `wallet-visibility.spec.ts`
+Tests the unified credit system and wallet UI:
+- **Daily Grant** - Verifies a new user starts with the daily allowance (3 credits)
+- **Manual Grants** - Verifies credits increment correctly after simulated top-ups
+- **Consumption** - Verifies credits decrement correctly after actions
+- **Insufficient Credits** - Verifies the `CreditsRequiredDialog` appears when balance is too low
+- **UI Reactivity** - Verifies the wallet badge updates without page refreshes
 
 ## Running Email Tests
 

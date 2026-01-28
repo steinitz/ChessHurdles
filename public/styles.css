@@ -4,6 +4,7 @@
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }
@@ -22,7 +23,8 @@
   /*border-top: 10px solid var(--color-link);*/
   border-radius: 50%;
   height: 31px;
-  width: 39px; /* height + border top */
+  width: 39px;
+  /* height + border top */
   animation: spin 1s linear infinite;
   animation-duration: 8s;
 }
@@ -57,4 +59,18 @@
 /* Show the tooltip text when you mouse over the tooltip container */
 .tooltip:hover .tooltiptext {
   visibility: visible;
+}
+
+/* Hide spin-buttons for input type=number */
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
 }

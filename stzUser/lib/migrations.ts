@@ -15,9 +15,20 @@ export async function ensureAdditionalTables(): Promise<void> {
       .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('user_id', 'text', (col) => col.notNull())
       .addColumn('amount', 'integer', (col) => col.notNull()) // Positive for credits, negative for debits
+      .addColumn('type', 'text', (col) => col.notNull().defaultTo('consumption')) // 'daily_grant', 'consumption', etc.
       .addColumn('description', 'text', (col) => col.notNull())
       .addColumn('created_at', 'text', (col) => col.notNull())
       .execute();
+
+    // Ensure 'type' column exists (for existing tables)
+    try {
+      await db.schema
+        .alterTable('transactions')
+        .addColumn('type', 'text', (col) => col.notNull().defaultTo('consumption'))
+        .execute();
+    } catch (e) {
+      // Ignore if exists
+    }
 
     // Create index for user lookup
     await db.schema
@@ -27,23 +38,28 @@ export async function ensureAdditionalTables(): Promise<void> {
       .column('user_id')
       .execute();
 
-    // 2. Resource Usage Table (for tracking actions like game analyses)
-    await db.schema
-      .createTable('resource_usage')
-      .ifNotExists()
-      .addColumn('id', 'text', (col) => col.primaryKey())
-      .addColumn('user_id', 'text', (col) => col.notNull())
-      .addColumn('resource_type', 'text', (col) => col.notNull())
-      .addColumn('created_at', 'text', (col) => col.notNull())
-      .execute();
+    // 2. Add 'credits' column to user table
+    try {
+      await db.schema
+        .alterTable('user')
+        .addColumn('credits', 'integer', (col) => col.notNull().defaultTo(0))
+        .execute();
+    } catch (e) {
+      // Ignore if exists
+    }
 
-    // Create index for user/type lookup
-    await db.schema
-      .createIndex('idx_resource_usage_user_id')
-      .ifNotExists()
-      .on('resource_usage')
-      .column('user_id')
-      .execute();
+    // 3. Add 'welcome_claimed' column to user table
+    try {
+      await db.schema
+        .alterTable('user')
+        .addColumn('welcome_claimed', 'integer', (col) => col.notNull().defaultTo(0))
+        .execute();
+    } catch (e) {
+      // Ignore if exists
+    }
+
+    // 4. Drop legacy resource_usage table
+    await db.schema.dropTable('resource_usage').ifExists().execute();
 
     console.log('✅ Additional foundation tables are ready');
   } catch (error) {

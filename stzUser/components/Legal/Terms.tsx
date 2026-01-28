@@ -1,4 +1,5 @@
 import React from 'react'
+import { ContactLink, RefundsLink } from './Links'
 
 export const Terms = () => {
   return (
@@ -18,7 +19,7 @@ export const Terms = () => {
 
       <section style={{ marginTop: '1.5rem' }}>
         <h3>3. Refunds</h3>
-        <p>Since digital credits and analysis are consumed instantly, we generally don't offer refunds once used. If you have a genuine technical issue, please contact support.</p>
+        <p>Since digital credits and analysis are consumed instantly, we generally don't offer refunds once used. Please see our full <RefundsLink label="Refund Policy" /> for details. If you have a genuine technical issue, please <ContactLink />.</p>
       </section>
 
       <section style={{ marginTop: '1.5rem' }}>

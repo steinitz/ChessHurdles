@@ -8,8 +8,7 @@ Shared utility components and functions that can be used across different parts 
 A reusable modal dialog component with TypeScript types.
 
 **Props:**
-- `isOpen: boolean` - Controls dialog visibility
-- `setIsOpen: (open: boolean) => void` - Function to update dialog state
+- `ref: DialogRefType` - A ref created by `makeDialogRef()` to control the dialog
 - `children: ReactNode` - Dialog content
 
 **Usage:**
@@ -18,7 +17,10 @@ import { Dialog, makeDialogRef } from '~stzUtils/components/Dialog'
 
 const dialogRef = makeDialogRef()
 
-<Dialog isOpen={dialogRef.isOpen} setIsOpen={dialogRef.setIsOpen}>
+// To open: dialogRef.current?.setIsOpen(true)
+// To close: dialogRef.current?.setIsOpen(false)
+
+<Dialog ref={dialogRef}>
   <p>Dialog content here</p>
 </Dialog>
 ```

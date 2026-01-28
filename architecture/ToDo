@@ -1,1 +1,4 @@
-add captcha to signup
+Welcome grant:
+  claimed detection might be fragile
+  and either - the button disabled and grayed out if the grant has already been claimed
+  or - the whole line hidden and the "also" removed from the following line.

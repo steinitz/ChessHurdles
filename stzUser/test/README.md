@@ -192,7 +192,7 @@ Tests the ledger balance and UI badge reactivity:
 **Tests:**
 - **Badge Visibility**: Confirms the wallet badge appears after login
 - **Reactivity**: Verifies the balance updates immediately after transactions (grants/consumption)
-- **Allowance Exhaustion**: Tests visual transitions as daily allowance is used up
+- **Insufficient Credits**: Verifies the `CreditsRequiredDialog` appears when balance is too low
 
 ### `e2e/contact-form-shows-email-success.spec.ts`
 Comprehensive contact form functionality testing:
@@ -428,7 +428,8 @@ pnpm test:all         # Complete test suite (unit + E2E)
 
 ### E2E Testing
 - **Email Testing**: Comprehensive email functionality testing with Ethereal Email
-- **Wallet Testing**: Integrated tests for Ledger balances and UI badge reactivity
+- **Wallet Testing**: Integrated tests for Ledger balances, UI badge reactivity, and **Atomic Concurrency**.
+- **Race Condition Verification**: Automated tests for daily grant double-allocations and negative balance prevention.
 - **Visual Regression**: Add screenshot comparison testing
 - **Authentication Flows**: Test sign-in/sign-up user journeys
 - **Form Interactions**: Comprehensive form validation and submission testing

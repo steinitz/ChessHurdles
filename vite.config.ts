@@ -1,7 +1,7 @@
 // vite.config.ts
-import {defineConfig} from 'vite'
+import { defineConfig } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
-import {tanstackStart} from '@tanstack/react-start/plugin/vite'
+import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react-swc'
 
 export default defineConfig({
@@ -9,10 +9,10 @@ export default defineConfig({
     port: 3000,
   },
   plugins: [
-    tsConfigPaths(), 
+    tsConfigPaths(),
     tanstackStart({
       customViteReactPlugin: true
-    }), 
+    }),
     viteReact()],
   build: {
     rollupOptions: {
@@ -24,10 +24,9 @@ export default defineConfig({
   },
   // Exclude reference directory from file watching and processing
   optimizeDeps: {
-    exclude: ['reference', 'better-sqlite3'],
+    exclude: ['reference'],
   },
   ssr: {
-    noExternal: ['better-auth'],
-    external: ['better-sqlite3']
+    noExternal: ['better-auth', 'kysely-libsql'],
   },
 })

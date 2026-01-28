@@ -57,7 +57,7 @@ export const SignUp = () => {
     document.head.appendChild(script)
 
     script.onload = () => {
-      if (window.turnstile && turnstileRef.current) {
+      if (window.turnstile && turnstileRef.current && !turnstileRef.current.hasChildNodes()) {
         window.turnstile.render(turnstileRef.current, {
           sitekey: clientEnv.TURNSTILE_SITE_KEY,
           callback: (token: string) => {
@@ -202,7 +202,7 @@ export const SignUp = () => {
           <Spacer space={3} />
           <div style={{ textAlign: "right" }}>
             <button
-              type="submit"
+              type="button"
               onClick={() => navigate({ to: "/" })}
             >
               Ok

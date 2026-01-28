@@ -8,7 +8,7 @@ import { oneTimeToken } from "better-auth/plugins/one-time-token"
 import nodemailer from "nodemailer"
 import { transportOptions, sendEmail } from "~stzUser/lib/mail-utilities"
 import { routeStrings } from "~/constants"
-import { appDatabase } from "./database"
+import { libsqlClient, db } from "./database"
 import { minPasswordLength } from "./password-validation"
 import { verifyTurnstileToken } from "~stzUser/lib/turnstile.server"
 import { APIError } from "better-auth/api"
@@ -44,7 +44,10 @@ async function getEmailTransport() {
 }
 
 export const auth = betterAuth({
-  database: appDatabase,
+  database: {
+    db: db,
+    type: "sqlite",
+  },
   logger: {
     level: 'debug',
     log: (level, message, ...args) => {
@@ -110,7 +113,7 @@ export const auth = betterAuth({
     // See: https://github.com/better-auth/better-auth/issues/2538
     // This should be true for proper security, but causes email change verification to fail
     sendOnSignUp: true,
-    autoSignInAfterVerification: false,
+    autoSignInAfterVerification: true,
     sendVerificationEmail: async ({
       user,
       url,

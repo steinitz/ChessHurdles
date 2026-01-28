@@ -13,10 +13,18 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as ContactRouteImport } from './routes/contact'
+<<<<<<< HEAD
 import { Route as AnalysisRouteImport } from './routes/analysis'
+=======
+import { Route as AdminRouteImport } from './routes/admin'
+>>>>>>> upstream/main
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalTermsRouteImport } from './routes/legal/terms'
+import { Route as LegalRefundsRouteImport } from './routes/legal/refunds'
 import { Route as LegalPrivacyRouteImport } from './routes/legal/privacy'
+import { Route as LegalPricingRouteImport } from './routes/legal/pricing'
+import { Route as LegalAcknowledgementsRouteImport } from './routes/legal/acknowledgements'
+import { Route as LegalAboutRouteImport } from './routes/legal/about'
 import { Route as AuthVerifyEmailRouteImport } from './routes/auth/verify-email'
 import { Route as AuthUsersRouteImport } from './routes/auth/users'
 import { Route as AuthSignupRouteImport } from './routes/auth/signup'
@@ -26,6 +34,7 @@ import { Route as AuthRequestPasswordResetRouteImport } from './routes/auth/requ
 import { Route as AuthProfileRouteImport } from './routes/auth/profile'
 import { Route as AuthGamesRouteImport } from './routes/auth/games'
 import { Route as AuthForRouteTroubleshootingRouteImport } from './routes/auth/forRouteTroubleshooting'
+import { Route as AuthCreditsRouteImport } from './routes/auth/credits'
 import { ServerRoute as ApiTestEnvServerRouteImport } from './routes/api/test-env'
 import { ServerRoute as ApiAuthSplatServerRouteImport } from './routes/api/auth/$'
 
@@ -41,9 +50,15 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+<<<<<<< HEAD
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
+=======
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+>>>>>>> upstream/main
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -56,9 +71,29 @@ const LegalTermsRoute = LegalTermsRouteImport.update({
   path: '/legal/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalRefundsRoute = LegalRefundsRouteImport.update({
+  id: '/legal/refunds',
+  path: '/legal/refunds',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
   id: '/legal/privacy',
   path: '/legal/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalPricingRoute = LegalPricingRouteImport.update({
+  id: '/legal/pricing',
+  path: '/legal/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalAcknowledgementsRoute = LegalAcknowledgementsRouteImport.update({
+  id: '/legal/acknowledgements',
+  path: '/legal/acknowledgements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalAboutRoute = LegalAboutRouteImport.update({
+  id: '/legal/about',
+  path: '/legal/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
@@ -108,6 +143,11 @@ const AuthForRouteTroubleshootingRoute =
     path: '/auth/forRouteTroubleshooting',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthCreditsRoute = AuthCreditsRouteImport.update({
+  id: '/auth/credits',
+  path: '/auth/credits',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTestEnvServerRoute = ApiTestEnvServerRouteImport.update({
   id: '/api/test-env',
   path: '/api/test-env',
@@ -121,9 +161,15 @@ const ApiAuthSplatServerRoute = ApiAuthSplatServerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+<<<<<<< HEAD
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
+=======
+  '/admin': typeof AdminRoute
+  '/contact': typeof ContactRoute
+  '/auth/credits': typeof AuthCreditsRoute
+>>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -133,14 +179,24 @@ export interface FileRoutesByFullPath {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/users': typeof AuthUsersRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/legal/about': typeof LegalAboutRoute
+  '/legal/acknowledgements': typeof LegalAcknowledgementsRoute
+  '/legal/pricing': typeof LegalPricingRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refunds': typeof LegalRefundsRoute
   '/legal/terms': typeof LegalTermsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+<<<<<<< HEAD
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
+=======
+  '/admin': typeof AdminRoute
+  '/contact': typeof ContactRoute
+  '/auth/credits': typeof AuthCreditsRoute
+>>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -150,15 +206,25 @@ export interface FileRoutesByTo {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/users': typeof AuthUsersRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/legal/about': typeof LegalAboutRoute
+  '/legal/acknowledgements': typeof LegalAcknowledgementsRoute
+  '/legal/pricing': typeof LegalPricingRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refunds': typeof LegalRefundsRoute
   '/legal/terms': typeof LegalTermsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+<<<<<<< HEAD
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
+=======
+  '/admin': typeof AdminRoute
+  '/contact': typeof ContactRoute
+  '/auth/credits': typeof AuthCreditsRoute
+>>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -168,16 +234,26 @@ export interface FileRoutesById {
   '/auth/signup': typeof AuthSignupRoute
   '/auth/users': typeof AuthUsersRoute
   '/auth/verify-email': typeof AuthVerifyEmailRoute
+  '/legal/about': typeof LegalAboutRoute
+  '/legal/acknowledgements': typeof LegalAcknowledgementsRoute
+  '/legal/pricing': typeof LegalPricingRoute
   '/legal/privacy': typeof LegalPrivacyRoute
+  '/legal/refunds': typeof LegalRefundsRoute
   '/legal/terms': typeof LegalTermsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+<<<<<<< HEAD
     | '/analysis'
     | '/contact'
     | '/play'
+=======
+    | '/admin'
+    | '/contact'
+    | '/auth/credits'
+>>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -187,14 +263,24 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/users'
     | '/auth/verify-email'
+    | '/legal/about'
+    | '/legal/acknowledgements'
+    | '/legal/pricing'
     | '/legal/privacy'
+    | '/legal/refunds'
     | '/legal/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+<<<<<<< HEAD
     | '/analysis'
     | '/contact'
     | '/play'
+=======
+    | '/admin'
+    | '/contact'
+    | '/auth/credits'
+>>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -204,14 +290,24 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/users'
     | '/auth/verify-email'
+    | '/legal/about'
+    | '/legal/acknowledgements'
+    | '/legal/pricing'
     | '/legal/privacy'
+    | '/legal/refunds'
     | '/legal/terms'
   id:
     | '__root__'
     | '/'
+<<<<<<< HEAD
     | '/analysis'
     | '/contact'
     | '/play'
+=======
+    | '/admin'
+    | '/contact'
+    | '/auth/credits'
+>>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -221,15 +317,25 @@ export interface FileRouteTypes {
     | '/auth/signup'
     | '/auth/users'
     | '/auth/verify-email'
+    | '/legal/about'
+    | '/legal/acknowledgements'
+    | '/legal/pricing'
     | '/legal/privacy'
+    | '/legal/refunds'
     | '/legal/terms'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+<<<<<<< HEAD
   AnalysisRoute: typeof AnalysisRoute
   ContactRoute: typeof ContactRoute
   PlayRoute: typeof PlayRoute
+=======
+  AdminRoute: typeof AdminRoute
+  ContactRoute: typeof ContactRoute
+  AuthCreditsRoute: typeof AuthCreditsRoute
+>>>>>>> upstream/main
   AuthForRouteTroubleshootingRoute: typeof AuthForRouteTroubleshootingRoute
   AuthGamesRoute: typeof AuthGamesRoute
   AuthProfileRoute: typeof AuthProfileRoute
@@ -239,7 +345,11 @@ export interface RootRouteChildren {
   AuthSignupRoute: typeof AuthSignupRoute
   AuthUsersRoute: typeof AuthUsersRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
+  LegalAboutRoute: typeof LegalAboutRoute
+  LegalAcknowledgementsRoute: typeof LegalAcknowledgementsRoute
+  LegalPricingRoute: typeof LegalPricingRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
+  LegalRefundsRoute: typeof LegalRefundsRoute
   LegalTermsRoute: typeof LegalTermsRoute
 }
 export interface FileServerRoutesByFullPath {
@@ -284,11 +394,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+<<<<<<< HEAD
     '/analysis': {
       id: '/analysis'
       path: '/analysis'
       fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
+=======
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+>>>>>>> upstream/main
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -305,11 +423,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalTermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/refunds': {
+      id: '/legal/refunds'
+      path: '/legal/refunds'
+      fullPath: '/legal/refunds'
+      preLoaderRoute: typeof LegalRefundsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/legal/privacy': {
       id: '/legal/privacy'
       path: '/legal/privacy'
       fullPath: '/legal/privacy'
       preLoaderRoute: typeof LegalPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/pricing': {
+      id: '/legal/pricing'
+      path: '/legal/pricing'
+      fullPath: '/legal/pricing'
+      preLoaderRoute: typeof LegalPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/acknowledgements': {
+      id: '/legal/acknowledgements'
+      path: '/legal/acknowledgements'
+      fullPath: '/legal/acknowledgements'
+      preLoaderRoute: typeof LegalAcknowledgementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal/about': {
+      id: '/legal/about'
+      path: '/legal/about'
+      fullPath: '/legal/about'
+      preLoaderRoute: typeof LegalAboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/verify-email': {
@@ -375,6 +521,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForRouteTroubleshootingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/credits': {
+      id: '/auth/credits'
+      path: '/auth/credits'
+      fullPath: '/auth/credits'
+      preLoaderRoute: typeof AuthCreditsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 declare module '@tanstack/react-start/server' {
@@ -398,9 +551,15 @@ declare module '@tanstack/react-start/server' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+<<<<<<< HEAD
   AnalysisRoute: AnalysisRoute,
   ContactRoute: ContactRoute,
   PlayRoute: PlayRoute,
+=======
+  AdminRoute: AdminRoute,
+  ContactRoute: ContactRoute,
+  AuthCreditsRoute: AuthCreditsRoute,
+>>>>>>> upstream/main
   AuthForRouteTroubleshootingRoute: AuthForRouteTroubleshootingRoute,
   AuthGamesRoute: AuthGamesRoute,
   AuthProfileRoute: AuthProfileRoute,
@@ -410,7 +569,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSignupRoute: AuthSignupRoute,
   AuthUsersRoute: AuthUsersRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
+  LegalAboutRoute: LegalAboutRoute,
+  LegalAcknowledgementsRoute: LegalAcknowledgementsRoute,
+  LegalPricingRoute: LegalPricingRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
+  LegalRefundsRoute: LegalRefundsRoute,
   LegalTermsRoute: LegalTermsRoute,
 }
 export const routeTree = rootRouteImport

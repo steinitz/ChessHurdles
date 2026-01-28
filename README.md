@@ -5,8 +5,8 @@ A production-ready starter template with authentication, database integration, a
 ## What You Get
 
 - 🔐 **Complete Authentication System** - Sign up, login, password reset, email verification, and **bot protection with Cloudflare Turnstile**
-- 🗄️ **Database Ready** - SQLite with Kysely, easily switchable to PostgreSQL/MySQL
-- 💳 **Usage & Credit Ledger** - Built-in "Wallet" system with daily allowance and credit-based consumption
+- 🗄️ **Database Ready** - LibSQL (SQLite) with Kysely, optimized for serverless/edge compatibility. Turso Cloud ready.
+- 💳 **High-Precision Credit Ledger** - Built-in "Wallet" system with unified milli-credits ($0.001 bits), daily grants, and transaction ledgers. **Concurrency-safe by design** with atomic safeguards.
 - 🎨 **Clean UI Foundation** - MVP.css styling with custom components
 - 🧪 **Full Testing Suite** - Unit tests (Vitest) and E2E tests (Playwright) with email testing
 - 📧 **Email Integration** - Transactional emails with Resend API
@@ -58,7 +58,7 @@ A production-ready starter template with authentication, database integration, a
 
 **Database & Backend**
 - **Kysely** - Type-safe SQL builder for database operations
-- **SQLite** - Zero-config database (PostgreSQL/MySQL ready)
+- **LibSQL** - Modern SQLite-compatible driver for serverless, edge, and cloud (Turso ready)
 - **Server-side rendering** - SEO-friendly with hydration
 
 **Testing & Quality**
