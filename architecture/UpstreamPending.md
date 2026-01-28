@@ -2,6 +2,9 @@
 
 This document tracks technical improvements identified during the development of ChessHurdles that should be merged back into the upstream `stzUser` / `stzUtils` templates.
 
+- **Admin Page Migration**: Successfully moved Developer Tools from a footer expansion to a dedicated, secure `/admin` route. Simplified `UserManagement` by removing redundant internal role checks.
+- **Tech Stack Polish**: Refined `Acknowledgements.tsx` terminology for Vite, SQLite, and Google Gemini.
+
 ## Payment Compliance & Polish
 
 ### Stripe-Ready Foundation
