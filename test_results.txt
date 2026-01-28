@@ -1,0 +1,135 @@
+
+> tanstack-start-better-auth@1.0.0 test /Users/steinitz/Documents/Projects/Web/Chess/ChessHurdles/ChessHurdles
+> vitest stzUser/test/unit/wallet.integration.test.ts
+
+
+ RUN  v3.2.4 /Users/steinitz/Documents/Projects/Web/Chess/ChessHurdles/ChessHurdles
+
+stdout | stzUser/test/unit/wallet.integration.test.ts
+[dotenv@17.2.1] injecting env (12) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration
+🏁 Ensuring additional foundation tables...
+
+stdout | stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration
+✅ Additional foundation tables are ready
+
+stdout | stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should consume resources from daily grant
+🎁 Granting daily credits to user ax3tu8utmdzBmmivul4GHeCiTiTCUVQv
+
+stdout | stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should consume from credits after grant is exhausted
+🎁 Granting daily credits to user GZIZOmjgKlbrZ8GaKFv5DXgpUyClKeb6
+
+ ❯ stzUser/test/unit/wallet.integration.test.ts (8 tests | 8 failed) 764ms
+   × Wallet Ledger Integration > should start with 100 credits (from daily grant) 103ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should consume resources from daily grant 90ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should consume from credits after grant is exhausted 82ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should handle granting credits correctly 85ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should support consuming multiple credits at once 80ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should prevent double-granting during concurrent requests (Race Condition) 162ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should prevent negative balance during concurrent consumption 84ms
+     → database disk image is malformed
+   × Wallet Ledger Integration > should handle the one-time welcome grant 77ms
+     → database disk image is malformed
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should start with 100 credits (from daily grant)
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should prevent double-granting during concurrent requests (Race Condition)
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should prevent negative balance during concurrent consumption
+SqliteError: database disk image is malformed
+ ❯ SqliteConnection.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/dialect/sqlite/sqlite-driver.js:65:28
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:45
+ ❯ SingleConnectionProvider.#run node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:22
+ ❯ SingleConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:16:41
+ ❯ DefaultQueryExecutor.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/default-query-executor.js:20:41
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:27
+ ❯ SelectQueryBuilderImpl.execute node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-builder/select-query-builder.js:317:51
+ ❯ SelectQueryBuilderImpl.executeTakeFirst node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-builder/select-query-builder.js:321:37
+ ❯ stzUser/lib/wallet.logic.ts:46:8
+     44|       .where('type', '=', 'daily_grant')
+     45|       .where('created_at', '>=', today)
+     46|       .executeTakeFirst()
+       |        ^
+     47| 
+     48|     if (!existingGrant) {
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/kysely.js:569:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should consume resources from daily grant
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should consume from credits after grant is exhausted
+SqliteError: database disk image is malformed
+ ❯ SqliteConnection.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/dialect/sqlite/sqlite-driver.js:68:51
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:45
+ ❯ SingleConnectionProvider.#run node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:22
+ ❯ SingleConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:16:41
+ ❯ DefaultQueryExecutor.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/default-query-executor.js:20:41
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:27
+ ❯ InsertQueryBuilder.execute node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:51
+ ❯ stzUser/lib/wallet.logic.ts:91:12
+     89|             created_at: new Date().toISOString(),
+     90|           })
+     91|           .execute()
+       |            ^
+     92|         return true
+     93|       }
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/kysely.js:569:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should handle granting credits correctly
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should support consuming multiple credits at once
+SqliteError: database disk image is malformed
+ ❯ SqliteConnection.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/dialect/sqlite/sqlite-driver.js:68:51
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:45
+ ❯ SingleConnectionProvider.#run node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:22
+ ❯ SingleConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:16:41
+ ❯ DefaultQueryExecutor.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/default-query-executor.js:20:41
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:27
+ ❯ InsertQueryBuilder.execute node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:51
+ ❯ grantCreditsTx stzUser/lib/wallet.logic.ts:141:6
+    139|       created_at: new Date().toISOString(),
+    140|     })
+    141|     .execute()
+       |      ^
+    142| 
+    143|   // 2. Update user cached balance
+ ❯ stzUser/lib/wallet.logic.ts:116:18
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/kysely.js:569:38
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  stzUser/test/unit/wallet.integration.test.ts > Wallet Ledger Integration > should handle the one-time welcome grant
+SqliteError: database disk image is malformed
+ ❯ SqliteConnection.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/dialect/sqlite/sqlite-driver.js:68:51
+ ❯ node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:35:45
+ ❯ SingleConnectionProvider.#run node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:24:22
+ ❯ SingleConnectionProvider.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/driver/single-connection-provider.js:16:41
+ ❯ DefaultQueryExecutor.provideConnection node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/default-query-executor.js:20:41
+ ❯ DefaultQueryExecutor.executeQuery node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-executor/query-executor-base.js:34:27
+ ❯ InsertQueryBuilder.execute node_modules/.pnpm/kysely@0.28.5/node_modules/kysely/dist/esm/query-builder/insert-query-builder.js:1106:51
+ ❯ grantCreditsTx stzUser/lib/wallet.logic.ts:141:6
+    139|       created_at: new Date().toISOString(),
+    140|     })
+    141|     .execute()
+       |      ^
+    142| 
+    143|   // 2. Update user cached balance
+ ❯ stzUser/lib/wallet.logic.ts:197:11
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  16:30:03
+   Duration  1.76s (transform 257ms, setup 55ms, collect 703ms, tests 764ms, environment 0ms, prepare 58ms)
+
+ ELIFECYCLE  Test failed. See above for more details.

@@ -13,11 +13,8 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as ContactRouteImport } from './routes/contact'
-<<<<<<< HEAD
 import { Route as AnalysisRouteImport } from './routes/analysis'
-=======
 import { Route as AdminRouteImport } from './routes/admin'
->>>>>>> upstream/main
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LegalTermsRouteImport } from './routes/legal/terms'
 import { Route as LegalRefundsRouteImport } from './routes/legal/refunds'
@@ -50,15 +47,14 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
-<<<<<<< HEAD
 const AnalysisRoute = AnalysisRouteImport.update({
   id: '/analysis',
   path: '/analysis',
-=======
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
->>>>>>> upstream/main
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -161,15 +157,11 @@ const ApiAuthSplatServerRoute = ApiAuthSplatServerRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-<<<<<<< HEAD
+  '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
-=======
-  '/admin': typeof AdminRoute
-  '/contact': typeof ContactRoute
   '/auth/credits': typeof AuthCreditsRoute
->>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -188,15 +180,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-<<<<<<< HEAD
+  '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
-=======
-  '/admin': typeof AdminRoute
-  '/contact': typeof ContactRoute
   '/auth/credits': typeof AuthCreditsRoute
->>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -216,15 +204,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-<<<<<<< HEAD
+  '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
   '/play': typeof PlayRoute
-=======
-  '/admin': typeof AdminRoute
-  '/contact': typeof ContactRoute
   '/auth/credits': typeof AuthCreditsRoute
->>>>>>> upstream/main
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
   '/auth/games': typeof AuthGamesRoute
   '/auth/profile': typeof AuthProfileRoute
@@ -245,15 +229,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-<<<<<<< HEAD
+    | '/admin'
     | '/analysis'
     | '/contact'
     | '/play'
-=======
-    | '/admin'
-    | '/contact'
     | '/auth/credits'
->>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -272,15 +252,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-<<<<<<< HEAD
+    | '/admin'
     | '/analysis'
     | '/contact'
     | '/play'
-=======
-    | '/admin'
-    | '/contact'
     | '/auth/credits'
->>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -299,15 +275,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-<<<<<<< HEAD
+    | '/admin'
     | '/analysis'
     | '/contact'
     | '/play'
-=======
-    | '/admin'
-    | '/contact'
     | '/auth/credits'
->>>>>>> upstream/main
     | '/auth/forRouteTroubleshooting'
     | '/auth/games'
     | '/auth/profile'
@@ -327,15 +299,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-<<<<<<< HEAD
+  AdminRoute: typeof AdminRoute
   AnalysisRoute: typeof AnalysisRoute
   ContactRoute: typeof ContactRoute
   PlayRoute: typeof PlayRoute
-=======
-  AdminRoute: typeof AdminRoute
-  ContactRoute: typeof ContactRoute
   AuthCreditsRoute: typeof AuthCreditsRoute
->>>>>>> upstream/main
   AuthForRouteTroubleshootingRoute: typeof AuthForRouteTroubleshootingRoute
   AuthGamesRoute: typeof AuthGamesRoute
   AuthProfileRoute: typeof AuthProfileRoute
@@ -394,19 +362,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
-<<<<<<< HEAD
     '/analysis': {
       id: '/analysis'
       path: '/analysis'
       fullPath: '/analysis'
       preLoaderRoute: typeof AnalysisRouteImport
-=======
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
->>>>>>> upstream/main
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -551,15 +518,11 @@ declare module '@tanstack/react-start/server' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-<<<<<<< HEAD
+  AdminRoute: AdminRoute,
   AnalysisRoute: AnalysisRoute,
   ContactRoute: ContactRoute,
   PlayRoute: PlayRoute,
-=======
-  AdminRoute: AdminRoute,
-  ContactRoute: ContactRoute,
   AuthCreditsRoute: AuthCreditsRoute,
->>>>>>> upstream/main
   AuthForRouteTroubleshootingRoute: AuthForRouteTroubleshootingRoute,
   AuthGamesRoute: AuthGamesRoute,
   AuthProfileRoute: AuthProfileRoute,
