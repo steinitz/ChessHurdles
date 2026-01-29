@@ -27,6 +27,7 @@ export default defineConfig({
     exclude: ['reference'],
   },
   ssr: {
+    external: ['libsql', '@libsql/client'],
     noExternal: ['better-auth', 'kysely-libsql'],
   },
 })
