@@ -16,6 +16,9 @@ build/
 .env.production
 .env.production.local
 
+# Netlify
+.netlify
+
 # TanStack generated files
 .tanstack/
 
