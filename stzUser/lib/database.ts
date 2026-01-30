@@ -1,16 +1,12 @@
-import Database from "better-sqlite3";
-import { Kysely, SqliteDialect } from "kysely";
+import { createClient } from "@libsql/client";
+import { Kysely } from "kysely";
+import { LibsqlDialect } from "kysely-libsql";
 
-// Database instance (legacy)
-const dbPath = process.env.DATABASE_PATH || "sqlite.db";
-export const appDatabase = new Database(dbPath);
-
-// Enable WAL mode for better concurrency with local SQLite
-try {
-  appDatabase.pragma('journal_mode = WAL');
-} catch (e) {
-  console.error("Failed to enable WAL mode:", e);
-}
+// Initialize LibSQL client
+export const libsqlClient = createClient({
+  url: process.env.DATABASE_URL || "file:sqlite.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
 /**
  * User-related database types
@@ -91,10 +87,25 @@ export interface ResourceUsageTable {
 
 // Initialize Kysely instance
 export const db = new Kysely<Database>({
-  dialect: new SqliteDialect({
-    database: appDatabase
+  dialect: new LibsqlDialect({
+    client: libsqlClient
   }),
 });
+
+// Enable WAL mode for better concurrency with local file-based LibSQL/SQLite
+const isLocalFile = !process.env.DATABASE_URL?.startsWith('libsql://') && !process.env.DATABASE_URL?.startsWith('libsls://');
+
+if (isLocalFile) {
+  try {
+    // ALWAYS try to enable WAL for file: databases in tests/dev
+    // Note: use top-level await if your environment supports it, or handle asynchronously
+    libsqlClient.execute("PRAGMA journal_mode = WAL;").catch(e => {
+      console.error("Failed to enable WAL mode:", e);
+    });
+  } catch (e) {
+    console.error("Failed to enable WAL mode:", e);
+  }
+}
 
 // ---
 // Database Field Adapters (tuned for SQLite idiosyncrasies)

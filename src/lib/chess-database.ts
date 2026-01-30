@@ -1,9 +1,12 @@
-import { Kysely, SqliteDialect, sql } from 'kysely';
-import { appDatabase, Database } from '~stzUser/lib/database';
+import { Kysely, sql } from 'kysely';
+import { LibsqlDialect } from 'kysely-libsql';
+import { libsqlClient, Database } from '~stzUser/lib/database';
 
 /**
  * Chess-specific database interfaces extending the base Database interface
  */
+
+// ... (skipping unchanged interfaces for brevity in explanation, but including them in the replacement)
 
 export interface GameTable {
   id: string;
@@ -66,8 +69,8 @@ export interface ChessDatabase extends Database {
 
 // Kysely instance for chess operations
 export const chessDb = new Kysely<ChessDatabase>({
-  dialect: new SqliteDialect({
-    database: appDatabase
+  dialect: new LibsqlDialect({
+    client: libsqlClient
   }),
 });
 
