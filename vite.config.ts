@@ -28,6 +28,12 @@ export default defineConfig({
   },
   ssr: {
     external: ['libsql', '@libsql/client'],
-    noExternal: ['better-auth', 'kysely-libsql'],
+    noExternal: [
+      'better-auth',
+      'kysely-libsql',
+      'react-chessboard',
+      'stockfish.js',
+      'valibot'
+    ],
   },
 })
