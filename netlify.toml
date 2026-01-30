@@ -1,6 +1,5 @@
-[build]
+[context.production]
   command = "pnpm run build"
-  publish = ".output/public"
 
 [[redirects]]
   from = "/*"

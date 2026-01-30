@@ -14,20 +14,4 @@ export default defineConfig({
       customViteReactPlugin: true
     }),
     viteReact()],
-  build: {
-    rollupOptions: {
-      external: [
-        // Exclude reference directory from build
-        /^\/reference\//,
-      ],
-    },
-  },
-  // Exclude reference directory from file watching and processing
-  optimizeDeps: {
-    exclude: ['reference'],
-  },
-  ssr: {
-    external: ['libsql', '@libsql/client'],
-    noExternal: true,
-  },
 })
