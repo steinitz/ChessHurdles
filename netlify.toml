@@ -3,7 +3,6 @@
   publish = ".output/public"
 
 [functions]
-  directory = ".output/server"
   node_bundler = "esbuild"
 
 [[redirects]]
