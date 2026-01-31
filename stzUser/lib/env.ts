@@ -12,7 +12,8 @@ export function getEnvVar(name: string): string {
 
   const value = process.env[name]
   if (!value) {
-    throw new Error(`Environment variable ${name} is not set`)
+    console.warn(`⚠️ Environment variable ${name} is not set. This might cause a crash if required at startup.`);
+    return ''; // Return empty string instead of throwing to avoid top-level crashes
   }
   return value
 }
@@ -53,7 +54,15 @@ type ClientEnv = {
 
 // Load environment variables based on NODE_ENV
 if (isServer()) {
-  dotenv.config({ path: `.env.${process.env.NODE_ENV || 'development'}` })
+  try {
+    // Only attempt to load .env files if we're not in a managed production environment like Netlify
+    if (!process.env.NETLIFY) {
+      const mode = process.env.NODE_ENV || 'development';
+      dotenv.config({ path: `.env.${mode}` })
+    }
+  } catch (e) {
+    console.warn('Failed to load .env file, continuing with existing process.env');
+  }
 }
 
 // Client-safe environment variables (exposed to browser)

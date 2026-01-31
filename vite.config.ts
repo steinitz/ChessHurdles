@@ -13,5 +13,29 @@ export default defineConfig({
     tanstackStart({
       customViteReactPlugin: true
     }),
-    viteReact()],
+    viteReact()
+  ],
+  resolve: {
+    alias: process.env.NETLIFY
+      ? {
+        '@libsql/client': '@libsql/client/web',
+        'better-sqlite3': '/Users/steinitz/Documents/Projects/Web/Chess/ChessHurdles/ChessHurdles/stzUser/lib/mock-sqlite.ts'
+      }
+      : undefined,
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        // Exclude reference directory from build
+        /^\/reference\//,
+      ],
+    },
+  },
+  // Exclude reference directory from file watching and processing
+  optimizeDeps: {
+    exclude: ['reference'],
+  },
+  ssr: {
+    noExternal: ['better-auth', 'kysely-libsql', '@libsql/client'],
+  },
 })

@@ -1,4 +1,6 @@
 import { db } from './database'
+import { getMigrations } from "better-auth/db"
+import { authOptions } from "./auth"
 
 /**
  * Ensures all additional foundation tables exist in the database.
@@ -6,7 +8,28 @@ import { db } from './database'
  */
 export async function ensureAdditionalTables(): Promise<void> {
   try {
-    console.log('🏁 Ensuring additional foundation tables...');
+    console.log('🏁 Ensuring foundation tables...');
+
+    // 0. Ensure Better Auth Core Tables Exist (Auto-Migration)
+    // This creates 'user', 'session', 'account', 'verification' if missing.
+    // It uses the EXACT schema defined by the installed version of better-auth.
+    try {
+      const { toBeCreated, toBeAdded, runMigrations } = await getMigrations(authOptions)
+
+      if (toBeCreated.length > 0 || toBeAdded.length > 0) {
+        console.log('🚧 Better Auth migrations pending:', {
+          create: toBeCreated.map(t => t.table),
+          alter: toBeAdded.map(t => t.table)
+        });
+        await runMigrations();
+        console.log('✅ Better Auth migrations applied.');
+      } else {
+        console.log('✅ Better Auth schema is up to date.');
+      }
+    } catch (err: any) {
+      // Tolerate race conditions (e.g. table already exists) in serverless environments
+      console.warn('⚠️ Better Auth migration check failed (possibly concurrent start):', err.message);
+    }
 
     // 1. Transactions Table (for credit history)
     await db.schema

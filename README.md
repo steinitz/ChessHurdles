@@ -160,7 +160,7 @@ This template eliminates weeks of setup time. Fork it, configure your environmen
 2. Follow the Quick Start guide above
 3. Customize the foundation in `stzUser/` for your needs
 4. Build your application in `src/`
-5. Deploy to Vercel with zero configuration
+5. Deploy to Vercel/Netlify (see [Deployment Guide](./architecture/deployment.md))
 
 Happy building! 🚀
 

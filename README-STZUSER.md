@@ -7,6 +7,15 @@ A modern web application built with TanStack Start and Better Auth, featuring co
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/steinitz/TanStackStartBetterAuth)
 
 
+## Database Migrations
+
+We use a "self-healing" migration strategy designed for serverless environments (Turso/Netlify):
+1.  **Auto-Migration**: On server startup (`src/server.ts`), we call `ensureAdditionalTables()`.
+2.  **Better Auth Schema**: We use `better-auth/db`'s `getMigrations` to automatically sync the core tables (`user`, `session`, etc.) with the library's requirements. This avoids manual schema duplication.
+3.  **Custom Tables**: We explicitly create custom tables (e.g., `transactions`) using `createTable().ifNotExists()`.
+
+This ensures that new deployments function correctly even against empty databases.
+
 ## Features
 
 - 🔐 **Authentication & Authorization**: Complete user management with Better Auth and bot protection with Cloudflare Turnstile

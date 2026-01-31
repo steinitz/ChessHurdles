@@ -1,5 +1,5 @@
 // src/lib/auth.ts
-import { betterAuth } from "better-auth"
+import { betterAuth, type BetterAuthOptions } from "better-auth"
 import { reactStartCookies } from "better-auth/react-start"
 import { admin } from "better-auth/plugins"
 import { createAccessControl } from "better-auth/plugins/access"
@@ -43,7 +43,9 @@ async function getEmailTransport() {
   return emailTransport
 }
 
-export const auth = betterAuth({
+let _auth: any = null
+
+export const authOptions: BetterAuthOptions = {
   database: {
     db: db,
     type: "sqlite",
@@ -158,11 +160,13 @@ ${url}`,
         const temp = new URL(url)
         const searchParams = new URLSearchParams(temp.search)
         const token = searchParams.get("token") ?? ""
-        await auth.api.verifyEmail({
-          query: {
-            token
-          }
-        })
+        if (_auth) {
+          await _auth.api.verifyEmail({
+            query: {
+              token
+            }
+          })
+        }
       }
     },
   },
@@ -200,4 +204,7 @@ ${url}`,
     oneTimeToken(), // One-time token plugin for email verification testing
     reactStartCookies() // This plugin handles cookie setting for TanStack Start.  Leave it as the last plugin.
   ],
-})
+}
+
+export const auth = betterAuth(authOptions)
+_auth = auth

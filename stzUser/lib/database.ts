@@ -3,9 +3,18 @@ import { Kysely } from "kysely";
 import { LibsqlDialect } from "kysely-libsql";
 
 // Initialize LibSQL client
+const url = process.env.DATABASE_URL;
+const authToken = process.env.TURSO_AUTH_TOKEN;
+
+if (!url && process.env.NODE_ENV === 'production') {
+  console.error("❌ DATABASE_URL is missing in production!");
+  // We throw here because falling back to file: in Lambda crashes the process
+  throw new Error("DATABASE_URL is required in production");
+}
+
 export const libsqlClient = createClient({
-  url: process.env.DATABASE_URL || "file:sqlite.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
+  url: url || "file:sqlite.db",
+  authToken: authToken,
 });
 
 /**
@@ -96,15 +105,16 @@ export const db = new Kysely<Database>({
 const isLocalFile = !process.env.DATABASE_URL?.startsWith('libsql://') && !process.env.DATABASE_URL?.startsWith('libsls://');
 
 if (isLocalFile) {
-  try {
-    // ALWAYS try to enable WAL for file: databases in tests/dev
-    // Note: use top-level await if your environment supports it, or handle asynchronously
-    libsqlClient.execute("PRAGMA journal_mode = WAL;").catch(e => {
+  // Wrap in IIFE to avoid top-level await issues in some environments
+  (async () => {
+    try {
+      // ALWAYS try to enable WAL for file: databases in tests/dev
+      const result = await libsqlClient.execute("PRAGMA journal_mode = WAL;");
+      console.log("🛠️ LibSQL: WAL mode result:", result.rows[0]);
+    } catch (e) {
       console.error("Failed to enable WAL mode:", e);
-    });
-  } catch (e) {
-    console.error("Failed to enable WAL mode:", e);
-  }
+    }
+  })();
 }
 
 // ---
