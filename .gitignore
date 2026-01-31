@@ -63,6 +63,9 @@ sqlite.db-shm
 sqlite.db-wal
 build_error.txt
 count.txt
+local.db
+local.db-shm
+local.db-wal
 
 # Development notes
 ToDo.md
