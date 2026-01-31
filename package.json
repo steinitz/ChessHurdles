@@ -31,7 +31,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@9.15.5",
+  "packageManager": "pnpm@10.13.1",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@libsql/client": "^0.17.0",
