@@ -8,14 +8,11 @@ import { authOptions } from "./auth"
  */
 export async function ensureAdditionalTables(): Promise<void> {
   try {
-    console.log('🏁 Ensuring foundation tables...');
+    console.log('🏁 Ensuring database tables (Core Auth + Foundation)...');
 
-    // 0. Ensure Better Auth Core Tables Exist (Auto-Migration)
-    // This creates 'user', 'session', 'account', 'verification' if missing.
-    // It uses the EXACT schema defined by the installed version of better-auth.
+    // 0. Ensure Core Auth Tables exist (Self-healing for serverless/fresh deploys)
     try {
       const { toBeCreated, toBeAdded, runMigrations } = await getMigrations(authOptions)
-
       if (toBeCreated.length > 0 || toBeAdded.length > 0) {
         console.log('🚧 Better Auth migrations pending:', {
           create: toBeCreated.map(t => t.table),
@@ -27,7 +24,6 @@ export async function ensureAdditionalTables(): Promise<void> {
         console.log('✅ Better Auth schema is up to date.');
       }
     } catch (err: any) {
-      // Tolerate race conditions (e.g. table already exists) in serverless environments
       console.warn('⚠️ Better Auth migration check failed (possibly concurrent start):', err.message);
     }
 

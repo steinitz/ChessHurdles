@@ -59,6 +59,9 @@ temp/
 
 # Local data files
 sqlite.db
+sqlite.db-shm
+sqlite.db-wal
+build_error.txt
 count.txt
 
 # Development notes
