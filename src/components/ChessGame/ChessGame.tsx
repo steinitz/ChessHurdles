@@ -161,39 +161,7 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
       </header>
 
 
-      {/* Save functionality section */}
-      {isMounted && session?.user && (
-        <div style={{
-          marginBottom: '1rem',
-          padding: '0.5rem',
-          border: '1px solid var(--color-bg-secondary)',
-          borderRadius: '4px',
-          maxWidth: containerWidth
-        }}>
-          <GameSaver
-            game={game}
-            gameMoves={gameMoves}
-            gameTitle={gameTitle}
-            gameDescription={gameDescription}
-            currentMoveIndex={currentMoveIndex}
-          />
-        </div>
-      )}
 
-      {isMounted && !session?.user && (
-        <div style={{
-          marginBottom: '1rem',
-          padding: '0.5rem',
-          border: '1px solid var(--color-bg-secondary)',
-          borderRadius: '4px',
-          maxWidth: containerWidth,
-          textAlign: 'center'
-        }}>
-          <p style={{ margin: '0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
-            <a href="/auth/signin">Sign in</a> to save games and positions
-          </p>
-        </div>
-      )}
       <div style={{
         width: containerWidth,
         margin: '0 auto'
@@ -226,6 +194,50 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
           />
         </div>
 
+        {/* Save functionality section - moved below board */}
+        {isMounted && session?.user && (
+          <div style={{
+            marginTop: '1rem',
+            marginBottom: '1rem',
+            padding: '0.5rem',
+            border: '1px solid var(--color-bg-secondary)',
+            borderRadius: '4px',
+            width: '100%'
+          }}>
+            <GameSaver
+              game={game}
+              gameMoves={gameMoves}
+              gameTitle={gameTitle}
+              gameDescription={gameDescription}
+              currentMoveIndex={currentMoveIndex}
+            />
+          </div>
+        )}
+
+        {isMounted && !session?.user && (
+          <div style={{
+            marginTop: '1rem',
+            marginBottom: '1rem',
+            padding: '0.5rem',
+            border: '1px solid var(--color-bg-secondary)',
+            borderRadius: '4px',
+            width: '100%',
+            textAlign: 'center'
+          }}>
+            <p style={{ margin: '0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
+              <a href="/auth/signin">Sign in</a> to save games and positions
+            </p>
+          </div>
+        )}
+
+        <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
+
+        <GameMoves
+          gameMoves={gameMoves}
+          currentMoveIndex={currentMoveIndex}
+          goToMove={goToMove}
+        />
+
         {/* PositionAnalysis removed to prioritize Game Analysis visibility */}
 
         {/* Game Analysis Section - constrained to chessboard container width */}
@@ -239,13 +251,7 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
         />
       </div>
 
-      <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
 
-      <GameMoves
-        gameMoves={gameMoves}
-        currentMoveIndex={currentMoveIndex}
-        goToMove={goToMove}
-      />
     </div>
   );
 }

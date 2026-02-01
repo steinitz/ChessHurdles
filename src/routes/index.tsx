@@ -49,7 +49,7 @@ function Home() {
 
   return (
     <div className="p-2">
-      <h1>Chess Hurdles</h1>
+
       <ChessGame initialPGN={initialPGN} onHurdleSaved={handleHurdleSaved} />
 
       {isMounted && session?.user && (
