@@ -10,3 +10,14 @@
 
 ## ⚠️ Development Gotchas
 - **package.json**: Avoid single quotes in script names.
+
+{
+  "contents": [...],
+  "generationConfig": {
+    "temperature": 0.8
+  }
+}
+
+## 📚 Reference Material
+- **External Code**: `reference/Upstream` contains a symlink to the `TanStackStartBetterAuth` repository.
+- **Reference Folder**: `reference/` contains external git repos and notes.
