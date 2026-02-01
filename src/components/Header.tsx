@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { UserBlock, navLinkStyle } from "~stzUser/components/Other/userBlock";
 import { Spacer } from "~stzUtils/components/Spacer";
+import { activeLinkStyle } from "~stzUtils/components/styles";
 
 export const Header = () => {
 
@@ -12,6 +13,7 @@ export const Header = () => {
         backgroundColor: 'var(--color-bg)',
         flexDirection: 'row',
         marginBottom: '-13px',
+        alignItems: 'center',
       }}
     >
       <Link
@@ -29,7 +31,7 @@ export const Header = () => {
           alt="logo"
         />
       </Link>
-      {/* New Games link placed just to the right of the logo */}
+      <Spacer orientation={'horizontal'} space={1} />
       <Link
         to="/auth/games"
         style={navLinkStyle}
@@ -46,12 +48,7 @@ export const Header = () => {
       <Link
         to="/play"
         style={navLinkStyle}
-        activeProps={{
-          style: {
-            backgroundColor: 'var(--color-accent)',
-            color: 'var(--color-bg)',
-          },
-        }}
+        activeProps={{ style: { ...navLinkStyle, ...activeLinkStyle } }}
       >
         Computer
       </Link>
@@ -59,12 +56,7 @@ export const Header = () => {
       <Link
         to="/contact"
         style={navLinkStyle}
-        activeProps={{
-          style: {
-            backgroundColor: 'var(--color-accent)',
-            color: 'var(--color-bg)',
-          },
-        }}
+        activeProps={{ style: { ...navLinkStyle, ...activeLinkStyle } }}
       >
         Contact
       </Link>

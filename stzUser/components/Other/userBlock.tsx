@@ -4,17 +4,18 @@ import { routeStrings } from "~/constants";
 import { activeLinkStyle } from "~stzUtils/components/styles";
 import { WalletWidget } from './WalletWidget'
 
+
+/*
 const loggedInTextTopMarginTweak = 21
 
 export const adjustVerticalLocationStyle = (fineAdjustment = 0) => {
-  // Nasty tweaking to align to the vertical position and
-  // bottom margin of the single Login button in a Form below.
-  // Also used by _index.tsx.
+  // Decommissioned tweak - messes with the whole header alignment
   return {
     marginTop: `${loggedInTextTopMarginTweak + (fineAdjustment || 0)}px`,
     marginBottom: `${loggedInTextTopMarginTweak * 2}px`,
   }
 }
+*/
 
 export const navLinkStyle = {
   whiteSpace: 'nowrap',
@@ -33,7 +34,7 @@ export function UserBlock() {
         display: 'flex',
         alignItems: 'center',
         gap: '0.75rem',
-        ...adjustVerticalLocationStyle(1),
+        // not a good idea - messes with the whole header alignment ...adjustVerticalLocationStyle(1),
       }}
     >
       <div style={{
