@@ -21,6 +21,8 @@ export function GameMoves({ gameMoves, currentMoveIndex, goToMove }: GameMovesPr
         padding: '0.5rem',
         border: '1px solid var(--color-accent)',
         borderRadius: '4px',
+        width: '100%',
+        wordWrap: 'break-word'
       }}>
         {gameMoves.slice(1).map((gameMove, index) => {
           const moveNumber = Math.floor(index / 2) + 1;

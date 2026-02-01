@@ -158,13 +158,14 @@ export default function GameSaver({
     <div>
       {/* Save functionality section */}
       {session?.user ? (
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <button
             onClick={handleSaveGame}
             disabled={isSaving}
           >
             {isSaving ? 'Saving...' : 'Save Game'}
           </button>
+          <div style={{ width: '1rem', minWidth: '1rem' }} /> {/* Fixed spacer */}
           <button
             onClick={handleSaveHurdle}
             disabled={isSaving || currentMoveIndex === 0}
@@ -172,14 +173,17 @@ export default function GameSaver({
             {isSaving ? 'Saving...' : 'Save Position as Hurdle'}
           </button>
           {saveMessage && (
-            <span style={{
-              color: saveMessage.includes('Failed') || saveMessage.includes('Please sign in')
-                ? 'red'
-                : 'green',
-              fontSize: '14px'
-            }}>
-              {saveMessage}
-            </span>
+            <>
+              <div style={{ width: '1rem', minWidth: '1rem' }} />
+              <span style={{
+                color: saveMessage.includes('Failed') || saveMessage.includes('Please sign in')
+                  ? 'red'
+                  : 'green',
+                fontSize: '14px'
+              }}>
+                {saveMessage}
+              </span>
+            </>
           )}
         </div>
       ) : (

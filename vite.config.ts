@@ -7,6 +7,9 @@ import viteReact from '@vitejs/plugin-react-swc'
 export default defineConfig({
   server: {
     port: 3000,
+    allowedHosts: [
+      'xwhsw-1-158-105-155.a.free.pinggy.link' // temp, expiring url for pinggy https tunnel for dev server
+    ]
   },
   plugins: [
     tsConfigPaths(),

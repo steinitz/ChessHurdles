@@ -58,7 +58,7 @@ export function GameList() {
       </ul>
 
       <h3>Saved Games</h3>
-      {games.length === 0 ? <p>No saved games.</p> : (
+      {games.length === 0 ? <p style={{ color: 'var(--color-text-secondary)' }}>No saved games.</p> : (
         <ul className="list-disc pl-5">
           {games.map(game => (
             <li key={game.id} className="mb-2">

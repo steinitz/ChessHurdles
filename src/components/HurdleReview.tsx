@@ -32,7 +32,7 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
   return (
     <div className="p-4 border rounded bg-gray-50 mt-4">
       <h3>Hurdles to Review</h3>
-      {hurdles.length === 0 ? <p>No hurdles found.</p> : (
+      {hurdles.length === 0 ? <p style={{ color: 'var(--color-text-secondary)' }}>No hurdles found.</p> : (
         <ul className="list-disc pl-5">
           {hurdles.map(hurdle => (
             <li key={hurdle.id} className="mb-2 flex items-start justify-between group">

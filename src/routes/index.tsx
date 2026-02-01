@@ -6,6 +6,7 @@ import { getGameById } from '~/lib/chess-server'
 import { GameList } from '~/components/GameList'
 import { HurdleReview } from '~/components/HurdleReview'
 import { useSession } from '~stzUser/lib/auth-client'
+import { CHESSBOARD_WIDTH } from '~/constants'
 
 export const Route = createFileRoute('/')({
   loaderDeps: ({ search }) => {
@@ -53,14 +54,24 @@ function Home() {
       <ChessGame initialPGN={initialPGN} onHurdleSaved={handleHurdleSaved} />
 
       {isMounted && session?.user && (
-        <div className="mt-8 max-w-4xl mx-auto">
-          <div className="flex gap-4 mb-4 border-b">
+        <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto' }}>
+          <Spacer />
+          <div style={{ borderTop: '1px solid var(--color-bg-secondary)', width: '100%' }} />
+          <Spacer />
+
+          <div style={{
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginBottom: '1rem',
+          }}>
             <button
               className={`px-4 py-2 ${view === 'review' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
               onClick={() => setView('review')}
             >
               Review Hurdles
             </button>
+            <Spacer orientation="horizontal" />
             <button
               className={`px-4 py-2 ${view === 'train' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
               onClick={() => setView('train')}
@@ -89,7 +100,9 @@ function Home() {
         </div>
       )}
 
-      <GameList />
+      <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto' }}>
+        <GameList />
+      </div>
     </div>
   )
 }

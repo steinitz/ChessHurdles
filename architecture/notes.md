@@ -18,6 +18,10 @@
   }
 }
 
+To run the dev server in https, after starting the dev server use this command
+ssh -p 443 -R0:localhost:3000 qr@free.pinggy.io
+then add the resulting url to vite.config.ts server.allowedHosts
+
 ## 📚 Reference Material
 - **External Code**: `reference/Upstream` contains a symlink to the `TanStackStartBetterAuth` repository.
 - **Reference Folder**: `reference/` contains external git repos and notes.

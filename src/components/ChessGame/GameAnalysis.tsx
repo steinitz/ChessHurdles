@@ -805,12 +805,11 @@ export default function GameAnalysis({
           <div style={{
             display: 'flex',
             flexDirection: 'row',
-            justifyContent: 'space-evenly',
+            justifyContent: 'space-between',
             fontWeight: 'normal',
           }}
           >
-            <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>&nbsp;
-            <Spacer orientation="horizontal" />
+            <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>
             <span>{MAX_ANALYSIS_DEPTH} (Deep)</span>
           </div>
         </label>
@@ -825,7 +824,7 @@ export default function GameAnalysis({
         />
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
         <button
           onClick={handleAnalyzeEntireGame}
           disabled={isAnalyzingMoves || gameMoves.length <= 1}
@@ -833,6 +832,7 @@ export default function GameAnalysis({
         >
           {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game'}
         </button>
+        <Spacer orientation="horizontal" />
         <button
           onClick={handleCancelAnalysis}
           disabled={!isAnalyzingMoves}
@@ -840,6 +840,7 @@ export default function GameAnalysis({
         >
           Cancel
         </button>
+        <Spacer orientation="horizontal" />
         <button
           onClick={handleCalibrateDepth}
           disabled={isAnalyzingMoves || isCalibrating}
@@ -849,6 +850,7 @@ export default function GameAnalysis({
             ? 'Calibrating...'
             : `Calibrate (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s)`}
         </button>
+        <Spacer orientation="horizontal" />
         <button
           onClick={handleClearCacheClick}
           className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"

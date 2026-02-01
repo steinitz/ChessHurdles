@@ -8,11 +8,11 @@ import {
   cleanupWorker
 } from '~/lib/stockfish-engine';
 import { useSession } from '~stzUser/lib/auth-client';
-// GameLoad removed (moved to parent)
 import GameAnalysis from './GameAnalysis';
 import GameMoves from './GameMoves';
 import GameSaver from './GameSaver';
 import GameNavigation from './GameNavigation';
+import { CHESSBOARD_WIDTH } from '~/constants';
 
 interface GameMove {
   position: Chess;
@@ -149,7 +149,7 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
     // This callback could be used for interactive play in the future
   }, []);
 
-  const chessboardHeight = '75vh' // allows game nav buttons to be comfortably on screen
+  const chessboardHeight = CHESSBOARD_WIDTH // allows game nav buttons to be comfortably on screen
   const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
 

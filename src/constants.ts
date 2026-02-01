@@ -25,3 +25,5 @@ export const routeStrings = {
   refunds: '/legal/refunds',
   pricing: '/legal/pricing',
 }
+
+export const CHESSBOARD_WIDTH = '75vh'
