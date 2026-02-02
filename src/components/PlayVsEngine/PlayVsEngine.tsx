@@ -541,7 +541,7 @@ export function PlayVsEngine() {
         />
       </div>
 
-      {!zenMode && (
+      {!zenMode && session?.user?.role === 'admin' && (
         <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--color-bg-secondary)' }}>
           <h3>Debug Controls (Phase 2)</h3>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

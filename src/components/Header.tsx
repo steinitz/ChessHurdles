@@ -51,7 +51,7 @@ export const Header = () => {
         style={navLinkStyle}
         activeProps={{ style: { ...navLinkStyle, ...activeLinkStyle } }}
       >
-        Computer
+        Play
       </Link>
       <Spacer orientation={'horizontal'} space={1} />
       <Link
