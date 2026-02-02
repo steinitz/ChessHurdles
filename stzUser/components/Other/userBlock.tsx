@@ -26,16 +26,33 @@ export const navLinkStyle = {
 
 export function UserBlock() {
   const navigate = useNavigate()
-  const { data: session } = useSession()
+  const { data: session, isPending } = useSession()
+
+  const containerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.75rem',
+    minWidth: '260px',
+    justifyContent: 'flex-end',
+  } as const
+
+  if (isPending) {
+    return (
+      <div style={containerStyle}>
+        <div style={{
+          width: '100%',
+          height: '24px',
+          backgroundColor: 'var(--color-text)',
+          borderRadius: '4px',
+          opacity: 0.1
+        }} />
+      </div>
+    )
+  }
 
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        // not a good idea - messes with the whole header alignment ...adjustVerticalLocationStyle(1),
-      }}
+      style={containerStyle}
     >
       <div style={{
         display: 'flex',

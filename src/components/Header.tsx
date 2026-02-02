@@ -14,6 +14,7 @@ export const Header = () => {
         flexDirection: 'row',
         marginBottom: '-13px',
         alignItems: 'center',
+        justifyContent: 'space-between',
       }}
     >
       <Link
