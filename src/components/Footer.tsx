@@ -38,45 +38,43 @@ export const Footer = () => {
         flexDirection: 'column',
         gap: '0.75rem',
       }}>
-        {/* Row 1: Site Information & Interaction */}
-        <section
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-start',
-            gap: '1.5rem',
-            fontSize: '0.85rem',
-          }}
-        >
-          <ContactLink />
+        {/* Row 1: Site Information */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '0.85rem',
+        }}>
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <ContactLink />
+            <AboutLink />
+          </div>
           <AcknowledgementsLink />
-          <AboutLink />
-        </section>
+        </div>
 
-        {/* Row 2: Legal & Copyright */}
-        <section
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '0.75rem',
-            opacity: 0.8,
-          }}
-        >
+        {/* Row 2: Legal, Copyright, Admin */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: '0.75rem',
+          opacity: 0.8,
+        }}>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <TermsLink />
             <RefundsLink />
             <PrivacyLink />
-            <span>Copyright © {copyrightYear} {clientEnv.COMPANY_NAME}. All Rights Reserved.</span>
           </div>
 
-          {isAdmin && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span>Copyright © {copyrightYear} {clientEnv.COMPANY_NAME}. All Rights Reserved.</span>
+            {isAdmin && (
               <Link to="/admin" style={{ color: 'inherit', textDecoration: 'underline' }}>
-                Admin Tools
+                Admin
               </Link>
-            </div>
-          )}
-        </section>
+            )}
+          </div>
+        </div>
       </div>
     </footer>
   )
