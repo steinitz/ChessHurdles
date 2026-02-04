@@ -27,7 +27,7 @@ export function getOptionalEnvVar(name: string, defaultValue?: string): string |
 }
 
 // Client-safe environment variables
-type ClientEnv = {
+export type ClientEnv = {
   APP_NAME: string
   SMTP_FROM_ADDRESS: string | undefined
   SUPPORT_EMAIL_ADDRESS: string | undefined
@@ -50,9 +50,6 @@ type ClientEnv = {
   WELCOME_GRANT_CREDITS: number
   DEFAULT_CREDITS_PURCHASE: number
   IS_STRIPE_ENABLED: boolean
-  AI_WORTHY_THRESHOLD: number
-  COST_AI_EXPLANATION: number
-  COST_SAVE_GAME: number
 }
 
 // Load environment variables based on NODE_ENV
@@ -94,9 +91,6 @@ export const clientEnv: ClientEnv = isServer()
     WELCOME_GRANT_CREDITS: Number(process.env.WELCOME_GRANT_CREDITS || '500'),
     DEFAULT_CREDITS_PURCHASE: Number(process.env.DEFAULT_CREDITS_PURCHASE || '5000'),
     IS_STRIPE_ENABLED: false, // Set to true when Stripe is fully integrated
-    AI_WORTHY_THRESHOLD: Number(process.env.AI_WORTHY_THRESHOLD || '0.15'),
-    COST_AI_EXPLANATION: Number(process.env.COST_AI_EXPLANATION || '15'),
-    COST_SAVE_GAME: Number(process.env.COST_SAVE_GAME || '1'),
   }
   : {
     // Default Fallbacks
@@ -120,9 +114,6 @@ export const clientEnv: ClientEnv = isServer()
     WELCOME_GRANT_CREDITS: 500,
     DEFAULT_CREDITS_PURCHASE: 5000,
     IS_STRIPE_ENABLED: false,
-    AI_WORTHY_THRESHOLD: 0.15,
-    COST_AI_EXPLANATION: 15,
-    COST_SAVE_GAME: 1,
     // Merge with window.__ENV if available to override defaults
     ...(typeof window !== 'undefined' ? (window.__ENV || {}) : {})
   }

@@ -12,7 +12,7 @@ import {
 } from '~/lib/stockfish-engine';
 import { Spacer } from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
-import { clientEnv } from '~stzUser/lib/env'; // Added import for environmental constants
+import { clientEnv } from '~/lib/env.app'; // Added import for environmental constants
 import { getUserAnalysisDepth, setUserAnalysisDepth, getAIDescription } from '~/lib/chess-server';
 import { saveGame } from '~/lib/server/games';
 import { saveHurdle } from '~/lib/server/hurdles';
@@ -632,276 +632,281 @@ export default function GameAnalysis({
           analysisText += `  Source: Cached\n`;
         }
 
-        const centipawnChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
-        const wpl = calculateWPL(result.evaluation, nextResult.evaluation, isWhiteMove);
 
-        const classification = classifyWPL(wpl);
+        // Calculate centipawnLoss by comparing with the NEXT position's evaluation
+        if (index < displayResults.length - 1) {
+          const nextResult = displayResults[index + 1];
+          if (nextResult) {
+            const centipawnChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
+            const wpl = calculateWPL(result.evaluation, nextResult.evaluation, isWhiteMove);
 
-        if (classification !== 'none') {
-          const label = classification.charAt(0).toUpperCase() + classification.slice(1);
-          analysisText += `  Change: -${(centipawnChange / 100).toFixed(2)} (WPL ${(wpl * 100).toFixed(1)}%)\n`;
-          analysisText += `  ⚠️  ${label} (WPL >= ${WPL_THRESHOLDS[classification]})\n`;
+            const classification = classifyWPL(wpl);
 
-          // Only show PV when a significant mistake/blunder is identified
-          if (result.principalVariation) {
-            analysisText += `  Principal Variation: ${result.principalVariation}\n`;
-          }
+            if (classification !== 'none') {
+              const label = classification.charAt(0).toUpperCase() + classification.slice(1);
+              analysisText += `  Change: -${(centipawnChange / 100).toFixed(2)} (WPL ${(wpl * 100).toFixed(1)}%)\n`;
+              analysisText += `  ⚠️  ${label} (WPL >= ${WPL_THRESHOLDS[classification]})\n`;
 
-          // Determine if "Worthy" of AI Analysis (and Cost)
-          const isAiWorthy = wpl >= clientEnv.AI_WORTHY_THRESHOLD;
+              // Only show PV when a significant mistake/blunder is identified
+              if (result.principalVariation) {
+                analysisText += `  Principal Variation: ${result.principalVariation}\n`;
+              }
 
-          // Show AI Description if already available
-          if (aiDescriptions[moveNumber]) {
-            analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
-          } else {
+              // Determine if "Worthy" of AI Analysis (and Cost)
+              const isAiWorthy = wpl >= clientEnv.AI_WORTHY_THRESHOLD;
 
-            if (isAiWorthy) {
-              // Queue for fetching (and paying)
-              missingDescriptions.push({
-                index,
-                moveNumber,
-                data: {
-                  fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
-                  move,
-                  evaluation: result.evaluation,
-                  bestMove: result.bestMove,
-                  pv: result.principalVariation,
-                  centipawnLoss: centipawnChange,
-                  wpl: wpl, // include WPL
-                  isWorthy: true
+              // Show AI Description if already available
+              if (aiDescriptions[moveNumber]) {
+                analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
+              } else {
+
+                if (isAiWorthy) {
+                  // Queue for fetching (and paying)
+                  missingDescriptions.push({
+                    index,
+                    moveNumber,
+                    data: {
+                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                      move,
+                      evaluation: result.evaluation,
+                      bestMove: result.bestMove,
+                      pv: result.principalVariation,
+                      centipawnLoss: centipawnChange,
+                      wpl: wpl, // include WPL
+                      isWorthy: true
+                    }
+                  });
+                } else {
+                  // "Silent Hurdle" logic
+                  missingDescriptions.push({
+                    index,
+                    moveNumber,
+                    data: {
+                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                      move,
+                      evaluation: result.evaluation,
+                      bestMove: result.bestMove,
+                      pv: result.principalVariation,
+                      centipawnLoss: centipawnChange,
+                      wpl: wpl,
+                      isWorthy: false // Silent
+                    }
+                  });
                 }
-              });
+              }
             } else {
-              // "Silent Hurdle" logic
-              missingDescriptions.push({
-                index,
-                moveNumber,
-                data: {
-                  fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
-                  move,
-                  evaluation: result.evaluation,
-                  bestMove: result.bestMove,
-                  pv: result.principalVariation,
-                  centipawnLoss: centipawnChange,
-                  wpl: wpl,
-                  isWorthy: false // Silent
-                }
-              });
+              // Not a hurdle
+              analysisText += `  centipawnChange: ${centipawnChange}\n`;
             }
           }
-        } else {
-          // Not a hurdle
-          analysisText += `  centipawnChange: ${centipawnChange}\n`;
         }
-      }
-    }
 
         // Check for mate≤5 detection
         if (isMateScore(result.evaluation)) {
-      const mateDistance = getMateDistance(result.evaluation);
-      if (mateDistance <= 5) {
-        const mateSign = result.evaluation > 0 ? '+' : '-';
-        analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
-      }
-    }
+          const mateDistance = getMateDistance(result.evaluation);
+          if (mateDistance <= 5) {
+            const mateSign = result.evaluation > 0 ? '+' : '-';
+            analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
+          }
+        }
 
-  } else {
-    analysisText += `  Analysis: Failed\n`;
-}
-analysisText += '\n';
+      } else {
+        analysisText += `  Analysis: Failed\n`;
+      }
+      analysisText += '\n';
     });
 
-analysisText += 'Analysis complete!';
+    analysisText += 'Analysis complete!';
 
-// If we have missing descriptions, append a loading message (for Worthy ones)
-const worthyCount = missingDescriptions.filter(d => d.data.isWorthy).length;
-if (worthyCount > 0) {
-  analysisText += `\n\nFetching AI descriptions for ${worthyCount} major hurdles...`;
-}
+    // If we have missing descriptions, append a loading message (for Worthy ones)
+    const worthyCount = missingDescriptions.filter(d => d.data.isWorthy).length;
+    if (worthyCount > 0) {
+      analysisText += `\n\nFetching AI descriptions for ${worthyCount} major hurdles...`;
+    }
 
-setMoveAnalysisResults(analysisText);
-setIsAnalyzingMoves(false);
+    setMoveAnalysisResults(analysisText);
+    setIsAnalyzingMoves(false);
 
-// Trigger processing for all identified hurdles (both Silent and Worthy)
-if (missingDescriptions.length > 0) {
-  const processingSet = processingHurdlesRef.current;
-  // Filter out hurdles that are already being processed or saved
-  const newItems = missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
+    // Trigger processing for all identified hurdles (both Silent and Worthy)
+    if (missingDescriptions.length > 0) {
+      const processingSet = processingHurdlesRef.current;
+      // Filter out hurdles that are already being processed or saved
+      const newItems = missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
 
-  if (newItems.length > 0) {
-    // Mark as processing immediately
-    newItems.forEach(item => processingSet.add(item.moveNumber));
+      if (newItems.length > 0) {
+        // Mark as processing immediately
+        newItems.forEach(item => processingSet.add(item.moveNumber));
 
-    const processHurdles = async () => {
-      for (const item of newItems) {
-        try {
-          let aiDescription = null;
-
-          if (item.data.isWorthy) {
-            // Fetch AI description (Costs Credits)
+        const processHurdles = async () => {
+          for (const item of newItems) {
             try {
-              const response = await getAIDescription({ data: item.data });
-              if (response?.description) {
-                aiDescription = response.description;
-                setAiDescriptions(prev => ({
-                  ...prev,
-                  [item.moveNumber]: response.description
-                }));
-              }
-            } catch (e: any) {
-              // Check for INSUFFICIENT_CREDITS error
-              if (typeof e.message === 'string' && e.message.includes('Insufficient credits')) {
-                if (typeof window !== 'undefined') {
-                  window.dispatchEvent(new Event('INSUFFICIENT_CREDITS'));
-                }
-                console.warn('Insufficient credits for AI analysis');
-              }
-              console.error('Failed to fetch AI description', e);
-            }
-          }
+              let aiDescription: string | null = null;
 
-          // Auto-save hurdle if user is logged in
-          // (Save regardless of Silent or Worthy, as long as it's a hurdle)
-          if (session?.user) {
-            try {
-              await saveHurdle({
-                data: {
-                  fen: item.data.fen,
-                  title: `Mistake: ${Math.ceil(item.moveNumber / 2)}${item.moveNumber % 2 !== 0 ? '.' : '...'} ${item.data.move}`,
-                  moveNumber: item.moveNumber,
-                  evaluation: item.data.evaluation,
-                  bestMove: item.data.bestMove,
-                  playedMove: item.data.move,
-                  centipawnLoss: item.data.centipawnLoss,
-                  aiDescription: aiDescription || undefined, // undefined if silent
-                  depth: moveAnalysisDepth,
-                  difficultyLevel: 3 // Default
+              if (item.data.isWorthy) {
+                // Fetch AI description (Costs Credits)
+                try {
+                  const response = await getAIDescription({ data: item.data });
+                  if (response?.description) {
+                    aiDescription = response.description;
+                    setAiDescriptions(prev => ({
+                      ...prev,
+                      [item.moveNumber]: response.description
+                    }));
+                  }
+                } catch (e: any) {
+                  // Check for INSUFFICIENT_CREDITS error
+                  if (typeof e.message === 'string' && e.message.includes('Insufficient credits')) {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new Event('INSUFFICIENT_CREDITS'));
+                    }
+                    console.warn('Insufficient credits for AI analysis');
+                  }
+                  console.error('Failed to fetch AI description', e);
                 }
-              });
-              console.log(`💾 Auto-saved hurdle at move ${item.moveNumber} (Silent: ${!item.data.isWorthy})`);
-              // Notify parent to refresh hurdles list
-              onHurdleSaved?.();
+              }
+
+              // Auto-save hurdle if user is logged in
+              // (Save regardless of Silent or Worthy, as long as it's a hurdle)
+              if (session?.user) {
+                try {
+                  await saveHurdle({
+                    data: {
+                      fen: item.data.fen,
+                      title: `Mistake: ${Math.ceil(item.moveNumber / 2)}${item.moveNumber % 2 !== 0 ? '.' : '...'} ${item.data.move}`,
+                      moveNumber: item.moveNumber,
+                      evaluation: item.data.evaluation,
+                      bestMove: item.data.bestMove,
+                      playedMove: item.data.move,
+                      centipawnLoss: item.data.centipawnLoss,
+                      aiDescription: aiDescription || undefined, // undefined if silent
+                      depth: moveAnalysisDepth,
+                      difficultyLevel: 3 // Default
+                    }
+                  });
+                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber} (Silent: ${!item.data.isWorthy})`);
+                  // Notify parent to refresh hurdles list
+                  onHurdleSaved?.();
+                } catch (e) {
+                  console.error('Failed to auto-save hurdle:', e);
+                }
+              }
             } catch (e) {
-              console.error('Failed to auto-save hurdle:', e);
+              console.error('Error processing hurdle', e);
             }
           }
-        } catch (e) {
-          console.error('Error processing hurdle', e);
-        }
+        };
+        processHurdles();
       }
-    };
-    processHurdles();
-  }
-}
+    }
   }, [gameMoves.length, moveAnalysisDepth, aiDescriptions, onHurdleSaved, session?.user]);
-// Auto-start analysis if requested and moves are available
-useEffect(() => {
-  if (autoAnalyze && gameMoves.length > 1 && !isAnalyzingMoves && analysisResultsRef.current.length === 0) {
-    handleAnalyzeEntireGame();
-  }
-}, [autoAnalyze, gameMoves.length, handleAnalyzeEntireGame]);
+  // Auto-start analysis if requested and moves are available
+  useEffect(() => {
+    if (autoAnalyze && gameMoves.length > 1 && !isAnalyzingMoves && analysisResultsRef.current.length === 0) {
+      handleAnalyzeEntireGame();
+    }
+  }, [autoAnalyze, gameMoves.length, handleAnalyzeEntireGame]);
 
 
 
 
-// Re-generate analysis text when AI descriptions are updated
-useEffect(() => {
-  if (!isAnalyzingMoves && analysisResultsRef.current.length > 0) {
-    displayTextualAnalysisResults();
-  }
-}, [aiDescriptions, isAnalyzingMoves, displayTextualAnalysisResults]);
+  // Re-generate analysis text when AI descriptions are updated
+  useEffect(() => {
+    if (!isAnalyzingMoves && analysisResultsRef.current.length > 0) {
+      displayTextualAnalysisResults();
+    }
+  }, [aiDescriptions, isAnalyzingMoves, displayTextualAnalysisResults]);
 
-// Transform EngineEvaluation to EvaluationData for the graph
-const transformToEvaluationData = (analysisResults: EngineEvaluation[]): EvaluationData[] => {
-  return analysisResults.map((result, index) => ({
-    moveNumber: index + 1,
-    evaluation: result.evaluation,
-    isMate: isMateScore(result.evaluation),
-    mateIn: isMateScore(result.evaluation) ? getMateDistance(result.evaluation) : undefined
-  }));
-};
+  // Transform EngineEvaluation to EvaluationData for the graph
+  const transformToEvaluationData = (analysisResults: EngineEvaluation[]): EvaluationData[] => {
+    return analysisResults.map((result, index) => ({
+      moveNumber: index + 1,
+      evaluation: result.evaluation,
+      isMate: isMateScore(result.evaluation),
+      mateIn: isMateScore(result.evaluation) ? getMateDistance(result.evaluation) : undefined
+    }));
+  };
 
-return (
-  <div style={{ width: '100%' }}>
-    <h3>Game Analysis</h3>
-
-    <div >
-      <label>
-        <div>Analysis Depth: {moveAnalysisDepth}</div>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          fontWeight: 'normal',
-        }}
-        >
-          <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>
-          <span>{MAX_ANALYSIS_DEPTH} (Deep)</span>
-        </div>
-      </label>
-      <input
-        type="range"
-        min={MIN_ANALYSIS_DEPTH}
-        max={MAX_ANALYSIS_DEPTH}
-        value={moveAnalysisDepth}
-        onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
-        disabled={isAnalyzingMoves}
-        style={{ width: '99%' }}
-      />
-    </div>
-
-    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-      <button
-        onClick={handleAnalyzeEntireGame}
-        disabled={isAnalyzingMoves || gameMoves.length <= 1}
-        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-      >
-        {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game'}
-      </button>
-      <Spacer orientation="horizontal" />
-      <button
-        onClick={handleCancelAnalysis}
-        disabled={!isAnalyzingMoves}
-        className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-      >
-        Cancel
-      </button>
-      <Spacer orientation="horizontal" />
-      <button
-        onClick={handleCalibrateDepth}
-        disabled={isAnalyzingMoves || isCalibrating}
-        className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
-      >
-        {isCalibrating
-          ? 'Calibrating...'
-          : `Calibrate (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s)`}
-      </button>
-      <Spacer orientation="horizontal" />
-      <button
-        onClick={handleClearCacheClick}
-        className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-        title="Clear analysis cache now"
-      >
-        Clear Cache
-      </button>
-    </div>
-
+  return (
     <div style={{ width: '100%' }}>
-      <EvaluationGraph
-        evaluations={currentEvaluations}
-        onMoveClick={goToMove}
-        height={200}
-      />
-    </div>
+      <h3>Game Analysis</h3>
 
-    {moveAnalysisResults && (
-      <div className="mb-4">
-        <h4 className="text-md font-medium mb-2">Analysis Results</h4>
-        <pre className="bg-white p-3 rounded border text-sm overflow-auto max-h-96 whitespace-pre-wrap">
-          {moveAnalysisResults}
-        </pre>
+      <div >
+        <label>
+          <div>Analysis Depth: {moveAnalysisDepth}</div>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            fontWeight: 'normal',
+          }}
+          >
+            <span>{MIN_ANALYSIS_DEPTH} (Fast)</span>
+            <span>{MAX_ANALYSIS_DEPTH} (Deep)</span>
+          </div>
+        </label>
+        <input
+          type="range"
+          min={MIN_ANALYSIS_DEPTH}
+          max={MAX_ANALYSIS_DEPTH}
+          value={moveAnalysisDepth}
+          onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
+          disabled={isAnalyzingMoves}
+          style={{ width: '99%' }}
+        />
       </div>
-    )}
-  </div>
-);
+
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <button
+          onClick={handleAnalyzeEntireGame}
+          disabled={isAnalyzingMoves || gameMoves.length <= 1}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {isAnalyzingMoves ? 'Analyzing...' : 'Analyze Entire Game'}
+        </button>
+        <Spacer orientation="horizontal" />
+        <button
+          onClick={handleCancelAnalysis}
+          disabled={!isAnalyzingMoves}
+          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          Cancel
+        </button>
+        <Spacer orientation="horizontal" />
+        <button
+          onClick={handleCalibrateDepth}
+          disabled={isAnalyzingMoves || isCalibrating}
+          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {isCalibrating
+            ? 'Calibrating...'
+            : `Calibrate (~${Math.round(CALIBRATION_TARGET_MS / 1000)}s)`}
+        </button>
+        <Spacer orientation="horizontal" />
+        <button
+          onClick={handleClearCacheClick}
+          className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          title="Clear analysis cache now"
+        >
+          Clear Cache
+        </button>
+      </div>
+
+      <div style={{ width: '100%' }}>
+        <EvaluationGraph
+          evaluations={currentEvaluations}
+          onMoveClick={goToMove}
+          height={200}
+        />
+      </div>
+
+      {moveAnalysisResults && (
+        <div className="mb-4">
+          <h4 className="text-md font-medium mb-2">Analysis Results</h4>
+          <pre className="bg-white p-3 rounded border text-sm overflow-auto max-h-96 whitespace-pre-wrap">
+            {moveAnalysisResults}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
 }

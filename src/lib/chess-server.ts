@@ -4,7 +4,7 @@ import { auth } from '~stzUser/lib/auth'
 
 import { ChessGameDatabase, type UserStatsTable, type GameTable } from './chess-database'
 import { consumeResourceInternal } from '~stzUser/lib/wallet.logic'
-import { clientEnv } from '~stzUser/lib/env'
+import { clientEnv } from '~/lib/env.app'
 
 // Minimal server function to save a hard-coded sample game for the current user
 export const saveSampleGame = createServerFn({ method: 'POST' })
