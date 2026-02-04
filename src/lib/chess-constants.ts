@@ -25,6 +25,9 @@ export const DEFAULT_ANALYSIS_DEPTH = 8;
 // 13 full moves = 26 plies (Deep opening coverage).
 export const ANALYSIS_CACHE_FULL_MOVES_LIMIT = 13;
 
+// Maximum number of "Worthy" hurdles to explain with AI per game (Throttle)
+export const MAX_AI_ANALYSIS_PER_GAME = 5;
+
 // Centralized engine performance defaults for Stockfish UCI options
 // Adjust these values to experiment with speed and stability.
 // Note: Multi-threading requires a pthreads build and cross-origin isolation.
