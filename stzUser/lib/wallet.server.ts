@@ -12,16 +12,20 @@ export type { WalletStatus }
  */
 export const getWalletStatus = createServerFn({
   method: 'GET',
-}).handler(async () => {
-  const request = getWebRequest()
-  const headers = request?.headers
-  if (!headers) throw new Error('Not authenticated')
-
-  const session = await auth.api.getSession({ headers })
-  if (!session?.user) throw new Error('Not authenticated')
-
-  return getWalletStatusInternal(session.user.id)
 })
+  .validator((data?: number) => data) // Accepts optional timezone offset
+  .handler(async ({ data: timezoneOffset }) => {
+    const request = getWebRequest()
+    const headers = request?.headers
+    if (!headers) throw new Error('Not authenticated')
+
+    const session = await auth.api.getSession({ headers })
+    if (!session?.user) throw new Error('Not authenticated')
+
+    // Pass offset to internal logic (defaults to 0 if undefined, but validator expects number)
+    // Client should send 0 if unknown.
+    return getWalletStatusInternal(session.user.id, timezoneOffset)
+  })
 
 /**
  * Server function to consume a resource for the current user.

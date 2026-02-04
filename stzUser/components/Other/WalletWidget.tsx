@@ -13,7 +13,10 @@ export function WalletWidget({ style = {} }) {
   useEffect(() => {
     const fetchWallet = () => {
       if (session?.user?.id) {
-        getWalletStatus()
+        // Send offset in milliseconds (inverted from minutes)
+        // e.g. UTC+11 is -660 mins. -(-660) * 60 * 1000 = +39600000 ms.
+        const offset = -new Date().getTimezoneOffset() * 60 * 1000
+        getWalletStatus({ data: offset })
           .then(setWallet)
           .catch(err => console.error('Failed to fetch wallet status:', err))
       }

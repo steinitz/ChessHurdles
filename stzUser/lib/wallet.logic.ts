@@ -11,10 +11,11 @@ const DAILY_ALLOWANCE = clientEnv.DAILY_GRANT_CREDITS
 /**
  * Logic: Fetches wallet status for a specific user.
  * This also triggers the daily grant if it hasn't been applied yet.
+ * This also triggers the daily grant if it hasn't been applied yet for the user's LOCAL day.
  */
-export async function getWalletStatusInternal(userId: string) {
-  // 1. Ensure daily allowance is applied (lazy grant)
-  await ensureDailyAllowance(userId)
+export async function getWalletStatusInternal(userId: string, timezoneOffset = 0) {
+  // 1. Ensure daily allowance is applied (lazy grant) with time-zone awareness
+  await applyDailyGrant(userId, timezoneOffset)
 
   // 2. Simply fetch credits from user record
   const user = await db
@@ -32,8 +33,26 @@ export async function getWalletStatusInternal(userId: string) {
  * Logic: Ensures a user receives their daily credit grant.
  * Wrapped in a transaction to prevent race conditions (double grants).
  */
-export async function ensureDailyAllowance(userId: string) {
-  const today = new Date().toISOString().split('T')[0]
+/**
+ * Logic: Ensures a user receives their daily credit grant.
+ * Wrapped in a transaction to prevent race conditions (double grants).
+ *
+ * @param timezoneOffset - Offset in milliseconds from UTC (e.g. +11h = +39600000)
+ */
+export async function applyDailyGrant(userId: string, timezoneOffset: number = 0) {
+  // Calculate "Local Today"
+  // Server Time (UTC) + Offset = Local Time
+  // e.g. 23:00 UTC + 2h = 01:00 Local (Next Day)
+  const serverNow = Date.now()
+  const localNow = new Date(serverNow + timezoneOffset) // Fake date object representing local time
+  const localToday = localNow.toISOString().split('T')[0] // 'YYYY-MM-DD'
+
+  // FIX: We need to check if a grant occurred within the "Local Day" window converted to UTC.
+  // 1. Determine Local Start of Day in UTC milliseconds.
+  // Note: new Date('YYYY-MM-DD') returns UTC midnight.
+  const localStartOfDayMs = new Date(localToday).getTime() - timezoneOffset
+  // 2. Convert to ISO string for DB comparison
+  const localStartOfDayUTC = new Date(localStartOfDayMs).toISOString()
 
   await db.transaction().execute(async (trx) => {
     // Re-check inside transaction for maximum safety
@@ -42,11 +61,12 @@ export async function ensureDailyAllowance(userId: string) {
       .select('id')
       .where('user_id', '=', userId)
       .where('type', '=', 'daily_grant')
-      .where('created_at', '>=', today)
+      // 3. Check if any grant exists AFTER the start of the local day (in UTC)
+      .where('created_at', '>=', localStartOfDayUTC)
       .executeTakeFirst()
 
     if (!existingGrant) {
-      console.log(`🎁 Granting daily credits to user ${userId}`)
+      console.log(`🎁 Granting daily credits to user ${userId} for local date ${localToday}`)
       // Passing trx to ensure the grant happens in the same atomic block
       await grantCreditsTx(trx, userId, DAILY_ALLOWANCE, 'daily_grant', 'Daily credit grant')
     }
@@ -57,8 +77,10 @@ export async function ensureDailyAllowance(userId: string) {
  * Logic: Consumes a resource (variable credits) for a specific user.
  */
 export async function consumeResourceInternal(userId: string, resourceType: string, amount: number = 1) {
-  // 1. Ensure daily allowance is applied
-  await ensureDailyAllowance(userId)
+  // 1. Ensure daily allowance is applied (assume 0 offset for consumption side-effects unless we want to thread it through)
+  // For safety, let's just default to server time (offset 0) for consumption triggers, 
+  // or we could require it. For now, default 0 is safe (worst case they miss a grant until next load).
+  await applyDailyGrant(userId, 0)
 
   // 2. Fetch current balance
   const status = await getWalletStatusInternal(userId)

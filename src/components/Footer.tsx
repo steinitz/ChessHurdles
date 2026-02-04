@@ -70,7 +70,7 @@ export const Footer = () => {
             <span>Copyright © {copyrightYear} {clientEnv.COMPANY_NAME}. All Rights Reserved.</span>
             {isAdmin && (
               <Link to="/admin" style={{ color: 'inherit', textDecoration: 'underline' }}>
-                Admin
+                Admin Tools
               </Link>
             )}
           </div>
