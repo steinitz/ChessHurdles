@@ -28,3 +28,10 @@ then add the resulting url to vite.config.ts server.allowedHosts
 
 ## 🚀 Deployment
 - **No Automatic Pushes**: Do NOT push to remote. User handles pushes to manage Netlify limits.
+
+Google Gemini's Pricing Ideas:
+
+Avoid min purchase being less than the Stripe min of $0.50
+
+DAILY_GRANT: 10 credits ($0.10 value).
+DEFAULT_PURCHASE: 500 credits ($5.00 value).

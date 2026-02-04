@@ -50,6 +50,9 @@ type ClientEnv = {
   WELCOME_GRANT_CREDITS: number
   DEFAULT_CREDITS_PURCHASE: number
   IS_STRIPE_ENABLED: boolean
+  AI_WORTHY_THRESHOLD: number
+  COST_AI_EXPLANATION: number
+  COST_SAVE_GAME: number
 }
 
 // Load environment variables based on NODE_ENV
@@ -91,31 +94,38 @@ export const clientEnv: ClientEnv = isServer()
     WELCOME_GRANT_CREDITS: Number(process.env.WELCOME_GRANT_CREDITS || '500'),
     DEFAULT_CREDITS_PURCHASE: Number(process.env.DEFAULT_CREDITS_PURCHASE || '5000'),
     IS_STRIPE_ENABLED: false, // Set to true when Stripe is fully integrated
+    AI_WORTHY_THRESHOLD: Number(process.env.AI_WORTHY_THRESHOLD || '0.15'),
+    COST_AI_EXPLANATION: Number(process.env.COST_AI_EXPLANATION || '15'),
+    COST_SAVE_GAME: Number(process.env.COST_SAVE_GAME || '1'),
   }
-  : (typeof window !== 'undefined' && window.__ENV)
-    ? window.__ENV
-    : {
-      APP_NAME: 'TanStack Start with Better Auth',
-      SMTP_FROM_ADDRESS: undefined,
-      SUPPORT_EMAIL_ADDRESS: undefined,
-      COMPANY_NAME: 'Your Company',
-      BETTER_AUTH_BASE_URL: (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
-      TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
-      CONTACT_EMAIL: undefined,
-      CONTACT_ADDRESS: undefined,
-      REFUND_POLICY_URL: '/legal/refunds',
-      COPYRIGHT_START_YEAR: new Date().getFullYear().toString(),
-      SUPPORT_LINK_TEXT: 'Contact our Support Team',
-      SUPPORT_LINK_URL: '/contact',
-      BANK_TRANSFER_BSB: undefined,
-      BANK_TRANSFER_ACC: undefined,
-      CREDIT_PRICE_AUD: 0.001,
-      MIN_CREDITS_PURCHASE: 10,
-      DAILY_GRANT_CREDITS: 100,
-      WELCOME_GRANT_CREDITS: 500,
-      DEFAULT_CREDITS_PURCHASE: 5000,
-      IS_STRIPE_ENABLED: false,
-    }
+  : {
+    // Default Fallbacks
+    APP_NAME: 'TanStack Start with Better Auth',
+    SMTP_FROM_ADDRESS: undefined,
+    SUPPORT_EMAIL_ADDRESS: undefined,
+    COMPANY_NAME: 'Your Company',
+    BETTER_AUTH_BASE_URL: 'http://localhost:3000',
+    TURNSTILE_SITE_KEY: '1x00000000000000000000AA',
+    CONTACT_EMAIL: undefined,
+    CONTACT_ADDRESS: undefined,
+    REFUND_POLICY_URL: '/legal/refunds',
+    COPYRIGHT_START_YEAR: new Date().getFullYear().toString(),
+    SUPPORT_LINK_TEXT: 'Contact our Support Team',
+    SUPPORT_LINK_URL: '/contact',
+    BANK_TRANSFER_BSB: undefined,
+    BANK_TRANSFER_ACC: undefined,
+    CREDIT_PRICE_AUD: 0.001,
+    MIN_CREDITS_PURCHASE: 10,
+    DAILY_GRANT_CREDITS: 100,
+    WELCOME_GRANT_CREDITS: 500,
+    DEFAULT_CREDITS_PURCHASE: 5000,
+    IS_STRIPE_ENABLED: false,
+    AI_WORTHY_THRESHOLD: 0.15,
+    COST_AI_EXPLANATION: 15,
+    COST_SAVE_GAME: 1,
+    // Merge with window.__ENV if available to override defaults
+    ...(typeof window !== 'undefined' ? (window.__ENV || {}) : {})
+  }
 
 // console.log({clientEnv});
 
