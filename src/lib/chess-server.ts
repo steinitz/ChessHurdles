@@ -3,6 +3,8 @@ import { getWebRequest } from '@tanstack/react-start/server'
 import { auth } from '~stzUser/lib/auth'
 
 import { ChessGameDatabase, type UserStatsTable, type GameTable } from './chess-database'
+import { consumeResourceInternal } from '~stzUser/lib/wallet.logic'
+import { clientEnv } from '~stzUser/lib/env'
 
 // Minimal server function to save a hard-coded sample game for the current user
 export const saveSampleGame = createServerFn({ method: 'POST' })
@@ -187,6 +189,32 @@ export const getAIDescription = createServerFn({ method: 'POST' })
     centipawnLoss: number;
   }) => data)
   .handler(async ({ data }) => {
+    // 1. Authenticate User
+    const request = getWebRequest();
+    if (!request?.headers) throw new Error('Request headers not available');
+
+    // Check session
+    const session = await auth.api.getSession({ headers: request.headers });
+    const userId = session?.user?.id;
+
+    // If generic/guest, maybe allow free or block?
+    // For now, let's require login for expensive AI.
+    if (!userId) {
+      // Optional: Return a teaser or error
+      throw new Error('You must be logged in to use AI Analysis.');
+    }
+
+    // 2. Check & Deduct Credits
+    // Deduct cost
+    const cost = clientEnv.COST_AI_EXPLANATION;
+    // Only deduct if we have an API Key (real cost) or if we want to simulate cost in dev?
+    // Let's always deduct to test the economy.
+    const consumption = await consumeResourceInternal(userId, 'ai_explanation', cost);
+
+    if (!consumption.success) {
+      throw new Error(`Insufficient credits for AI Analysis. Requires ${cost} credits.`);
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       console.warn('GEMINI_API_KEY not found. Returning mock response.');
@@ -223,6 +251,9 @@ export const getAIDescription = createServerFn({ method: 'POST' })
       return { description: text };
     } catch (error) {
       console.error('Gemini API Error:', error);
+      // Refund? 
+      // If we failed AFTER consumption, fairness suggests refund.
+      // But complications. For now, assume success or eaten cost.
       return {
         description: `(AI Unavailable) The move ${data.move} was a mistake. Best was ${data.bestMove}.`
       };

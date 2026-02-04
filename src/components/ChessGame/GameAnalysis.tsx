@@ -12,6 +12,7 @@ import {
 } from '~/lib/stockfish-engine';
 import { Spacer } from '~stzUtils/components/Spacer';
 import { useSession } from '~stzUser/lib/auth-client';
+import { clientEnv } from '~stzUser/lib/env'; // Added import for environmental constants
 import { getUserAnalysisDepth, setUserAnalysisDepth, getAIDescription } from '~/lib/chess-server';
 import { saveGame } from '~/lib/server/games';
 import { saveHurdle } from '~/lib/server/hurdles';
@@ -26,7 +27,7 @@ import {
   ANALYSIS_CACHE_FULL_MOVES_LIMIT
 } from '~/lib/chess-constants';
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
-import { computeCentipawnChange, classifyCpLoss } from '~/lib/evaluation-metrics';
+import { computeCentipawnChange, classifyCpLoss, calculateWPL, classifyWPL, WPL_THRESHOLDS } from '~/lib/evaluation-metrics';
 import { makeKey, getCachedEval, setCachedEval, clearPersistentCache } from '~/lib/analysis-cache';
 import { processGameAnalysis } from '~/lib/game-analysis-logic';
 
@@ -643,45 +644,68 @@ export default function GameAnalysis({
             // Wait, computeCentipawnChange(pre, post, isWhite)
             // If White: max(0, pre - post). Correct.
             // If Black: max(0, post - pre). Correct.
+            // NEW: Classification based on Win Probability Loss (WPL)
+            // computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
+            // We still want CP change for display, but logic runs on WPL.
             const centipawnChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
+            const wpl = calculateWPL(result.evaluation, nextResult.evaluation, isWhiteMove);
 
-            // Classify and annotate significant loss
-            const cls = classifyCpLoss(centipawnChange);
+            const classification = classifyWPL(wpl);
 
-            if (cls === 'mistake' || cls === 'blunder') {
-              const threshold = cls === 'blunder' ? CP_LOSS_THRESHOLDS.blunder : CP_LOSS_THRESHOLDS.mistake;
-              analysisText += `  centipawnChange: ${centipawnChange}\n`;
-              analysisText += `  ⚠️  ${cls.toUpperCase()} (centipawnChange ≥${threshold})\n`;
+            if (classification !== 'none') {
+              const label = classification.charAt(0).toUpperCase() + classification.slice(1);
+              analysisText += `  Change: -${(centipawnChange / 100).toFixed(2)} (WPL ${(wpl * 100).toFixed(1)}%)\n`;
+              analysisText += `  ⚠️  ${label} (WPL >= ${WPL_THRESHOLDS[classification]})\n`;
 
               // Only show PV when a significant mistake/blunder is identified
               if (result.principalVariation) {
                 analysisText += `  Principal Variation: ${result.principalVariation}\n`;
               }
 
-              // Show AI Description if available, otherwise queue for fetch
+              // Determine if "Worthy" of AI Analysis (and Cost)
+              const isAiWorthy = wpl >= clientEnv.AI_WORTHY_THRESHOLD;
+
+              // Show AI Description if already available
               if (aiDescriptions[moveNumber]) {
                 analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
               } else {
-                // Queue for fetching if not already present
-                missingDescriptions.push({
-                  index,
-                  moveNumber,
-                  data: {
-                    fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(), // Need correct FEN from reversed original array?
-                    // targetPositionsRef is reversed relative to game.
-                    // displayMoves[index] corresponds to targetMoves[len - 1 - index]
-                    // targetPositions[len - 1 - index] is position BEFORE the move.
-                    move,
-                    evaluation: result.evaluation,
-                    bestMove: result.bestMove,
-                    pv: result.principalVariation,
-                    centipawnLoss: centipawnChange
-                  }
-                });
+
+                if (isAiWorthy) {
+                  // Queue for fetching (and paying)
+                  missingDescriptions.push({
+                    index,
+                    moveNumber,
+                    data: {
+                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                      move,
+                      evaluation: result.evaluation,
+                      bestMove: result.bestMove,
+                      pv: result.principalVariation,
+                      centipawnLoss: centipawnChange,
+                      wpl: wpl, // include WPL
+                      isWorthy: true
+                    }
+                  });
+                } else {
+                  // "Silent Hurdle" logic
+                  missingDescriptions.push({
+                    index,
+                    moveNumber,
+                    data: {
+                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                      move,
+                      evaluation: result.evaluation,
+                      bestMove: result.bestMove,
+                      pv: result.principalVariation,
+                      centipawnLoss: centipawnChange,
+                      wpl: wpl,
+                      isWorthy: false // Silent
+                    }
+                  });
+                }
               }
             } else {
-              // Show cp change for info even if not a mistake, if desired?
-              // For now, keep it clean.
+              // Not a hurdle
               analysisText += `  centipawnChange: ${centipawnChange}\n`;
             }
           }
@@ -704,15 +728,16 @@ export default function GameAnalysis({
 
     analysisText += 'Analysis complete!';
 
-    // If we have missing descriptions, append a loading message
-    if (missingDescriptions.length > 0) {
-      analysisText += `\n\nFetching AI descriptions for ${missingDescriptions.length} mistakes...`;
+    // If we have missing descriptions, append a loading message (for Worthy ones)
+    const worthyCount = missingDescriptions.filter(d => d.data.isWorthy).length;
+    if (worthyCount > 0) {
+      analysisText += `\n\nFetching AI descriptions for ${worthyCount} major hurdles...`;
     }
 
     setMoveAnalysisResults(analysisText);
     setIsAnalyzingMoves(false);
 
-    // Trigger fetches for missing descriptions
+    // Trigger processing for all identified hurdles (both Silent and Worthy)
     if (missingDescriptions.length > 0) {
       const processingSet = processingHurdlesRef.current;
       // Filter out hurdles that are already being processed or saved
@@ -722,52 +747,68 @@ export default function GameAnalysis({
         // Mark as processing immediately
         newItems.forEach(item => processingSet.add(item.moveNumber));
 
-        const fetchDescriptions = async () => {
+        const processHurdles = async () => {
           for (const item of newItems) {
             try {
-              const response = await getAIDescription({ data: item.data });
-              if (response?.description) {
-                setAiDescriptions(prev => ({
-                  ...prev,
-                  [item.moveNumber]: response.description
-                }));
+              let aiDescription = null;
 
-                // Auto-save hurdle if user is logged in
-                if (session?.user) {
-                  try {
-                    await saveHurdle({
-                      data: {
-                        fen: item.data.fen,
-                        title: `Mistake: ${Math.ceil(item.moveNumber / 2)}${item.moveNumber % 2 !== 0 ? '.' : '...'} ${item.data.move}`,
-                        moveNumber: item.moveNumber,
-                        evaluation: item.data.evaluation,
-                        bestMove: item.data.bestMove,
-                        playedMove: item.data.move,
-                        centipawnLoss: item.data.centipawnLoss,
-                        aiDescription: response.description,
-                        depth: moveAnalysisDepth,
-                        difficultyLevel: 3 // Default
-                      }
-                    });
-                    console.log(`💾 Auto-saved hurdle at move ${item.moveNumber}`);
-                    // Notify parent to refresh hurdles list
-                    onHurdleSaved?.();
-                  } catch (e) {
-                    console.error('Failed to auto-save hurdle:', e);
-                    // On failure, maybe remove from processing set to retry?
-                    // For now, let's keep it to avoid infinite retry loops on persistent errors
+              if (item.data.isWorthy) {
+                // Fetch AI description (Costs Credits)
+                try {
+                  const response = await getAIDescription({ data: item.data });
+                  if (response?.description) {
+                    aiDescription = response.description;
+                    setAiDescriptions(prev => ({
+                      ...prev,
+                      [item.moveNumber]: response.description
+                    }));
                   }
+                } catch (e: any) {
+                  // Check for INSUFFICIENT_CREDITS error
+                  if (typeof e.message === 'string' && e.message.includes('Insufficient credits')) {
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new Event('INSUFFICIENT_CREDITS'));
+                    }
+                    console.warn('Insufficient credits for AI analysis');
+                  }
+                  console.error('Failed to fetch AI description', e);
+                }
+              }
+
+              // Auto-save hurdle if user is logged in
+              // (Save regardless of Silent or Worthy, as long as it's a hurdle)
+              if (session?.user) {
+                try {
+                  await saveHurdle({
+                    data: {
+                      fen: item.data.fen,
+                      title: `Mistake: ${Math.ceil(item.moveNumber / 2)}${item.moveNumber % 2 !== 0 ? '.' : '...'} ${item.data.move}`,
+                      moveNumber: item.moveNumber,
+                      evaluation: item.data.evaluation,
+                      bestMove: item.data.bestMove,
+                      playedMove: item.data.move,
+                      centipawnLoss: item.data.centipawnLoss,
+                      aiDescription: aiDescription || undefined, // undefined if silent
+                      depth: moveAnalysisDepth,
+                      difficultyLevel: 3 // Default
+                    }
+                  });
+                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber} (Silent: ${!item.data.isWorthy})`);
+                  // Notify parent to refresh hurdles list
+                  onHurdleSaved?.();
+                } catch (e) {
+                  console.error('Failed to auto-save hurdle:', e);
                 }
               }
             } catch (e) {
-              console.error('Failed to fetch AI description', e);
+              console.error('Error processing hurdle', e);
             }
           }
         };
-        fetchDescriptions();
+        processHurdles();
       }
     }
-  }, [gameMoves.length, moveAnalysisDepth, aiDescriptions, onHurdleSaved]);
+  }, [gameMoves.length, moveAnalysisDepth, aiDescriptions, onHurdleSaved, session?.user]);
   // Auto-start analysis if requested and moves are available
   useEffect(() => {
     if (autoAnalyze && gameMoves.length > 1 && !isAnalyzingMoves && analysisResultsRef.current.length === 0) {
