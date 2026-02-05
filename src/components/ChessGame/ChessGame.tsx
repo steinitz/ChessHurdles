@@ -8,7 +8,7 @@ import {
   cleanupWorker
 } from '~/lib/stockfish-engine';
 import { useSession } from '~stzUser/lib/auth-client';
-import GameAnalysis from './GameAnalysis';
+import GameAnalysis from './Analysis/GameAnalysis';
 import GameMoves from './GameMoves';
 import GameSaver from './GameSaver';
 import GameNavigation from './GameNavigation';
@@ -127,14 +127,6 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
     }
   }, [initialPGN, handlePgnLoad, loadSampleGame]);
 
-  // Cleanup Stockfish workers on unmount
-  useEffect(() => {
-    return () => {
-      if (analysisWorkerRef.current) {
-        cleanupWorker(analysisWorkerRef.current);
-      }
-    };
-  }, []);
 
 
   const goToMove = useCallback((moveIndex: number) => {
@@ -241,8 +233,8 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
         {/* PositionAnalysis removed to prioritize Game Analysis visibility */}
 
         {/* Game Analysis Section - constrained to chessboard container width */}
+        {/* Game Analysis Section - constrained to chessboard container width */}
         <GameAnalysis
-          analysisWorkerRef={analysisWorkerRef}
           gameMoves={gameMoves}
           goToMove={goToMove}
           maxMovesToAnalyze={gameMoves.length - 1}
