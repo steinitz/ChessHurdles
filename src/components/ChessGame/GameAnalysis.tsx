@@ -24,7 +24,9 @@ import {
   MAX_ANALYSIS_DEPTH,
   DEFAULT_ANALYSIS_DEPTH,
   ENGINE_DEFAULT_OPTIONS,
-  ANALYSIS_CACHE_FULL_MOVES_LIMIT
+
+  ANALYSIS_CACHE_FULL_MOVES_LIMIT,
+  MAX_AI_ANALYSIS_PER_GAME
 } from '~/lib/chess-constants';
 export { MIN_ANALYSIS_DEPTH, MAX_ANALYSIS_DEPTH, DEFAULT_ANALYSIS_DEPTH } from '~/lib/chess-constants';
 import { computeCentipawnChange, classifyCpLoss, calculateWPL, classifyWPL, WPL_THRESHOLDS } from '~/lib/evaluation-metrics';
@@ -593,29 +595,41 @@ export default function GameAnalysis({
 
     // Since we only analyze entire games now, this is always a full game analysis
     const analysisType = 'Entire Game';
-
-    // Use the depth from the user's slider setting
     const analysisDepth = moveAnalysisDepth;
 
     let analysisText = `Game Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
 
-    // Identify mistakes that need descriptions
+    // --- Pass 1: Identification & Throttling ---
+    // Use Shared Logic
+    // Note: displayMoveNumbers[0] corresponds to the FIRST move in the display list.
+    // displayMoves, displayResults, displayMoveNumbers are all REVERSED (chronological order).
+    // So [0] is the earliest move in the analyzed sequence.
+    const gameAnalysisItems = processGameAnalysis(displayMoves, displayResults, clientEnv.AI_WORTHY_THRESHOLD, MAX_AI_ANALYSIS_PER_GAME, displayMoveNumbers[0]);
+
+
+    // --- Pass 2: Display & Queuing ---
     const missingDescriptions: { index: number; moveNumber: number; data: any }[] = [];
 
     displayMoves.forEach((move, index) => {
-      const moveNumber = displayMoveNumbers[index];
-      const result = displayResults[index];
-      // Calculate isWhiteMove based on the actual move number
-      // Move 1 (White), Move 2 (Black), Move 3 (White)...
-      // In ply count (1-based): Odd is White, Even is Black.
-      // But moveNumber here is likely ply number based on how it was generated in handleAnalyzeEntireGame
-      // Let's verify: targetMoveNumbers = totalMoves - i.
-      // If totalMoves=7 (Qxh8). targetMoveNumbers=[7, 6, 5, 4, 3, 2, 1].
-      // Reversed: [1, 2, 3, 4, 5, 6, 7].
-      // Ply 1 = White. Ply 2 = Black.
-      const isWhiteMove = (moveNumber % 2) === 1;
+      const item = gameAnalysisItems[index];
+
+      // item from processGameAnalysis has: moveNumber, result (as 'evaluation', 'bestMove' embedded), etc.
+      // Wait, processGameAnalysis returns "AnalysisResultItem" which has:
+      // moveNumber, move, isWhiteMove, evaluation, bestMove, centipawnChange, wpl, willUseAI, isAiWorthy
+      // It DOES NOT have "index".
+      // But gameAnalysisItems[index] corresponds to displayMoves[index].
+
+      const { moveNumber, isWhiteMove } = item;
+      // We need 'result' for display logic below.
+      // 'result' was originally displayResults[index].
+      // gameAnalysisItems has 'evaluation' and 'bestMove'.
+      // But let's check what 'result' variable is used for below.
+      const result = displayResults[index]; // Keep using original result object for time/pv if needed?
+      // processGameAnalysis items have calculationTime and principalVariation too.
+      // So we can use item properties or keep displayResult[index].
+      // existing code uses 'result.evaluation', 'result.bestMove'.
+
       const playerColor = isWhiteMove ? 'White' : 'Black';
-      // Format move number: Math.ceil(moveNumber / 2) + (isWhiteMove ? '.' : '...')
       const fullMoveNum = Math.ceil(moveNumber / 2);
       const moveLabel = `${fullMoveNum}${isWhiteMove ? '.' : '...'}`;
 
@@ -632,76 +646,82 @@ export default function GameAnalysis({
           analysisText += `  Source: Cached\n`;
         }
 
+        if (item.classification && item.classification !== 'none' && item.wpl !== undefined && item.centipawnChange !== undefined) {
+          const label = item.classification.charAt(0).toUpperCase() + item.classification.slice(1);
+          // Show WPL
+          analysisText += `  Change: -${(item.centipawnChange / 100).toFixed(2)} (WPL ${(item.wpl * 100).toFixed(1)}%)\n`;
+          analysisText += `  ⚠️  ${label} (WPL >= ${WPL_THRESHOLDS[item.classification as keyof typeof WPL_THRESHOLDS]})\n`;
 
-        // Calculate centipawnLoss by comparing with the NEXT position's evaluation
-        if (index < displayResults.length - 1) {
-          const nextResult = displayResults[index + 1];
-          if (nextResult) {
-            const centipawnChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
-            const wpl = calculateWPL(result.evaluation, nextResult.evaluation, isWhiteMove);
+          if (result.principalVariation) {
+            analysisText += `  Principal Variation: ${result.principalVariation}\n`;
+          }
 
-            const classification = classifyWPL(wpl);
-
-            if (classification !== 'none') {
-              const label = classification.charAt(0).toUpperCase() + classification.slice(1);
-              analysisText += `  Change: -${(centipawnChange / 100).toFixed(2)} (WPL ${(wpl * 100).toFixed(1)}%)\n`;
-              analysisText += `  ⚠️  ${label} (WPL >= ${WPL_THRESHOLDS[classification]})\n`;
-
-              // Only show PV when a significant mistake/blunder is identified
-              if (result.principalVariation) {
-                analysisText += `  Principal Variation: ${result.principalVariation}\n`;
-              }
-
-              // Determine if "Worthy" of AI Analysis (and Cost)
-              const isAiWorthy = wpl >= clientEnv.AI_WORTHY_THRESHOLD;
-
-              // Show AI Description if already available
-              if (aiDescriptions[moveNumber]) {
-                analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
-              } else {
-
-                if (isAiWorthy) {
-                  // Queue for fetching (and paying)
-                  missingDescriptions.push({
-                    index,
-                    moveNumber,
-                    data: {
-                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
-                      move,
-                      evaluation: result.evaluation,
-                      bestMove: result.bestMove,
-                      pv: result.principalVariation,
-                      centipawnLoss: centipawnChange,
-                      wpl: wpl, // include WPL
-                      isWorthy: true
-                    }
-                  });
-                } else {
-                  // "Silent Hurdle" logic
-                  missingDescriptions.push({
-                    index,
-                    moveNumber,
-                    data: {
-                      fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
-                      move,
-                      evaluation: result.evaluation,
-                      bestMove: result.bestMove,
-                      pv: result.principalVariation,
-                      centipawnLoss: centipawnChange,
-                      wpl: wpl,
-                      isWorthy: false // Silent
-                    }
-                  });
+          // AI Analysis Status
+          if (aiDescriptions[moveNumber]) {
+            analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
+          } else {
+            if (item.willUseAI) {
+              // Approved for AI
+              missingDescriptions.push({
+                index,
+                moveNumber,
+                data: {
+                  fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                  move,
+                  evaluation: result.evaluation,
+                  bestMove: result.bestMove,
+                  pv: result.principalVariation,
+                  centipawnLoss: item.centipawnChange,
+                  wpl: item.wpl,
+                  isWorthy: true, // Legacy flag for "Important"
+                  willUseAI: true // Detailed throttle flag
                 }
-              }
+              });
+            } else if (item.isAiWorthy) {
+              // Eligible but Throttled
+              analysisText += `  🔒 AI Analysis Throttled (Top ${MAX_AI_ANALYSIS_PER_GAME} Priority)\n`;
+
+              // Still save as Silent Hurdle
+              missingDescriptions.push({
+                index,
+                moveNumber,
+                data: {
+                  fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                  move,
+                  evaluation: result.evaluation,
+                  bestMove: result.bestMove,
+                  pv: result.principalVariation,
+                  centipawnLoss: item.centipawnChange,
+                  wpl: item.wpl,
+                  isWorthy: true, // Still worthy!
+                  willUseAI: false // But skipped for credits
+                }
+              });
             } else {
-              // Not a hurdle
-              analysisText += `  centipawnChange: ${centipawnChange}\n`;
+              // Generic Silent Hurdle (e.g. minor mistake) - if we want to save these too
+              missingDescriptions.push({
+                index,
+                moveNumber,
+                data: {
+                  fen: targetPositionsRef.current[targetPositionsRef.current.length - 1 - index].fen(),
+                  move,
+                  evaluation: result.evaluation,
+                  bestMove: result.bestMove,
+                  pv: result.principalVariation,
+                  centipawnLoss: item.centipawnChange,
+                  wpl: item.wpl,
+                  isWorthy: false,
+                  willUseAI: false
+                }
+              });
             }
           }
+        } else {
+          // Not a hurdle
+          analysisText += `  centipawnChange: ${item.centipawnChange}\n`;
         }
 
-        // Check for mate≤5 detection
+        // Mate detection
         if (isMateScore(result.evaluation)) {
           const mateDistance = getMateDistance(result.evaluation);
           if (mateDistance <= 5) {
@@ -709,7 +729,6 @@ export default function GameAnalysis({
             analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
           }
         }
-
       } else {
         analysisText += `  Analysis: Failed\n`;
       }
@@ -718,10 +737,10 @@ export default function GameAnalysis({
 
     analysisText += 'Analysis complete!';
 
-    // If we have missing descriptions, append a loading message (for Worthy ones)
-    const worthyCount = missingDescriptions.filter(d => d.data.isWorthy).length;
-    if (worthyCount > 0) {
-      analysisText += `\n\nFetching AI descriptions for ${worthyCount} major hurdles...`;
+    // If we have approved descriptions pending
+    const approvedCount = missingDescriptions.filter(d => d.data.willUseAI).length;
+    if (approvedCount > 0) {
+      analysisText += `\n\nFetching AI descriptions for ${approvedCount} priority hurdles...`;
     }
 
     setMoveAnalysisResults(analysisText);
@@ -742,7 +761,8 @@ export default function GameAnalysis({
             try {
               let aiDescription: string | null = null;
 
-              if (item.data.isWorthy) {
+              // Only fetch if explicitly approved (throttled)
+              if (item.data.willUseAI) {
                 // Fetch AI description (Costs Credits)
                 try {
                   const response = await getAIDescription({ data: item.data });
@@ -778,12 +798,12 @@ export default function GameAnalysis({
                       bestMove: item.data.bestMove,
                       playedMove: item.data.move,
                       centipawnLoss: item.data.centipawnLoss,
-                      aiDescription: aiDescription || undefined, // undefined if silent
+                      aiDescription: aiDescription || undefined, // undefined if silent/throttled
                       depth: moveAnalysisDepth,
                       difficultyLevel: 3 // Default
                     }
                   });
-                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber} (Silent: ${!item.data.isWorthy})`);
+                  console.log(`💾 Auto-saved hurdle at move ${item.moveNumber} (AI: ${item.data.willUseAI ? 'Yes' : 'No'})`);
                   // Notify parent to refresh hurdles list
                   onHurdleSaved?.();
                 } catch (e) {

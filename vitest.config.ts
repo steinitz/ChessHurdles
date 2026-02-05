@@ -11,7 +11,7 @@ export default defineConfig({
     watch: false,
     /* Only target *.test.ts files for Vitest unit tests */
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['**/*.spec.ts', '**/*.spec.tsx', 'node_modules/**'],
+    exclude: ['**/*.spec.ts', '**/*.spec.tsx', 'node_modules/**', 'reference/**', 'dist/**'],
   },
   ssr: {
     noExternal: ['better-auth', 'kysely-libsql', '@libsql/client'],
