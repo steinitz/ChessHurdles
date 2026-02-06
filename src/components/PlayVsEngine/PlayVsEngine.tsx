@@ -1,25 +1,21 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../ChessBoard';
-import { initializeStockfishWorker, type EngineOptions } from '~/lib/stockfish-engine';
-import { eloToStockfishLevel, stockfishLevelToElo, calculateNewElo } from '~/lib/elo-utils';
-import { getOpeningMove, getBookMoveDelay } from '~/lib/opening-book';
+import { stockfishLevelToElo, calculateNewElo } from '~/lib/elo-utils';
+import { useNavigate } from '@tanstack/react-router';
 import { ChessClockDisplay } from './ChessClockDisplay';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserStats, updateUserStats, savePlayedGame } from '~/lib/chess-server';
-
-import { useNavigate } from '@tanstack/react-router';
+import { useGameClock } from './useGameClock';
+import { useStockfishEngine } from './useStockfishEngine';
 
 // Helper to clone game state while preserving full history
 function cloneGame(game: Chess): Chess {
   const newGame = new Chess();
   try {
     newGame.loadPgn(game.pgn());
-    // Also copy headers directly if needed, but loadPgn usually handles it
-    // If PGN is empty (start), newGame is already correct
   } catch (e) {
     console.error('Failed to clone game via PGN:', e);
-    // Fallback to FEN if PGN fails (loses history but keeps position)
     return new Chess(game.fen());
   }
   return newGame;
@@ -30,21 +26,73 @@ export function PlayVsEngine() {
   const [game, setGame] = useState(() => new Chess());
   const [zenMode, setZenMode] = useState(false);
   const [userSide, setUserSide] = useState<'w' | 'b'>('w');
-  const [userElo, setUserElo] = useState(1200); // Default, will fetch later
-  const [engineLevel, setEngineLevel] = useState(5); // ~1350 Elo
-  const [isEngineThinking, setIsEngineThinking] = useState(false);
-  const [isOutOfBook, setIsOutOfBook] = useState(false);
-  const [lastMoveSource, setLastMoveSource] = useState<'Book' | 'Engine' | null>(null);
+  const [userElo, setUserElo] = useState(1200);
+  const [engineLevel, setEngineLevel] = useState(5);
 
-  // Clock State (30m + 20s increment)
-  const INITIAL_TIME_MS = 30 * 60 * 1000;
-  const INCREMENT_MS = 20 * 1000;
-  const [whiteTime, setWhiteTime] = useState(INITIAL_TIME_MS);
-  const [blackTime, setBlackTime] = useState(INITIAL_TIME_MS);
-  const [lastTick, setLastTick] = useState<number | null>(null);
+  // Game State
   const [gameResult, setGameResult] = useState<{ winner: 'White' | 'Black' | 'Draw', reason: string } | null>(null);
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
   const processedRef = useRef(false);
+
+  const isGameActive = !gameResult && game.history().length > 0;
+
+  // Constants
+  const INITIAL_TIME_MS = 30 * 60 * 1000;
+  const INCREMENT_MS = 20 * 1000;
+
+  // -- HOOKS --
+
+  // 1. Clock Hook
+  const {
+    whiteTime,
+    blackTime,
+    resetTimers,
+    addIncrement
+  } = useGameClock(game, {
+    initialTimeMs: INITIAL_TIME_MS,
+    incrementMs: INCREMENT_MS,
+    onTimeout: (winner) => {
+      setGameResult({ winner, reason: 'Timeout' });
+    }
+  });
+
+  // 2. Engine Hook
+  // We need to define onEngineMove before passing it to avoid circular deps if defined inline,
+  // but useCallback is enough.
+  const onEngineMove = useCallback(({ from, to, promotion }: { from: string; to: string; promotion?: string }) => {
+    setGame(prev => {
+      const next = cloneGame(prev);
+      try {
+        next.move({ from, to, promotion: promotion || 'q' });
+        // Engine played (opposite of user usually, but logic handles sides)
+        // If engine plays Black, add Black increment. If White, add White.
+        // Actually, we should check turn. Engine just played, so it WAS engine's turn.
+        // If userSide is White, Engine is Black. Engine played -> Add to Black.
+        if (userSide === 'w') addIncrement('b');
+        else addIncrement('w');
+      } catch (e) {
+        console.error('Failed to apply engine move:', from, to, e);
+      }
+      return next;
+    });
+  }, [userSide, addIncrement]);
+
+  const {
+    lastMoveSource,
+    resetEngineState
+  } = useStockfishEngine({
+    userSide,
+    engineLevel,
+    initialTimeMs: INITIAL_TIME_MS,
+    incrementMs: INCREMENT_MS,
+    onMove: onEngineMove,
+    game,
+    isGameActive: !gameResult // Engine should stop if game result is set
+  });
+
+  // -- Game Lifecycle --
 
   // Auth & Stats
   const { data: session } = useSession();
@@ -75,10 +123,7 @@ export function PlayVsEngine() {
       // Update Database
       Promise.all([
         updateUserStats({
-          data: {
-            elo: newElo,
-            // Simple increment if we wanted to track wins strictly, but Elo is the main thing here
-          }
+          data: { elo: newElo }
         }),
         savePlayedGame({
           data: {
@@ -91,7 +136,6 @@ export function PlayVsEngine() {
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
         })
-
       ]).then(([_stats, savedGame]) => {
         if (savedGame && savedGame.id) {
           setSavedGameId(savedGame.id);
@@ -102,105 +146,12 @@ export function PlayVsEngine() {
     }
   }, [gameResult, userId, userElo, engineLevel, game]);
 
-  // Reset processed flag on new game
+  // Reset processed flag on new game result clear
   useEffect(() => {
     if (!gameResult) processedRef.current = false;
   }, [gameResult]);
 
-  const engineWorkerRef = useRef<Worker | null>(null);
-
-  // Initialize Engine
-  useEffect(() => {
-    if (!engineWorkerRef.current) {
-      engineWorkerRef.current = initializeStockfishWorker(
-        (event) => {
-          const msg = event.data;
-          // Parse bestmove
-          if (typeof msg === 'string' && msg.startsWith('bestmove')) {
-            // msg format: "bestmove e2e4 ponder ..."
-            const moves = msg.split(' ');
-            const bestMove = moves[1];
-            if (bestMove) {
-              console.log('Engine played:', bestMove);
-              // Apply move
-              setGame(prev => {
-                const next = cloneGame(prev);
-                try {
-                  // bestMove is UCI (e.g. e2e4), chess.js needs object for promotion usually, or robust SAN parser
-                  // safest is {from, to, promotion}
-                  const from = bestMove.substring(0, 2);
-                  const to = bestMove.substring(2, 4);
-                  const promotion = bestMove.length > 4 ? bestMove.substring(4, 5) : undefined;
-                  next.move({ from, to, promotion: promotion || 'q' });
-                  // Add increment for Black
-                  setBlackTime(t => t + INCREMENT_MS);
-                } catch (e) {
-                  console.error('Failed to apply engine move:', bestMove, e);
-                }
-                return next;
-              });
-              setIsEngineThinking(false);
-            }
-          }
-        },
-        (err) => console.error('Engine error:', err),
-        {
-          "Skill Level": engineLevel,
-          "Use NNUE": "true" // Ensure strong eval base, though Skill Level adds noise
-        }
-      );
-    }
-
-    return () => {
-      if (engineWorkerRef.current) {
-        engineWorkerRef.current.terminate();
-        engineWorkerRef.current = null;
-      }
-    };
-  }, []);
-
-  // Timer Effect
-  useEffect(() => {
-    // Only run timer if game is in progress AND at least one move has been made
-    if (game.isGameOver() || gameResult || game.history().length === 0) return;
-
-    const timer = setInterval(() => {
-      const now = Date.now();
-      const delta = lastTick ? now - lastTick : 0;
-      setLastTick(now);
-
-      if (delta > 0) {
-        if (game.turn() === 'w') {
-          setWhiteTime(prev => {
-            const next = prev - delta;
-            if (next <= 0) {
-              setGameResult({ winner: 'Black', reason: 'Timeout' });
-              return 0;
-            }
-            return next;
-          });
-        } else {
-          setBlackTime(prev => {
-            const next = prev - delta;
-            if (next <= 0) {
-              setGameResult({ winner: 'White', reason: 'Timeout' });
-              return 0;
-            }
-            return next;
-          });
-        }
-      }
-    }, 100);
-
-    return () => clearInterval(timer);
-  }, [game.turn(), game.isGameOver(), lastTick, gameResult]);
-
-  // Reset lastTick on turn change to separate move times accurately
-  useEffect(() => {
-    setLastTick(Date.now());
-  }, [game.turn()]);
-
-  // Check generic Game Over (Mate, Draw)
+  // Check generic Game Over (Checkmate, Draw)
   useEffect(() => {
     if (game.isGameOver() && !gameResult) {
       if (game.isCheckmate()) {
@@ -212,94 +163,20 @@ export function PlayVsEngine() {
     }
   }, [game, gameResult]);
 
-  // Update Skill Level when it changes
-  useEffect(() => {
-    if (engineWorkerRef.current) {
-      engineWorkerRef.current.postMessage(`setoption name Skill Level value ${engineLevel}`);
+  // -- Handlers --
+
+  const startNewGame = useCallback((overrideSide?: 'w' | 'b') => {
+    setGame(new Chess());
+    resetTimers();
+    resetEngineState();
+    setGameResult(null);
+    setSavedGameId(null);
+    setShowAbandonConfirm(false);
+
+    if (overrideSide) {
+      setUserSide(overrideSide);
     }
-  }, [engineLevel]);
-
-  // Trigger Engine / Book Logic
-  useEffect(() => {
-    let isCurrent = true;
-
-    // If it's NOT user's turn and game is not over and not thinking
-    if (game.turn() !== userSide && !game.isGameOver() && !isEngineThinking && engineWorkerRef.current) {
-      setIsEngineThinking(true);
-
-      const makeEngineMove = () => {
-        if (!isCurrent) return;
-        setLastMoveSource('Engine');
-        engineWorkerRef.current?.postMessage(`position fen ${game.fen()}`);
-        engineWorkerRef.current?.postMessage('go movetime 1000');
-      };
-
-      const tryBookMove = async () => {
-        // Calculate delay
-        let delay = getBookMoveDelay(INITIAL_TIME_MS, INCREMENT_MS);
-
-        // Cap delay for the first move to 2 seconds
-        if (game.history().length === 0) {
-          delay = Math.min(delay, 2000);
-        }
-
-        // Wait first
-        await new Promise(resolve => setTimeout(resolve, delay));
-        if (!isCurrent) return;
-
-        // Check verification (double check turn hasn't changed)
-        if (game.turn() === userSide || game.isGameOver()) {
-          setIsEngineThinking(false);
-          return;
-        }
-
-        const bookMoveUci = await getOpeningMove(game.fen());
-        if (!isCurrent) return;
-
-        if (bookMoveUci) {
-          console.log('Playing Book Move:', bookMoveUci);
-          setLastMoveSource('Book');
-
-          setGame(prev => {
-            const next = cloneGame(prev);
-            try {
-              const from = bookMoveUci.substring(0, 2);
-              const to = bookMoveUci.substring(2, 4);
-              const promotion = bookMoveUci.length > 4 ? bookMoveUci.substring(4, 5) : undefined;
-
-              next.move({ from, to, promotion: promotion || 'q' });
-              setBlackTime(t => t + INCREMENT_MS);
-            } catch (e) {
-              console.error('Failed to apply book move:', bookMoveUci);
-              // Fallback to engine if book move is invalid (unlikely)
-              makeEngineMove();
-              return next; // Wait for engine to reply
-            }
-            return next;
-          });
-          setIsEngineThinking(false);
-        } else {
-          console.log('Out of Book');
-          setIsOutOfBook(true);
-          makeEngineMove();
-        }
-      };
-
-      if (!isOutOfBook) {
-        tryBookMove();
-      } else {
-        // Engine Move
-        // Small delay for realism if it's engine
-        setTimeout(() => {
-          if (isCurrent) makeEngineMove();
-        }, 500);
-      }
-    }
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [game, isOutOfBook, userSide]);
+  }, [resetTimers, resetEngineState]);
 
   const onMove = useCallback((moveSan: string) => {
     // Only allow move if it's user's turn
@@ -310,8 +187,10 @@ export function PlayVsEngine() {
         const newGame = cloneGame(prevGame);
         const result = newGame.move(moveSan);
         if (result) {
-          // Add increment for White
-          setWhiteTime(t => t + INCREMENT_MS);
+          // User moved. Add increment to User's time.
+          // If User is White, add to White.
+          if (userSide === 'w') addIncrement('w');
+          else addIncrement('b');
           return newGame;
         }
         return prevGame;
@@ -319,25 +198,20 @@ export function PlayVsEngine() {
         return prevGame;
       }
     });
-  }, [game, gameResult]);
+  }, [game, gameResult, userSide, addIncrement]);
 
   const toggleZenMode = () => setZenMode(!zenMode);
 
-  // Handle Body Styles for Zen Mode
+  // Zen Mode Styles
   useEffect(() => {
     if (zenMode) {
-      // Save original styles
       const originalMargin = document.body.style.margin;
       const originalOverflow = document.body.style.overflow;
       const originalPadding = document.body.style.padding;
-
-      // Apply Zen styles
       document.body.style.margin = '0';
       document.body.style.overflow = 'hidden';
       document.body.style.padding = '0';
-
       return () => {
-        // Restore
         document.body.style.margin = originalMargin;
         document.body.style.overflow = originalOverflow;
         document.body.style.padding = originalPadding;
@@ -345,57 +219,20 @@ export function PlayVsEngine() {
     }
   }, [zenMode]);
 
-  // Styles for Zen Mode to overlay everything
   const zenModeStyles: React.CSSProperties = {
     position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: '100vw',
-    height: '100dvh', // Dynamic viewport height for mobile browsers
-    zIndex: 100,
-    backgroundColor: 'var(--color-bg-primary)',
-    display: 'flex',
-    margin: 0,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 0,
+    top: 0, right: 0, bottom: 0, left: 0,
+    width: '100vw', height: '100dvh',
+    zIndex: 100, backgroundColor: 'var(--color-bg-primary)',
+    display: 'flex', margin: 0, flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center', padding: 0,
   };
 
   const containerStyles: React.CSSProperties = zenMode ? zenModeStyles : {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    width: '100%',
-    padding: '20px'
+    display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', padding: '20px'
   };
 
   const boardSize = zenMode ? '100vmin' : '60vh';
-
-
-  const startNewGame = useCallback((overrideSide?: 'w' | 'b') => {
-    setGame(new Chess());
-    setWhiteTime(INITIAL_TIME_MS);
-    setBlackTime(INITIAL_TIME_MS);
-    setGameResult(null);
-    setSavedGameId(null);
-    setLastTick(null);
-    setIsOutOfBook(false);
-    setLastMoveSource(null);
-    setIsEngineThinking(false); // Reset thinking state
-    setShowAbandonConfirm(false);
-
-    // If overrideSide is provided, set it. Otherwise keep current.
-    if (overrideSide) {
-      setUserSide(overrideSide);
-    }
-  }, []);
-
-  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
-  const [showResignConfirm, setShowResignConfirm] = useState(false);
-  const isGameActive = !gameResult && game.history().length > 0;
 
   return (
     <div style={containerStyles}>
@@ -411,11 +248,7 @@ export function PlayVsEngine() {
           <h2 style={{ margin: 0, fontSize: zenMode ? '1.2rem' : '1.5rem', opacity: zenMode ? 0.7 : 1 }}>
             {!zenMode && "Play vs Stockfish"}
             {lastMoveSource && (
-              <small style={{
-                marginLeft: '8px',
-                fontWeight: 'normal',
-                opacity: 0.8
-              }}>
+              <small style={{ marginLeft: '8px', fontWeight: 'normal', opacity: 0.8 }}>
                 {lastMoveSource === 'Book' ? '(Book Move)' : `(Engine Lvl ${engineLevel})`}
               </small>
             )}
@@ -427,7 +260,6 @@ export function PlayVsEngine() {
           isActive={game.turn() === 'b' && !gameResult}
           side="Black"
         />
-        {/* Side Toggle removed from here */}
       </div>
 
       <div style={{ position: 'relative' }}>
@@ -444,17 +276,8 @@ export function PlayVsEngine() {
           <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 20 }}>
             <h3>Abandon current game?</h3>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={startNewGame}
-                style={{ backgroundColor: 'var(--color-error)' }}
-              >
-                Yes, Abandon
-              </button>
-              <button
-                onClick={() => setShowAbandonConfirm(false)}
-              >
-                Cancel
-              </button>
+              <button onClick={() => startNewGame(userSide)} style={{ backgroundColor: 'var(--color-error)' }}>Yes, Abandon</button>
+              <button onClick={() => setShowAbandonConfirm(false)}>Cancel</button>
             </div>
           </div>
         )}
@@ -470,14 +293,8 @@ export function PlayVsEngine() {
                   setShowResignConfirm(false);
                 }}
                 style={{ backgroundColor: 'var(--color-error)' }}
-              >
-                Yes, Resign
-              </button>
-              <button
-                onClick={() => setShowResignConfirm(false)}
-              >
-                Cancel
-              </button>
+              >Yes, Resign</button>
+              <button onClick={() => setShowResignConfirm(false)}>Cancel</button>
             </div>
           </div>
         )}
@@ -489,24 +306,14 @@ export function PlayVsEngine() {
             <div style={{ fontSize: '1.25rem' }}>
               {gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`} by {gameResult.reason}
             </div>
-            <button
-              onClick={startNewGame}
-            >
-              New Game
-            </button>
+            <button onClick={() => startNewGame(userSide)}>New Game</button>
             {savedGameId ? (
-              <button
-                onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}
-              >
-                Analyze Game
-              </button>
+              <button onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}>Analyze Game</button>
             ) : (
               !session?.user && (
                 <div style={{ marginTop: '1rem', textAlign: 'center' }}>
                   <p style={{ fontSize: '0.875rem' }}>Sign in to save and analyze your games</p>
-                  <a href="/auth/signin">
-                    Sign In
-                  </a>
+                  <a href="/auth/signin">Sign In</a>
                 </div>
               )
             )}
@@ -540,7 +347,7 @@ export function PlayVsEngine() {
               if (isGameActive) {
                 setShowAbandonConfirm(true);
               } else {
-                startNewGame(userSide); // Pass current side explicitly just in case
+                startNewGame(userSide);
               }
             }}
             title={isGameActive ? "Abandon Game" : "New Game"}
@@ -551,9 +358,7 @@ export function PlayVsEngine() {
           </button>
 
           <button
-            onClick={() => {
-              setShowResignConfirm(true);
-            }}
+            onClick={() => setShowResignConfirm(true)}
             disabled={!!gameResult}
             title="Resign"
             style={{ padding: '0.4rem 0.8rem' }}
@@ -596,11 +401,7 @@ export function PlayVsEngine() {
           <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>
             User Elo: {userElo} (Default)
           </div>
-          <button
-            onClick={() => setGameResult({ winner: 'White', reason: 'Claimed (Debug)' })}
-          >
-            Debug: Claim Win
-          </button>
+          <button onClick={() => setGameResult({ winner: 'White', reason: 'Claimed (Debug)' })}>Debug: Claim Win</button>
         </div>
       )}
     </div>
