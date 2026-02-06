@@ -49,7 +49,9 @@ export function PlayVsEngine() {
     whiteTime,
     blackTime,
     resetTimers,
-    addIncrement
+    addIncrement,
+    setWhiteTime,
+    setBlackTime
   } = useGameClock(game, {
     initialTimeMs: INITIAL_TIME_MS,
     incrementMs: INCREMENT_MS,
@@ -202,6 +204,37 @@ export function PlayVsEngine() {
 
   const toggleZenMode = () => setZenMode(!zenMode);
 
+  // Clock Click Handler
+  const handleClockClick = useCallback((side: 'White' | 'Black') => {
+    // Determine current time to show as default hint? Or just blank.
+    // Let's just prompt.
+    const input = window.prompt(`Set time for ${side} (minutes or mm:ss):`);
+    if (!input) return;
+
+    let newTimeMs: number | null = null;
+
+    if (input.includes(':')) {
+      // Parse mm:ss
+      const parts = input.split(':');
+      const m = parseInt(parts[0], 10);
+      const s = parseInt(parts[1], 10);
+      if (!isNaN(m) && !isNaN(s)) {
+        newTimeMs = (m * 60 + s) * 1000;
+      }
+    } else {
+      // Parse minutes
+      const m = parseFloat(input);
+      if (!isNaN(m)) {
+        newTimeMs = m * 60 * 1000;
+      }
+    }
+
+    if (newTimeMs !== null && newTimeMs > 0) {
+      if (side === 'White') setWhiteTime(newTimeMs);
+      else setBlackTime(newTimeMs);
+    }
+  }, [setWhiteTime, setBlackTime]);
+
   // Zen Mode Styles
   useEffect(() => {
     if (zenMode) {
@@ -259,6 +292,7 @@ export function PlayVsEngine() {
           timeMs={blackTime}
           isActive={game.turn() === 'b' && !gameResult}
           side="Black"
+          onClick={() => handleClockClick('Black')}
         />
       </div>
 
@@ -381,6 +415,7 @@ export function PlayVsEngine() {
           isActive={game.turn() === 'w' && !gameResult}
           side="White"
           isLowTime={whiteTime < 60000}
+          onClick={() => handleClockClick('White')}
         />
       </div>
 

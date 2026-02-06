@@ -81,6 +81,8 @@ export function useGameClock(
     whiteTime,
     blackTime,
     resetTimers,
-    addIncrement
+    addIncrement,
+    setWhiteTime, // Expose for manual adjustment
+    setBlackTime  // Expose for manual adjustment
   };
 }

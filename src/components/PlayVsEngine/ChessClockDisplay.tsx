@@ -5,9 +5,10 @@ interface ChessClockDisplayProps {
   isActive: boolean;
   side: 'White' | 'Black';
   isLowTime?: boolean; // e.g. < 1 minute
+  onClick?: () => void;
 }
 
-export function ChessClockDisplay({ timeMs, isActive, side, isLowTime }: ChessClockDisplayProps) {
+export function ChessClockDisplay({ timeMs, isActive, side, isLowTime, onClick }: ChessClockDisplayProps) {
   // Format time as MM:SS (or MM:SS.s if low?)
   // reliable MM:SS format
   const totalSeconds = Math.max(0, Math.floor(timeMs / 1000));
@@ -19,10 +20,13 @@ export function ChessClockDisplay({ timeMs, isActive, side, isLowTime }: ChessCl
 
   // Simple clean aesthetic
   return (
-    <div className={`
+    <div
+      onClick={onClick}
+      className={`
       flex items-center gap-2 px-4 py-2 rounded-md font-mono text-xl font-bold
       ${isActive ? 'bg-accent/10 border-2 border-accent' : 'bg-gray-100 border-2 border-transparent opacity-70'}
       ${isLowTime ? 'text-red-600' : 'text-primary'}
+      ${onClick ? 'cursor-pointer hover:bg-accent/20 transition-colors' : ''}
       transition-all duration-200
     `}>
       <i className={`fas fa-clock ${isActive ? 'animate-pulse' : ''}`}></i>
