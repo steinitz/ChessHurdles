@@ -35,3 +35,28 @@ Avoid min purchase being less than the Stripe min of $0.50
 
 DAILY_GRANT: 10 credits ($0.10 value).
 DEFAULT_PURCHASE: 500 credits ($5.00 value).
+
+Netlify
+netlify login
+netlify env:import .env.production --replace-existing
+netlify env:set MY_API_KEY --secret
+Must hide
+# Auth & Database
+netlify env:set TURSO_AUTH_TOKEN --secret
+netlify env:set BETTER_AUTH_SECRET --secret
+
+# Integrations
+netlify env:set TURNSTILE_SECRET_KEY --secret
+netlify env:set GEMINI_API_KEY --secret
+
+# Email
+netlify env:set SMTP_PASSWORD --secret
+
+Smart to hide
+netlify env:set DATABASE_URL --secret
+netlify env:set SMTP_USERNAME --secret
+netlify env:set BANK_TRANSFER_BSB --secret
+netlify env:set BANK_TRANSFER_ACC --secret
+
+What NOT to Hide
+TURNSTILE_SITE_KEY: Do not make this one secret! This key is designed to be exposed in your frontend HTML so the browser can load the Turnstile widget. If you hide it, your frontend might fail to retrieve it, breaking your forms.

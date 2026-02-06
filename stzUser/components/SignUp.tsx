@@ -50,7 +50,19 @@ export const SignUp = () => {
   const turnstileRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Check if script is already present
+    if (document.getElementById('turnstile-script')) {
+      if (window.turnstile && turnstileRef.current && !turnstileRef.current.hasChildNodes()) {
+        window.turnstile.render(turnstileRef.current, {
+          sitekey: clientEnv.TURNSTILE_SITE_KEY,
+          callback: (token: string) => setTurnstileToken(token),
+        });
+      }
+      return;
+    }
+
     const script = document.createElement('script')
+    script.id = 'turnstile-script'
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
     script.async = true
     script.defer = true
