@@ -475,7 +475,7 @@ export function PlayVsEngine() {
         marginTop: '10px'
       }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {!zenMode && !isGameActive && (
+          {!isGameActive && (
             <button
               onClick={() => startNewGame(userSide === 'w' ? 'b' : 'w')}
               style={{ padding: '0.4rem 0.8rem' }}
