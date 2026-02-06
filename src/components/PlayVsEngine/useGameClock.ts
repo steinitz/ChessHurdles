@@ -2,34 +2,36 @@ import { useState, useEffect, useCallback } from 'react';
 import { Chess } from 'chess.js';
 
 interface UseGameClockOptions {
-  initialTimeMs: number;
-  incrementMs: number;
+  whiteInitialTimeMs: number;
+  blackInitialTimeMs: number;
+  whiteIncrementMs: number;
+  blackIncrementMs: number;
   onTimeout: (winner: 'White' | 'Black') => void;
 }
 
 export function useGameClock(
   game: Chess,
-  { initialTimeMs, incrementMs, onTimeout }: UseGameClockOptions
+  { whiteInitialTimeMs, blackInitialTimeMs, whiteIncrementMs, blackIncrementMs, onTimeout }: UseGameClockOptions
 ) {
-  const [whiteTime, setWhiteTime] = useState(initialTimeMs);
-  const [blackTime, setBlackTime] = useState(initialTimeMs);
+  const [whiteTime, setWhiteTime] = useState(whiteInitialTimeMs);
+  const [blackTime, setBlackTime] = useState(blackInitialTimeMs);
   const [lastTick, setLastTick] = useState<number | null>(null);
 
   // Manual reset helper
   const resetTimers = useCallback(() => {
-    setWhiteTime(initialTimeMs);
-    setBlackTime(initialTimeMs);
+    setWhiteTime(whiteInitialTimeMs);
+    setBlackTime(blackInitialTimeMs);
     setLastTick(null);
-  }, [initialTimeMs]);
+  }, [whiteInitialTimeMs, blackInitialTimeMs]);
 
   // Add increment helper
   const addIncrement = useCallback((side: 'w' | 'b') => {
     if (side === 'w') {
-      setWhiteTime((t) => t + incrementMs);
+      setWhiteTime((t) => t + whiteIncrementMs);
     } else {
-      setBlackTime((t) => t + incrementMs);
+      setBlackTime((t) => t + blackIncrementMs);
     }
-  }, [incrementMs]);
+  }, [whiteIncrementMs, blackIncrementMs]);
 
   // Reset lastTick on turn change to separate move times accurately
   useEffect(() => {

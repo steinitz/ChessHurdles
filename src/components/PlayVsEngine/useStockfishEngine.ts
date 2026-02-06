@@ -7,7 +7,7 @@ interface UseStockfishEngineOptions {
   userSide: 'w' | 'b';
   engineLevel: number;
   initialTimeMs: number;
-  incrementMs: number;
+  engineIncrementMs: number;
   onMove: (move: { from: string; to: string; promotion?: string }) => void;
   game: Chess; // Need game instance for FEN and turn checking
   isGameActive: boolean;
@@ -17,7 +17,7 @@ export function useStockfishEngine({
   userSide,
   engineLevel,
   initialTimeMs,
-  incrementMs,
+  engineIncrementMs,
   onMove,
   game,
   isGameActive
@@ -88,7 +88,7 @@ export function useStockfishEngine({
       };
 
       const tryBookMove = async () => {
-        let delay = getBookMoveDelay(initialTimeMs, incrementMs);
+        let delay = getBookMoveDelay(initialTimeMs, engineIncrementMs);
 
         // Cap delay for the first move to 2 seconds
         if (game.history().length === 0) {

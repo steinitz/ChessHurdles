@@ -36,12 +36,7 @@ export const Header = () => {
       <Link
         to="/auth/games"
         style={navLinkStyle}
-        activeProps={{
-          style: {
-            backgroundColor: 'var(--color-accent)',
-            color: 'var(--color-bg)',
-          },
-        }}
+        activeProps={{ style: { ...navLinkStyle, ...activeLinkStyle } }}
       >
         Games
       </Link>
