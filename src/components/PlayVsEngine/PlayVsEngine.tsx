@@ -32,7 +32,14 @@ function cloneGame(game: Chess): Chess {
 export function PlayVsEngine() {
   const navigate = useNavigate();
   const [game, setGame] = useState(() => new Chess());
-  const [zenMode, setZenMode] = useState(false);
+
+  // -- Zen Mode (Persisted) --
+  const [zenMode, setZenMode] = useState(() => {
+    try {
+      return localStorage.getItem('chess_zen_mode') === 'true';
+    } catch { return false; }
+  });
+
   const [userSide, setUserSide] = useState<'w' | 'b'>('w');
   const [userElo, setUserElo] = useState(1200);
   const [engineLevel, setEngineLevel] = useState(5);
@@ -134,6 +141,43 @@ export function PlayVsEngine() {
     game,
     isGameActive: !gameResult
   });
+
+  // -- Stability Hooks --
+
+  // Wake Lock: Prevent screen sleep while game is active
+  useEffect(() => {
+    if (!isGameActive) return;
+
+    let wakeLock: any = null; // Typing 'any' to avoid TS issues if WakeLock types aren't global
+
+    const requestLock = async () => {
+      try {
+        if (navigator && 'wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock request failed:', err);
+      }
+    };
+
+    requestLock();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && wakeLock === null) {
+        requestLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock) {
+        wakeLock.release().catch(console.error);
+        wakeLock = null;
+      }
+    };
+  }, [isGameActive]);
 
   // -- Modal State --
   const timeDialogRef = makeDialogRef();
@@ -298,7 +342,13 @@ export function PlayVsEngine() {
     });
   }, [game, gameResult, userSide, addIncrement]);
 
-  const toggleZenMode = () => setZenMode(!zenMode);
+  const toggleZenMode = useCallback(() => {
+    setZenMode(prev => {
+      const next = !prev;
+      localStorage.setItem('chess_zen_mode', String(next));
+      return next;
+    });
+  }, []);
 
   // Zen Mode Styles
   useEffect(() => {
@@ -463,7 +513,7 @@ export function PlayVsEngine() {
             style={{ padding: '0.4rem 0.8rem' }}
           >
             {zenMode ? <i className="fas fa-compress" /> : <i className="fas fa-expand" />}
-            {zenMode ? " Exit" : " Zen Mode"}
+            {zenMode ? " Exit Zen" : " Zen Mode"}
           </button>
         </div>
 
