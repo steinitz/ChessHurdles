@@ -29,6 +29,7 @@ export function PlayVsEngine() {
   const navigate = useNavigate();
   const [game, setGame] = useState(() => new Chess());
   const [zenMode, setZenMode] = useState(false);
+  const [userSide, setUserSide] = useState<'w' | 'b'>('w');
   const [userElo, setUserElo] = useState(1200); // Default, will fetch later
   const [engineLevel, setEngineLevel] = useState(5); // ~1350 Elo
   const [isEngineThinking, setIsEngineThinking] = useState(false);
@@ -220,11 +221,14 @@ export function PlayVsEngine() {
 
   // Trigger Engine / Book Logic
   useEffect(() => {
-    // If it's black's turn and game is not over and not thinking
-    if (game.turn() === 'b' && !game.isGameOver() && !isEngineThinking && engineWorkerRef.current) {
+    let isCurrent = true;
+
+    // If it's NOT user's turn and game is not over and not thinking
+    if (game.turn() !== userSide && !game.isGameOver() && !isEngineThinking && engineWorkerRef.current) {
       setIsEngineThinking(true);
 
       const makeEngineMove = () => {
+        if (!isCurrent) return;
         setLastMoveSource('Engine');
         engineWorkerRef.current?.postMessage(`position fen ${game.fen()}`);
         engineWorkerRef.current?.postMessage('go movetime 1000');
@@ -232,18 +236,25 @@ export function PlayVsEngine() {
 
       const tryBookMove = async () => {
         // Calculate delay
-        const delay = getBookMoveDelay(INITIAL_TIME_MS, INCREMENT_MS);
+        let delay = getBookMoveDelay(INITIAL_TIME_MS, INCREMENT_MS);
+
+        // Cap delay for the first move to 2 seconds
+        if (game.history().length === 0) {
+          delay = Math.min(delay, 2000);
+        }
 
         // Wait first
         await new Promise(resolve => setTimeout(resolve, delay));
+        if (!isCurrent) return;
 
         // Check verification (double check turn hasn't changed)
-        if (game.turn() !== 'b' || game.isGameOver()) {
+        if (game.turn() === userSide || game.isGameOver()) {
           setIsEngineThinking(false);
           return;
         }
 
         const bookMoveUci = await getOpeningMove(game.fen());
+        if (!isCurrent) return;
 
         if (bookMoveUci) {
           console.log('Playing Book Move:', bookMoveUci);
@@ -279,14 +290,20 @@ export function PlayVsEngine() {
       } else {
         // Engine Move
         // Small delay for realism if it's engine
-        setTimeout(makeEngineMove, 500);
+        setTimeout(() => {
+          if (isCurrent) makeEngineMove();
+        }, 500);
       }
     }
-  }, [game, isEngineThinking, isOutOfBook]);
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [game, isOutOfBook, userSide]);
 
   const onMove = useCallback((moveSan: string) => {
-    // Only allow move if it's white's turn (user)
-    if (game.turn() !== 'w' || gameResult) return;
+    // Only allow move if it's user's turn
+    if (game.turn() !== userSide || gameResult) return;
 
     setGame((prevGame) => {
       try {
@@ -357,7 +374,8 @@ export function PlayVsEngine() {
 
   const boardSize = zenMode ? '100vmin' : '60vh';
 
-  const startNewGame = useCallback(() => {
+
+  const startNewGame = useCallback((overrideSide?: 'w' | 'b') => {
     setGame(new Chess());
     setWhiteTime(INITIAL_TIME_MS);
     setBlackTime(INITIAL_TIME_MS);
@@ -366,7 +384,13 @@ export function PlayVsEngine() {
     setLastTick(null);
     setIsOutOfBook(false);
     setLastMoveSource(null);
+    setIsEngineThinking(false); // Reset thinking state
     setShowAbandonConfirm(false);
+
+    // If overrideSide is provided, set it. Otherwise keep current.
+    if (overrideSide) {
+      setUserSide(overrideSide);
+    }
   }, []);
 
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
@@ -403,6 +427,7 @@ export function PlayVsEngine() {
           isActive={game.turn() === 'b' && !gameResult}
           side="Black"
         />
+        {/* Side Toggle removed from here */}
       </div>
 
       <div style={{ position: 'relative' }}>
@@ -411,6 +436,7 @@ export function PlayVsEngine() {
           onMove={onMove}
           boardSize={boardSize}
           showCoordinates={true}
+          boardOrientation={userSide === 'w' ? 'white' : 'black'}
         />
 
         {/* Abandon Game Confirmation Modal */}
@@ -497,12 +523,24 @@ export function PlayVsEngine() {
         marginTop: '10px'
       }}>
         <div style={{ display: 'flex', gap: '8px' }}>
+          {/* Side Toggle */}
+          {!zenMode && !isGameActive && (
+            <button
+              onClick={() => startNewGame(userSide === 'w' ? 'b' : 'w')}
+              style={{ padding: '0.4rem 0.8rem' }}
+              title="Switch Side"
+            >
+              {userSide === 'w' ? <i className="fas fa-chess-king" /> : <i className="fas fa-chess-pawn" />}
+              {userSide === 'w' ? " Play as Black" : " Play as White"}
+            </button>
+          )}
+
           <button
             onClick={() => {
               if (isGameActive) {
                 setShowAbandonConfirm(true);
               } else {
-                startNewGame();
+                startNewGame(userSide); // Pass current side explicitly just in case
               }
             }}
             title={isGameActive ? "Abandon Game" : "New Game"}

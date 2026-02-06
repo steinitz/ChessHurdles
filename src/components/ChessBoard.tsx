@@ -15,8 +15,9 @@ export function ChessBoard({
   onMove,
   boardSize = '60vh',
   showCoordinates = true,
-  customSquareStyles = {}
-}: ChessBoardProps) {
+  customSquareStyles = {},
+  boardOrientation = 'white'
+}: ChessBoardProps & { boardOrientation?: 'white' | 'black' }) {
   const [moveFrom, setMoveFrom] = useState<string>('');
   const [moveTo, setMoveTo] = useState<string | null>(null);
   const [showPromotionDialog, setShowPromotionDialog] = useState(false);
@@ -135,7 +136,7 @@ export function ChessBoard({
           onPieceClick: ({ square }) => {
             if (square) onSquareClick({ square });
           },
-          boardOrientation: 'white',
+          boardOrientation: boardOrientation,
           squareStyles: { ...optionSquares, ...customSquareStyles }
         }}
       />
