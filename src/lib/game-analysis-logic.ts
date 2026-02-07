@@ -90,11 +90,20 @@ export function processGameAnalysis(
 
   // Mark Top N as "willUseAI"
   const approvedCandidates = candidates.slice(0, maxAiAnalysis);
-  const approvedSet = new Set(approvedCandidates);
+  const approvedSet = new Set(approvedCandidates.map(c => c.moveNumber)); // Use moveNumber as unique ID
+
+  console.log(`[Analysis] Candidates: ${candidates.length}, Approved: ${approvedCandidates.length} (Max: ${maxAiAnalysis})`);
 
   results.forEach(item => {
-    if (approvedSet.has(item)) {
+    // If it's in the approved set, mark it
+    if (approvedSet.has(item.moveNumber) && item.classification !== 'none') {
       item.willUseAI = true;
+      item.isAiWorthy = true; // Ensure it's marked worthy if it was a candidate
+    } else {
+      // If it *was* a candidate (had classification/wpl) but didn't make the cut
+      // maintain isAiWorthy = true (so we show "Throttled")
+      // effectively: isAiWorthy = (has classification & wpl > threshold), which we set earlier.
+      // So we don't need to change anything else.
     }
   });
 

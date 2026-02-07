@@ -4,7 +4,7 @@ import type { Chess } from 'chess.js';
 import EvaluationGraph from './EvaluationGraph';
 import { useAnalysisEngine } from './useAnalysisEngine';
 import { formatAnalysisText, type MissingDescription } from './analysis-formatter';
-import { Spacer } from '~stzUtils/components/Spacer';
+import { HelpTooltip } from '~/components/ui/HelpTooltip';
 import { useSession } from '~stzUser/lib/auth-client';
 import { getUserAnalysisDepth, setUserAnalysisDepth, getAIDescription } from '~/lib/chess-server';
 import { saveHurdle as saveHurdleServer } from '~/lib/server/hurdles';
@@ -303,14 +303,18 @@ export default function GameAnalysis({
       </div>
 
       <div className="analysis-buttons" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'nowrap' }}>
-        {!isAnalyzingMoves && !isCalibrating && (
-          <button onClick={handleAnalyzeEntireGame} className="btn-primary">
-            Analyze Game
-          </button>
-        )}
-        <button onClick={handleCalibrate} disabled={isAnalyzingMoves || isCalibrating}>
-          {(moveAnalysisDepth !== DEFAULT_ANALYSIS_DEPTH) ? "(Re)Calibrate Ideal Engine Depth" : "Calibrate Ideal Engine Depth"}
+        <button
+          onClick={handleAnalyzeEntireGame}
+          className="btn-primary"
+          disabled={isAnalyzingMoves || isCalibrating}
+        >
+          Analyze Game
         </button>
+
+        <button onClick={handleCalibrate} disabled={isAnalyzingMoves || isCalibrating}>
+          {isCalibrating ? "Calibrating..." : "Recalibrate Ideal Engine Depth"}
+        </button>
+        <HelpTooltip content="Calibration adjusts the engine depth to match your device's speed for optimal analysis. You usually only need to run this once." />
         {(isAnalyzingMoves || isCalibrating) && (
           <button onClick={cancelAnalysis} className="btn-danger">Stop</button>
         )}
@@ -320,7 +324,7 @@ export default function GameAnalysis({
         <EvaluationGraph
           evaluations={currentEvaluations.filter(e => e !== null && !e.isPlaceholder)}
         />
-        <Spacer />
+        <div style={{ height: '1rem' }} />
         <textarea
           style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
           rows={8}

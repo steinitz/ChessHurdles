@@ -187,6 +187,7 @@ export const getAIDescription = createServerFn({ method: 'POST' })
     bestMove: string;
     pv: string;
     centipawnLoss: number;
+    userContext?: string;
   }) => data)
   .handler(async ({ data }) => {
     // 1. Authenticate User
@@ -221,7 +222,7 @@ export const getAIDescription = createServerFn({ method: 'POST' })
       // Fallback to mock if no key (useful for dev without key)
       await new Promise(resolve => setTimeout(resolve, 800));
       return {
-        description: `[MOCK AI (No Key)] You played **${data.move}** (cp loss: ${data.centipawnLoss}). The engine prefers **${data.bestMove}**. (PV: ${data.pv.substring(0, 20)}...)`
+        description: `[MOCK AI (No Key)] ${data.userContext ? `(Answering: "${data.userContext}") ` : ''}You played **${data.move}** (cp loss: ${data.centipawnLoss}). The engine prefers **${data.bestMove}**. (PV: ${data.pv.substring(0, 20)}...)`
       };
     }
 
@@ -237,6 +238,8 @@ export const getAIDescription = createServerFn({ method: 'POST' })
         Engine Best Move: ${data.bestMove}
         Centipawn Loss: ${data.centipawnLoss}
         Principal Variation (Best Line): ${data.pv}
+        
+        ${data.userContext ? `USER QUESTION/CONTEXT: "${data.userContext}"\nPlease prioritize answering the user's question or addressing their thought process.` : ''}
 
         Explain briefly (max 2 sentences) why the player's move was a mistake compared to the best move.
         Focus on the strategic, positional or tactical consequences or aspects or deviation from a workable plan.
