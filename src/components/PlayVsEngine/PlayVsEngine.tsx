@@ -306,8 +306,8 @@ export function PlayVsEngine() {
             game_type: 'game',
             difficulty_rating: engineElo,
             is_favorite: false,
-            title: `Vs Stockfish (Level ${engineLevel})`,
-            description: `Result: ${gameResult.winner}. Elo: ${userElo} -> ${newElo}`,
+            title: `${session?.user?.name || 'Player'} vs Stockfish (Level ${engineLevel})`,
+            description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'} (${gameResult.winner}). Elo: ${userElo} -> ${newElo}`,
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
         })
@@ -404,10 +404,10 @@ export function PlayVsEngine() {
         </div>
 
         <ChessClockDisplay
-          timeMs={blackTime}
-          isActive={game.turn() === 'b' && !gameResult}
-          side="Black"
-          onClick={() => handleClockClick('Black')}
+          timeMs={userSide === 'w' ? blackTime : whiteTime}
+          isActive={game.turn() === (userSide === 'w' ? 'b' : 'w') && !gameResult}
+          side={userSide === 'w' ? "Black" : "White"}
+          onClick={() => handleClockClick(userSide === 'w' ? 'Black' : 'White')}
         />
       </div>
 
@@ -437,7 +437,7 @@ export function PlayVsEngine() {
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button
                 onClick={() => {
-                  setGameResult({ winner: 'Black', reason: 'Resignation' });
+                  setGameResult({ winner: userSide === 'w' ? 'Black' : 'White', reason: 'Resignation' });
                   setShowResignConfirm(false);
                 }}
                 style={{ backgroundColor: 'var(--color-error)' }}
@@ -518,11 +518,11 @@ export function PlayVsEngine() {
         </div>
 
         <ChessClockDisplay
-          timeMs={whiteTime}
-          isActive={game.turn() === 'w' && !gameResult}
-          side="White"
-          isLowTime={whiteTime < 60000}
-          onClick={() => handleClockClick('White')}
+          timeMs={userSide === 'w' ? whiteTime : blackTime}
+          isActive={game.turn() === userSide && !gameResult}
+          side={userSide === 'w' ? "White" : "Black"}
+          isLowTime={(userSide === 'w' ? whiteTime : blackTime) < 60000}
+          onClick={() => handleClockClick(userSide === 'w' ? 'White' : 'Black')}
         />
       </div>
 

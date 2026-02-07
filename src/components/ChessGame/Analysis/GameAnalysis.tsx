@@ -303,14 +303,14 @@ export default function GameAnalysis({
         </div>
       </div>
 
-      <div className="analysis-buttons flex gap-2 mb-4">
+      <div className="analysis-buttons flex gap-4 mb-4">
         {!isAnalyzingMoves && !isCalibrating && (
           <button onClick={handleAnalyzeEntireGame} className="btn-primary">
-            Analyze Entire Game
+            Analyze Game
           </button>
         )}
         <button onClick={handleCalibrate} disabled={isAnalyzingMoves || isCalibrating}>
-          Calibrate
+          Calibrate Depth
         </button>
         {(isAnalyzingMoves || isCalibrating) && (
           <button onClick={cancelAnalysis} className="btn-danger">Stop</button>

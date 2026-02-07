@@ -69,7 +69,7 @@ export function GameList() {
                       {game.title}
                     </a>
                   </strong>
-                  {' '}- {new Date(game.created_at).toLocaleDateString()}
+                  {' '}- {new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   <br />
                   <span className="text-sm text-gray-600">{game.description}</span>
                 </div>
