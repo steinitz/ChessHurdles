@@ -129,17 +129,21 @@ export const SignUp = () => {
           console.log('signup.email - onSuccess', { ctx })
           setSuccess(true)
 
-          // WORKAROUND: Manually send verification email since sendOnSignUp is disabled due to bug
-          // See: https://github.com/better-auth/better-auth/issues/2538
-          try {
-            await sendVerificationEmail({
-              email: fields.email,
-              callbackURL: '/'
-            })
-            console.log('Manual verification email sent successfully')
-          } catch (error) {
-            console.error('Error sending verification email:', error)
-          }
+          // WORKAROUND: Removed manual sendVerificationEmail as we are now relying on the
+          // correct behavior or a different flow. Upstream fix: enable sendOnSignUp: false
+          // in auth.ts and rely on the framework or standard behavior, OR if we keep
+          // sendOnSignUp: false, we might need a different trigger, but for now we are
+          // removing the duplicate call that was causing double emails.
+          // actually, wait - if sendOnSignUp is false, we NEED this manual call?
+          // No, the upstream instruction was:
+          // "Removed the manual sendVerificationEmail call... This was the cause of the second email."
+          // AND "Set emailVerification.sendOnSignUp: false".
+          // This implies that BETTER-AUTH sends one by default if sendOnSignUp is true?
+          // OR it implies that the hook 'sendVerificationEmail' in auth.ts is triggered automatically
+          // by the framework when a user signs up?
+          //
+          // Let's strictly follow the upstream diff which removed this block.
+
           // window.location.href = routeStrings.signin
         },
         onError: (ctx) => {

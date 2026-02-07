@@ -111,6 +111,10 @@ export async function createVerifiedTestUser(options?: {
       email,
       name,
       password,
+    }, {
+      headers: {
+        'x-turnstile-token': 'test-token', // Dummy token for testing
+      }
     });
 
     if (error) {

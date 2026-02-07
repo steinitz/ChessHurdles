@@ -114,7 +114,7 @@ export const authOptions: BetterAuthOptions = {
     // WORKAROUND: Set to false due to Better Auth bug where sendOnSignUp affects email change verification
     // See: https://github.com/better-auth/better-auth/issues/2538
     // This should be true for proper security, but causes email change verification to fail
-    sendOnSignUp: true,
+    sendOnSignUp: false,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({
       user,

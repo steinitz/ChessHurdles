@@ -291,7 +291,7 @@ export async function ensureServerRunning(baseURL: string = 'http://localhost:30
   serverProcess.unref();
 
   // Wait for server to start (with timeout)
-  const maxAttempts = 15; // 15 seconds should be sufficient for development
+  const maxAttempts = 30; // 30 seconds should be sufficient for development
   let attempts = 0;
   let serverDetected = false;
 

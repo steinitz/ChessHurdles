@@ -18,7 +18,10 @@ export function GameList({
 
   useEffect(() => {
     if (!initialGames) {
-      getUserGames().then(setGames).finally(() => setLoading(false));
+      getUserGames()
+        .then(setGames)
+        .catch(err => console.log('Failed to load games (likely unauthorized):', err))
+        .finally(() => setLoading(false));
     }
   }, [initialGames]);
 

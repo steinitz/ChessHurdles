@@ -21,3 +21,5 @@
 - **Questions != Approval**: A user question (e.g., "What about X?") is NEVER permission to execute code. It is a request for information only.
 - **Engagement**: When pausing, ask open-ended questions about high-value improvements or strategic considerations.
 - **Signal-to-Noise**: Avoid trivial suggestions just to fill space. Only suggest improvements if they are "low hanging fruit" with clear value.
+
+npm is disabled. Use pnpm.
