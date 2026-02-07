@@ -94,9 +94,13 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
 
         if (moveResult) {
           const playedMoveUci = moveResult.from + moveResult.to + (moveResult.promotion || '');
+
+          // Normalize best_move: remove move numbers (e.g. "1. ", "52... ") and trim whitespace
+          const cleanBestMove = activeHurdle.best_move.replace(/^\d+\.+/, '').trim();
+
           const isBestMove =
-            moveSan === activeHurdle.best_move ||
-            playedMoveUci === activeHurdle.best_move;
+            moveSan === cleanBestMove ||
+            playedMoveUci === cleanBestMove;
 
           if (isBestMove) {
             setMessage('Correct. Well done');
