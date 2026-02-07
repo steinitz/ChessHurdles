@@ -291,6 +291,12 @@ export function PlayVsEngine() {
   // Handle Game Over persistence
   useEffect(() => {
     if (gameResult && userId && !processedRef.current) {
+      // Skip saving/stats if Aborted
+      if (gameResult.reason === 'Aborted') {
+        processedRef.current = true;
+        return;
+      }
+
       processedRef.current = true;
       const engineElo = stockfishLevelToElo(engineLevel);
       let score: 0 | 0.5 | 1 = 0;
@@ -425,7 +431,15 @@ export function PlayVsEngine() {
           <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 20 }}>
             <h3>Abandon current game?</h3>
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => startNewGame(userSide)} style={{ backgroundColor: 'var(--color-error)' }}>Yes, Abandon</button>
+              <button
+                onClick={() => {
+                  setGameResult({ winner: 'Draw', reason: 'Aborted' });
+                  setShowAbandonConfirm(false);
+                }}
+                style={{ backgroundColor: 'var(--color-error)' }}
+              >
+                Yes, Abandon
+              </button>
               <button onClick={() => setShowAbandonConfirm(false)}>Cancel</button>
             </div>
           </div>
@@ -450,15 +464,19 @@ export function PlayVsEngine() {
         {/* Game Over Overlay */}
         {gameResult && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 10 }}>
-            <h2>Game Over</h2>
+            <h2>{gameResult.reason === 'Aborted' ? 'Game Aborted' : 'Game Over'}</h2>
             <div style={{ fontSize: '1.25rem' }}>
-              {gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`} by {gameResult.reason}
+              {gameResult.reason === 'Aborted'
+                ? 'Game was abandoned.'
+                : (gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`) + ` by ${gameResult.reason}`
+              }
             </div>
             <button onClick={() => startNewGame(userSide)}>New Game</button>
             {savedGameId ? (
               <button onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}>Analyze Game</button>
             ) : (
-              !session?.user && (
+              // Only show sign in if NOT aborted (aborted doesn't save anyway)
+              (!session?.user && gameResult.reason !== 'Aborted') && (
                 <a href="/auth/signin" style={{ color: 'white', marginTop: '10px' }}>Sign In to Save</a>
               )
             )}
