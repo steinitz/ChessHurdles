@@ -299,18 +299,17 @@ export default function GameAnalysis({
             disabled={isAnalyzingMoves || isCalibrating}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
           />
-          <span className="text-sm w-12 text-center">{moveAnalysisDepth}</span>
         </div>
       </div>
 
-      <div className="analysis-buttons flex gap-4 mb-4">
+      <div className="analysis-buttons" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'nowrap' }}>
         {!isAnalyzingMoves && !isCalibrating && (
           <button onClick={handleAnalyzeEntireGame} className="btn-primary">
             Analyze Game
           </button>
         )}
         <button onClick={handleCalibrate} disabled={isAnalyzingMoves || isCalibrating}>
-          Calibrate Depth
+          {(moveAnalysisDepth !== DEFAULT_ANALYSIS_DEPTH) ? "(Re)Calibrate Ideal Engine Depth" : "Calibrate Ideal Engine Depth"}
         </button>
         {(isAnalyzingMoves || isCalibrating) && (
           <button onClick={cancelAnalysis} className="btn-danger">Stop</button>
@@ -323,11 +322,12 @@ export default function GameAnalysis({
         />
         <Spacer />
         <textarea
-          className="w-full h-64 p-2 border rounded"
+          style={{ width: '100%', padding: '0.5rem', border: '1px solid #ccc', borderRadius: '4px' }}
+          rows={8}
           value={moveAnalysisResults}
           readOnly
         />
       </div>
-    </div>
+    </div >
   );
 }

@@ -2,13 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { getUserGames, deleteGameById } from '~/lib/server/games';
 import { GameTable } from '~/lib/chess-database';
 
-export function GameList() {
-  const [games, setGames] = useState<GameTable[]>([]);
-  const [loading, setLoading] = useState(true);
+interface GameListProps {
+  initialGames?: GameTable[];
+  showTitle?: boolean;
+  showReferenceGames?: boolean;
+}
+
+export function GameList({
+  initialGames,
+  showTitle = true,
+  showReferenceGames = true
+}: GameListProps) {
+  const [games, setGames] = useState<GameTable[]>(initialGames || []);
+  const [loading, setLoading] = useState(!initialGames);
 
   useEffect(() => {
-    getUserGames().then(setGames).finally(() => setLoading(false));
-  }, []);
+    if (!initialGames) {
+      getUserGames().then(setGames).finally(() => setLoading(false));
+    }
+  }, [initialGames]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -37,27 +49,31 @@ export function GameList() {
 
   return (
     <div className="p-4 border rounded bg-gray-50 mt-4">
-      <h3>Reference Games</h3>
-      <ul className="list-disc pl-5 mb-4">
-        {REFERENCE_GAMES.map(game => (
-          <li key={game.id} className="mb-2">
-            <div className="flex justify-between items-center">
-              <div>
-                <strong>
-                  <a href={game.link} className="text-blue-600 hover:underline">
-                    {game.title}
-                  </a>
-                </strong>
-                {' '}- {new Date(game.created_at).toLocaleDateString()}
-                <br />
-                <span className="text-sm text-gray-600">{game.description}</span>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+      {showReferenceGames && (
+        <>
+          {showTitle && <h3>Reference Games</h3>}
+          <ul className="list-disc pl-5 mb-4">
+            {REFERENCE_GAMES.map(game => (
+              <li key={game.id} className="mb-2">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <strong>
+                      <a href={game.link} className="text-blue-600 hover:underline">
+                        {game.title}
+                      </a>
+                    </strong>
+                    {' '}- {new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    <br />
+                    <span className="text-sm text-gray-600">{game.description}</span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-      <h3>Saved Games</h3>
+      {showTitle && <h3>Saved Games</h3>}
       {games.length === 0 ? <p style={{ color: 'var(--color-text-secondary)' }}>No saved games.</p> : (
         <ul className="list-disc pl-5">
           {games.map(game => (
@@ -66,12 +82,14 @@ export function GameList() {
                 <div>
                   <strong>
                     <a href={`/?gameId=${game.id}`} className="text-blue-600 hover:underline">
-                      {game.title}
+                      {game.title || 'Untitled Game'}
                     </a>
                   </strong>
                   {' '}- {new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                   <br />
-                  <span className="text-sm text-gray-600">{game.description}</span>
+                  <span className="text-sm text-gray-600">
+                    {game.description?.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}
+                  </span>
                 </div>
                 <button
                   onClick={(e) => handleDelete(e, game.id)}

@@ -307,7 +307,7 @@ export function PlayVsEngine() {
             difficulty_rating: engineElo,
             is_favorite: false,
             title: `${session?.user?.name || 'Player'} vs Stockfish (Level ${engineLevel})`,
-            description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'} (${gameResult.winner}). Elo: ${userElo} -> ${newElo}`,
+            description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'}  Elo: ${userElo} -> ${newElo}`,
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
         })
