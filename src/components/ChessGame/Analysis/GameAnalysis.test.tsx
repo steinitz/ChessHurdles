@@ -18,7 +18,13 @@ import { getCachedEval, setCachedEval, makeKey } from '~/lib/analysis-cache';
 
 // Mock the stockfish-engine module
 vi.mock('~/lib/stockfish-engine', () => ({
-  initializeStockfishWorker: vi.fn(() => new Worker('mock')),
+  initializeStockfishWorker: vi.fn(() => ({
+    postMessage: vi.fn(),
+    terminate: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  }) as unknown as Worker),
   analyzePosition: vi.fn(),
   handleEngineMessage: vi.fn(),
   cleanupWorker: vi.fn(), // Added
@@ -92,7 +98,7 @@ describe('GameAnalysis', () => {
     expect(screen.getByText('Game Analysis')).toBeInTheDocument();
     // Replaced "Analysis Depth:" with label "Analysis Depth used..."
     expect(screen.getByText(/Analysis Depth/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Analyze Entire Game' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Analyze Game' })).toBeEnabled();
   });
 
   it('displays analysis depth controls', () => {
@@ -154,12 +160,7 @@ describe('GameAnalysis', () => {
     // Updating component is better.
     // I'll update component in a moment. For now, let's comment out this check or expect it to be enabled but no-op.
 
-    // I'll update the test to expect it to be enabled (default html behavior) OR fix component.
-    // Fixing component is easy.
-    // But I'll do it later if needed.
-    // Let's leave test as is and see it fail, then fix component.
-    // expect(screen.getByRole('button', { name: 'Analyze Entire Game' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Analyze Entire Game' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyze Game' })).toBeDisabled();
   });
 
   it('allows depth adjustment via slider', () => {
@@ -233,13 +234,13 @@ describe('GameAnalysis', () => {
     );
 
     // Click the analyze button
-    const analyzeButton = screen.getByRole('button', { name: 'Analyze Entire Game' });
+    const analyzeButton = screen.getByRole('button', { name: 'Analyze Game' });
     analyzeButton.click();
 
-    // The component replaces "Analyze Entire Game" with "Stop" when analyzing.
-    // So analyze button disappears.
+    // The "Analyze Game" button is disabled when analyzing.
+    // The "Stop" button appears.
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: 'Analyze Entire Game' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Analyze Game' })).toBeDisabled();
       expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
     });
 
@@ -285,7 +286,7 @@ describe('GameAnalysis', () => {
         />
       );
 
-      const analyzeButton = screen.getByRole('button', { name: 'Analyze Entire Game' });
+      const analyzeButton = screen.getByRole('button', { name: 'Analyze Game' });
       analyzeButton.click();
 
       // Should check cache
@@ -301,6 +302,47 @@ describe('GameAnalysis', () => {
       // Yes. `processNextPosition` checks cache. If hit, calls onEvaluation.
       // It DOES NOT call `analyzePosition`.
       expect(analyzePosition).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Parent Synchronization', () => {
+    it('calls onAnalysisUpdate with correct absoluteMoveIndex', async () => {
+      const onAnalysisUpdate = vi.fn();
+      const chess = new Chess();
+      chess.move('e4');
+      const gameMoves = [
+        { position: new Chess(), moveNumber: 0 },
+        { position: new Chess(chess.fen()), move: 'e4', moveNumber: 1 }
+      ];
+
+      // Mock cache hit so we get immediate completion for the test
+      vi.mocked(getCachedEval).mockReturnValue({
+        cp: 10,
+        depth: 20,
+        bestMove: 'e5',
+        ts: Date.now()
+      });
+
+      render(
+        <GameAnalysis
+          gameMoves={gameMoves}
+          goToMove={vi.fn()}
+          onAnalysisUpdate={onAnalysisUpdate}
+          maxMovesToAnalyze={1}
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Analyze Game' }));
+
+      await waitFor(() => {
+        expect(onAnalysisUpdate).toHaveBeenCalled();
+      });
+
+      // Check the summary passed to parent
+      const summary = onAnalysisUpdate.mock.calls[0][0];
+      expect(summary).toHaveLength(1);
+      // Move 1 (e4) should have moveIndex 1
+      expect(summary[0].moveIndex).toBe(1);
     });
   });
 });

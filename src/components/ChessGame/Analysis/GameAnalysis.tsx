@@ -18,6 +18,7 @@ import {
   DEFAULT_ANALYSIS_DEPTH,
 } from '~/lib/chess-constants';
 import { type EngineEvaluation } from '~/lib/stockfish-engine';
+import { isBookMove } from '~/lib/opening-book';
 
 // Helper functions
 const isMateScoreHelper = (evaluation: number): boolean => Math.abs(evaluation) > 5000;
@@ -106,27 +107,34 @@ export default function GameAnalysis({
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
       // Propagate analysis to parent for Navigation
-      if (onAnalysisUpdate) {
-        // We need to map structuredAnalysis items to absolute moveIndices.
-        // We can do this robustly by matching moveNumber + color to gameMoves.
-        const summary = structuredAnalysis.map(item => {
-          const matchIndex = gameMoves.findIndex(m =>
-            m.moveNumber === item.moveNumber &&
-            (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
-          );
-          return { moveIndex: matchIndex, classification: item.classification || 'none' };
-        }).filter(s => s.moveIndex !== -1);
+      // Optimization: Only trigger if structuredAnalysis or gameMoves changed.
+      // We moved the live update during analysis to onComplete.
+      // This useEffect now primarily handles: 
+      // 1. Initial restoration from localStorage
+      // 2. Changes to aiDescriptions (to keep parent in sync if needed, though parent currently doesn't use it)
+      // 3. Game move changes (re-mapping indices)
+    }
+  }, [structuredAnalysis, moveAnalysisResults, aiDescriptions, gameMoves]); // REMOVED currentEvaluations and onAnalysisUpdate (callback is memoized)
 
+  // Separate effect for parent synchronization to avoid slamming parent during live graph updates
+  const lastSyncRef = useRef<string>('');
+  useEffect(() => {
+    if (onAnalysisUpdate && structuredAnalysis.length > 0) {
+      const summary = structuredAnalysis.map(item => {
+        const matchIndex = gameMoves.findIndex(m =>
+          m.moveNumber === item.moveNumber &&
+          (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
+        );
+        return { moveIndex: matchIndex, classification: item.classification || 'none' };
+      }).filter(s => s.moveIndex !== -1);
+
+      const syncKey = JSON.stringify(summary);
+      if (syncKey !== lastSyncRef.current) {
+        lastSyncRef.current = syncKey;
         onAnalysisUpdate(summary);
       }
-    } else if (onAnalysisUpdate) {
-      // Clear if analysis is cleared?
-      // Only if explicitly cleared (length 0).
-      // onAnalysisUpdate([]); // Do not call blank on mount else we wipe restored data? 
-      // Actually if structuredAnalysis is state [], we shouldn't necessarily wipe unless we KNOW it was cleared.
-      // But persistent restore happens essentially on mount.
     }
-  }, [structuredAnalysis, moveAnalysisResults, aiDescriptions, gameMoves, currentEvaluations, onAnalysisUpdate]);
+  }, [structuredAnalysis, gameMoves, onAnalysisUpdate]);
 
   const isCalibratingRef = useRef(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
@@ -168,37 +176,71 @@ export default function GameAnalysis({
       const displayMoves = [...displayMovesRef.current].reverse();
       const displayResults = [...results].reverse();
       const displayMoveNumbers = [...displayMoveNumbersRef.current].reverse();
+      const displayPositions = [...displayPositionsRef.current].reverse();
 
       const totalGameMoves = gameMoves.length - 1;
       const analyzedCount = displayMoves.length;
       const firstAnalyzedMoveIndex = totalGameMoves - analyzedCount + 1;
       const startWithWhite = gameMoves[firstAnalyzedMoveIndex]?.isWhiteMove ?? true;
 
-      const formatted = formatAnalysisText(
-        displayMoves,
-        displayResults,
-        displayMoveNumbers,
-        moveAnalysisDepth,
-        aiDescriptions,
-        startWithWhite
-      );
+      // Handle async book check
+      (async () => {
+        const bookIndices = new Set<number>();
+        // Only check first 12 moves (24 plies) to keep API calls reasonable
+        const limit = Math.min(displayMoves.length, 12);
 
-      setMoveAnalysisResults(formatted.analysisText);
-      setStructuredAnalysis(formatted.structuredAnalysis);
-      setIsAnalyzingMoves(false);
+        const checks = displayMoves.slice(0, limit).map(async (moveSan, i) => {
+          const position = displayPositions[i];
+          if (!position) return;
 
-      // Trigger Hurdle Processing
-      const processingSet = processingHurdlesRef.current;
-      const newItems = formatted.missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
+          // Need UCI for book check
+          const moves = position.moves({ verbose: true });
+          const match = moves.find(m => m.san === moveSan);
+          if (match) {
+            const uci = match.from + match.to + (match.promotion || '');
+            const isBook = await isBookMove(position.fen(), uci);
+            if (isBook) bookIndices.add(i);
+          }
+        });
 
-      if (newItems.length > 0) {
-        newItems.forEach(item => processingSet.add(item.moveNumber));
+        if (checks.length > 0) {
+          await Promise.all(checks);
+        }
 
-        // Async process hurdles
-        (async () => {
+        const formatted = formatAnalysisText(
+          displayMoves,
+          displayResults,
+          displayMoveNumbers,
+          moveAnalysisDepth,
+          aiDescriptions,
+          startWithWhite,
+          bookIndices,
+          firstAnalyzedMoveIndex
+        );
+
+        setMoveAnalysisResults(formatted.analysisText);
+        setStructuredAnalysis(formatted.structuredAnalysis);
+        setIsAnalyzingMoves(false);
+
+        // Notify parent if callback provided
+        if (onAnalysisUpdate) {
+          const summary = formatted.structuredAnalysis.map(item => ({
+            moveIndex: item.absoluteMoveIndex,
+            classification: item.classification || 'none'
+          }));
+          onAnalysisUpdate(summary);
+        }
+
+        // Trigger Hurdle Processing
+        const processingSet = processingHurdlesRef.current;
+        const newItems = formatted.missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
+
+        if (newItems.length > 0) {
+          newItems.forEach(item => processingSet.add(item.moveNumber));
+
           for (const item of newItems) {
             try {
-              // Fetch AI?
+              // Fetch AI if worthy and approved
               if (item.data.willUseAI) {
                 try {
                   const response = await getAIDescription({ data: item.data });
@@ -214,9 +256,8 @@ export default function GameAnalysis({
 
               // Save Hurdle
               if (session?.user) {
-                const positionsReversed = displayPositionsRef.current;
-                const targetIndex = (positionsReversed.length - 1) - item.index;
-                const prevPos = positionsReversed[targetIndex];
+                // item.index is chronological index in displayMoves
+                const prevPos = displayPositions[item.index];
                 const fen = prevPos?.fen();
 
                 if (fen) {
@@ -237,13 +278,13 @@ export default function GameAnalysis({
                 }
               }
             } catch (e) {
-              console.error(e);
+              console.error('[Analysis] Failed to process hurdle:', e);
             }
           }
 
           if (onHurdleSaved) onHurdleSaved();
-        })();
-      }
+        }
+      })();
     },
     onAnalysisStatusChange: setIsAnalyzingMoves
   });
@@ -382,7 +423,7 @@ export default function GameAnalysis({
         <button
           onClick={handleAnalyzeEntireGame}
           className="btn-primary"
-          disabled={isAnalyzingMoves || isCalibrating}
+          disabled={isAnalyzingMoves || isCalibrating || gameMoves.length <= 1}
         >
           Analyze Game
         </button>
@@ -412,6 +453,13 @@ export default function GameAnalysis({
           }}
         />
         <div style={{ height: '1rem' }} />
+
+        {/* Analysis Progress Log */}
+        {isAnalyzingMoves && moveAnalysisResults && (
+          <div className="analysis-progress mb-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono whitespace-pre-wrap max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700">
+            {moveAnalysisResults}
+          </div>
+        )}
 
         {/* Controls for Analysis List */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
@@ -443,18 +491,19 @@ export default function GameAnalysis({
             items={structuredAnalysis}
             onMoveClick={(analysisIndex) => {
               const item = structuredAnalysis[analysisIndex];
-              if (!item) return;
+              if (!item) {
+                console.warn("[Analysis] No item at index", analysisIndex);
+                return;
+              }
 
-              // Robust matching using moveNumber and Color to find absolute index in gameMoves
-              const matchIndex = gameMoves.findIndex(m =>
-                m.moveNumber === item.moveNumber &&
-                (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
-              );
+              const matchIndex = item.absoluteMoveIndex;
 
-              if (matchIndex !== -1) {
+              console.log("[Analysis] Clicked:", item.moveLabel, item.moveSan, "AbsoluteIndex:", matchIndex, "CurrentIndex:", currentMoveIndex);
+
+              if (matchIndex >= 0 && matchIndex < gameMoves.length) {
                 goToMove(matchIndex);
               } else {
-                console.warn("Could not match analysis item to game move", item);
+                console.warn("[Analysis] absoluteMoveIndex out of bounds", item);
               }
             }}
             hideInaccuracies={false}

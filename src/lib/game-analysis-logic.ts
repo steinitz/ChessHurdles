@@ -7,6 +7,7 @@ export interface AnalysisResultItem {
   moveNumber: number;
   move: string;
   isWhiteMove: boolean;
+  absoluteMoveIndex: number; // 0-based ply index in full game
   evaluation: number;
   bestMove: string;
   calculationTime: number;
@@ -19,6 +20,7 @@ export interface AnalysisResultItem {
   willUseAI: boolean;
   isMate?: boolean;
   mateDistance?: number;
+  isBookMove?: boolean;
 }
 
 export function processGameAnalysis(
@@ -27,7 +29,9 @@ export function processGameAnalysis(
   aiWorthyThreshold: number = 0.2,
   maxAiAnalysis: number = 5,
   startMoveNumber: number = 1,
-  startWithWhite: boolean = true
+  startWithWhite: boolean = true,
+  bookMoveIndices: Set<number> = new Set(),
+  startAbsoluteIndex: number = 0
 ): AnalysisResultItem[] {
   // Ensure inputs are aligned and in chronological order
   // Note: The caller is responsible for passing chronological arrays.
@@ -52,17 +56,21 @@ export function processGameAnalysis(
 
     const isWhiteMove = startWithWhite ? (index % 2 === 0) : (index % 2 !== 0);
     const moveNumber = startMoveNumber + Math.floor((index + (startWithWhite ? 0 : 1)) / 2);
+    const absoluteMoveIndex = startAbsoluteIndex + index;
 
     const result = evaluations[index]; // Pre-Move Analysis (Evaluation BEFORE move is played)
     const postMoveResult = evaluations[index + 1]; // Post-Move Analysis (Evaluation AFTER move is played)
 
     if (!result) return;
 
+    const isBook = bookMoveIndices.has(index);
+
     const item: AnalysisResultItem = {
       index, // Unique ID
       moveNumber, // This is full move number
       move,
       isWhiteMove,
+      absoluteMoveIndex,
       evaluation: result.evaluation, // Pre-Move Evaluation (Best possible play from current position)
       postMoveEvaluation: postMoveResult?.evaluation, // Post-Move Evaluation (Value of the position achieved)
       bestMove: result.bestMove, // Best Move Suggested by Engine
@@ -71,7 +79,8 @@ export function processGameAnalysis(
       isMate: Math.abs(result.evaluation) > 5000,
       mateDistance: Math.abs(result.evaluation) > 5000 ? Math.abs(result.evaluation) - 5000 : undefined,
       isAiWorthy: false,
-      willUseAI: false
+      willUseAI: false,
+      isBookMove: isBook
     };
 
     // Calculate centipawn change
@@ -91,6 +100,12 @@ export function processGameAnalysis(
 
       // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
       item.classification = classifyWPL(wpl);
+
+      // --- OVERRIDE IF BOOK MOVE ---
+      if (isBook && (item.classification === 'inaccuracy' || item.classification === 'mistake')) {
+        console.log(`[Analysis] Overriding ${item.classification} for book move: ${moveNumber}${isWhiteMove ? '.' : '...'} ${move}`);
+        item.classification = 'none';
+      }
 
       // Eligibility Check
       if (item.classification !== 'none') {

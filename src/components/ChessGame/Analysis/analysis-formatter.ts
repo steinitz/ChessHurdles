@@ -31,6 +31,7 @@ export interface AnalysisDisplayItem {
   moveNumber: number;
   moveLabel: string;
   playerColor: 'White' | 'Black';
+  absoluteMoveIndex: number; // 0-based ply index in full game
   moveSan: string;
   evaluation: number; // Pre-Move Eval
   postMoveEvaluation?: number; // Post-Move Eval (Result of the move)
@@ -51,7 +52,9 @@ export function formatAnalysisText(
   displayMoveNumbers: number[],
   analysisDepth: number,
   aiDescriptions: Record<number, string>,
-  startWithWhite: boolean = true
+  startWithWhite: boolean = true,
+  bookMoveIndices: Set<number> = new Set(),
+  startAbsoluteIndex: number = 0
 ): FormattedAnalysisResult {
   const analysisType = 'Entire Game';
   let analysisText = `Game Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
@@ -65,7 +68,9 @@ export function formatAnalysisText(
     clientEnv.AI_WORTHY_THRESHOLD,
     MAX_AI_ANALYSIS_PER_GAME,
     displayMoveNumbers[0],
-    startWithWhite
+    startWithWhite,
+    bookMoveIndices,
+    startAbsoluteIndex
   );
 
   // --- Pass 2: Display & Queuing ---
@@ -90,6 +95,7 @@ export function formatAnalysisText(
       moveNumber: fullMoveNum,
       moveLabel,
       playerColor,
+      absoluteMoveIndex: item.absoluteMoveIndex,
       moveSan: item.move,
       evaluation: item.evaluation,
       postMoveEvaluation: item.postMoveEvaluation,

@@ -173,8 +173,8 @@ export const AnalysisList: React.FC<AnalysisListProps> = ({ items, onMoveClick, 
           <AnalysisCard
             key={item.index}
             item={item}
-            onClick={() => onMoveClick(item.index)} // item.index maps to game index
-            isActive={currentMoveIndex === item.index}
+            onClick={() => onMoveClick(item.index)}
+            isActive={currentMoveIndex === item.absoluteMoveIndex}
           />
         ))
       )}

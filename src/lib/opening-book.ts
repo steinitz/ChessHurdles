@@ -76,6 +76,32 @@ export async function getOpeningMove(fen: string): Promise<string | null> {
 }
 
 /**
+ * Check if a specific move is present in the Lichess opening book for a given position.
+ */
+export async function isBookMove(fen: string, moveUci: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s timeout for check
+
+    const response = await fetch(`${LICHESS_API_URL}?fen=${encodeURIComponent(fen)}`, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' }
+    });
+
+    clearTimeout(timeoutId);
+    if (!response.ok) return false;
+
+    const data: LichessResponse = await response.json();
+    if (!data.moves || data.moves.length === 0) return false;
+
+    // Check if the move (UCI) is in the list of moves from the opening book
+    return data.moves.some(m => m.uci === moveUci);
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
  * Calculate "Human-Like" delay before playing a book move.
  * Uses Fibonacci sequence (1, 2, 3, 5, 8, 13, 21...) for natural spacing.
  * 

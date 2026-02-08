@@ -151,9 +151,9 @@ export function initializeStockfishWorker(
     const worker = new Worker('/stockfish.js');
 
     worker.addEventListener('message', onMessage);
-    worker.addEventListener('error', (e) => {
-      console.error('Stockfish worker error:', e);
-      onError('Engine initialization failed');
+    worker.addEventListener('error', (e: ErrorEvent) => {
+      console.error('Stockfish worker error:', e.message, 'at', e.filename, ':', e.lineno);
+      onError(`Engine initialization failed: ${e.message || 'Unknown error'}`);
     });
 
     // Initialize UCI protocol
