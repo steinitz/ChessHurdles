@@ -23,6 +23,7 @@ const isMateScoreHelper = (evaluation: number): boolean => Math.abs(evaluation) 
 const getMateDistanceHelper = (evaluation: number): number => Math.abs(evaluation) - 5000;
 
 interface EvaluationData {
+  moveIndex?: number;
   moveNumber: number;
   evaluation: number;
   isMate: boolean;
@@ -332,13 +333,24 @@ export default function GameAnalysis({
     displayMoveNumbersRef.current = targetDisplayMoveNumbers;
     displayPositionsRef.current = targetPositions; // For Hurdle saving (requires Pre-Move fen)
 
-    const placeholders = targetFullMoveNumbers.map(n => ({
-      moveNumber: n,
-      evaluation: 0,
-      isMate: false,
-      isPlaceholder: true
-    }));
-    setCurrentEvaluations(placeholders);
+    const placeholders = targetFullMoveNumbers.map((n, i) => {
+      // Logic: targetMoves/numbers are reversed. 
+      // i=0 is the last element of the slice.
+      // We need the absolute index in `allMoves` (0-based Ply).
+      // slice start index:
+      const sliceStart = Math.max(0, totalMoves - selectionSize);
+      const relativeIndex = (targetFullMoveNumbers.length - 1) - i;
+      const absoluteIndex = sliceStart + relativeIndex;
+
+      return {
+        moveNumber: n,
+        moveIndex: absoluteIndex,
+        evaluation: 0,
+        isMate: false,
+        isPlaceholder: true
+      };
+    });
+    setCurrentEvaluations(placeholders.reverse());
 
     // Pass Pre-Move positions to engine
     startAnalysis(targetMoves, targetPositions, targetFullMoveNumbers, moveAnalysisDepth);
@@ -411,10 +423,9 @@ export default function GameAnalysis({
       <div className="analysis-output">
         <EvaluationGraph
           evaluations={currentEvaluations.filter(e => e !== null && !e.isPlaceholder)}
+          totalMoves={gameMoves.length - 1} // Pass total plys
           onMoveClick={(index) => {
-            // Graph index mapping is tricky if it includes start pos or not.
-            // Usually graph mapping is 1:1 with displayed evaluations.
-            // For now, leaving graph handling for next task as planned.
+            goToMove(index);
           }}
         />
         <div style={{ height: '1rem' }} />

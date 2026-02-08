@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 
 
 export interface EvaluationData {
+  // Index of the move in the game sequence (0-based: 0=1.e4, 1=1...e5)
+  moveIndex?: number;
   moveNumber: number;
   evaluation: number;
   isMate: boolean;
@@ -16,6 +18,7 @@ interface EvaluationGraphProps {
   currentMoveIndex?: number;
   onMoveClick?: (moveIndex: number) => void;
   height?: number;
+  totalMoves?: number;
 }
 
 // Exported constants/functions to keep tests resilient without literals
@@ -54,13 +57,17 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   currentMoveIndex = -1,
   onMoveClick,
   height = DEFAULT_EVALUATION_GRAPH_HEIGHT,
+  totalMoves = 0,
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
+  // Ensure we have a valid totalMoves count. If not provided, fallback to evaluations length (legacy behavior)
+  const safeTotalMoves = totalMoves > 0 ? totalMoves : evaluations.length;
+  // If we still have 0, default to 1 to avoid division by zero
+  const moveCount = Math.max(1, safeTotalMoves);
+
   const hasData = !!evaluations && evaluations.length > 0;
 
-  // Dynamic sizing (self-sizing): compute bar positions/widths in viewBox units (0–100 width)
-  const totalBars = hasData ? evaluations.length : 0;
-  const barSpacing = 0.3; // small gap between bars in viewBox units
+  // Dynamic sizing
   const viewBoxWidth = 100; // normalized width units
   const viewBoxHeight = height; // use height units directly for vertical scale
 
@@ -69,9 +76,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   const chartWidth = viewBoxWidth - margin.left - margin.right;
   const chartHeight = viewBoxHeight - margin.top - margin.bottom;
 
-  // Precompute bar geometry shared across rendering and overlay
-  const barWidth = Math.max(0.5, (chartWidth - Math.max(0, totalBars - 1) * barSpacing) / Math.max(1, totalBars));
-  const totalBarWidth = barWidth + barSpacing;
+  // Calculate fixed bar width based on TOTAL moves for the game
+  // logic: 1-based moveNumber maps to [0..totalMoves-1]
+  const barSpacing = 0.05; // Tight spacing for cleaner look
+  const totalBarWidth = chartWidth / moveCount;
+  const barWidth = Math.max(0.1, totalBarWidth - barSpacing);
 
   // Find evaluation range for scaling
   const evalRange = computeEvalRange(evaluations); // Minimum range of 3 for visibility
@@ -89,12 +98,40 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
   // Zero line position
   const zeroY = chartHeight / 2;
 
-  // Overlay label positions as percentages relative to viewBox
+  // Overlay label positions
   const axisLeftPct = (margin.left / viewBoxWidth) * 100;
-  // Align exactly to the grid lines (margin.top and bottom of chart)
   const topLabelPct = (margin.top / viewBoxHeight) * 100;
   const zeroLabelPct = ((margin.top + zeroY) / viewBoxHeight) * 100;
   const bottomLabelPct = ((margin.top + chartHeight) / viewBoxHeight) * 100;
+
+  const handleChartClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!onMoveClick) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+
+    // Convert clickX to viewBox coordinates
+    const scaleX = viewBoxWidth / rect.width;
+    const viewBoxX = clickX * scaleX;
+
+    // Adjust for margin
+    const relativeX = viewBoxX - margin.left;
+
+    if (relativeX < 0 || relativeX > chartWidth) return;
+
+    // Map to move index (0-based Ply)
+    // relativeX = moveIndex * totalBarWidth
+    // moveIndex = relativeX / totalBarWidth
+    const moveIndex = Math.floor(relativeX / totalBarWidth);
+
+    // Check bounds
+    if (moveIndex >= 0 && moveIndex < moveCount) {
+      // onMoveClick expects the "Target Move Index" (usually 1-based, or same as GameMoves index).
+      // If standard GameMoves uses index 0=Start, index 1=Move1.
+      // And our graph 0th bar = Move 1.
+      // So pass moveIndex + 1.
+      onMoveClick(moveIndex + 1);
+    }
+  };
 
   return (
     <div data-testid={EVALUATION_GRAPH_TEST_ID} style={{ width: '100%' }}>
@@ -105,13 +142,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           height={height}
           viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
           preserveAspectRatio="none"
-          style={{ display: 'block', width: '100%' }}
+          style={{ display: 'block', width: '100%', cursor: onMoveClick ? 'pointer' : 'default' }}
+          onClick={handleChartClick}
         >
-          {/* Background removed to allow mvp.css default styles */}
-
           {/* Chart area */}
           <g transform={`translate(${margin.left}, ${margin.top})`}>
-            {/* Progress overlay removed to avoid tinting the background */}
             {/* Zero line */}
             <line
               x1={0}
@@ -126,57 +161,55 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
 
             {/* Evaluation bars */}
             {hasData && evaluations.map((evaluation, index) => {
-              const x = index * totalBarWidth;
-              const barHeight = Math.abs(scaleY(evaluation.evaluation) - zeroY);
-              const y = evaluation.evaluation >= 0 ? scaleY(evaluation.evaluation) : zeroY;
+              // Position based strictly on moveIndex (0-based Ply).
+              // Fallback to index if moveIndex is missing (e.g. legacy data)
+              const moveIdx = evaluation.moveIndex !== undefined ? evaluation.moveIndex : index;
+              const x = moveIdx * totalBarWidth;
+
+              const val = evaluation.evaluation;
+              const barHeight = Math.abs(scaleY(val) - zeroY);
+              const y = val >= 0 ? scaleY(val) : zeroY;
 
               // Use different colors for placeholder vs real data
               let fillColor = 'var(--color-link)';
-              let opacity = 0.7;
 
               if (evaluation.isPlaceholder) {
                 fillColor = 'var(--color-text-secondary)';
-                opacity = 0.3;
-              }
-              // Use secondary text color for cached evaluations
-              if (!evaluation.isPlaceholder && evaluation.isCached) {
-                fillColor = 'var(--color-text-secondary)';
+              } else if (evaluation.isCached) {
+                // Keep logic simple.
               }
 
-              // Highlight current move with different opacity or stroke
-              const isCurrentMove = index === currentMoveIndex;
+              // Highlight current move
+              // The prop currentMoveIndex passed from GameAnalysis usually is 0-based index in gameMoves.
+              // So moveIdx === currentMoveIndex - 1 ? No.
+              // GameMoves: Index 0=Start. Index 1=Move1.
+              // Our moveIdx 0=Move1.
+              // So if currentMoveIndex=1 (Move 1), moveIdx should be 0.
+              // So isCurrentMove = moveIdx === currentMoveIndex - 1.
+              // Or does GameAnalysis pass index of the move in its own list?
+              // GameAnalysis passes `currentMoveIndex` prop. 
+              // Usually `currentMoveIndex` is the global index.
+              const isCurrentMove = (moveIdx + 1) === currentMoveIndex;
 
               return (
-                <g key={index}>
-                  {/* Bar */}
-                  <rect
-                    data-testid={EVALUATION_BAR_TEST_ID}
-                    x={x}
-                    y={y}
-                    width={barWidth}
-                    height={barHeight}
-                    fill={fillColor}
-                    stroke={isCurrentMove ? 'var(--color-text)' : 'none'}
-                    strokeWidth={isCurrentMove ? 2 : 0}
-                    style={{
-                      cursor: onMoveClick ? 'pointer' : 'default',
-                      opacity: hoveredIndex === index ? 0.8 : (isCurrentMove ? 1 : opacity),
-                      transition: 'opacity 0.2s ease'
-                    }}
-                    onClick={() => onMoveClick?.(index)}
-                    onMouseEnter={() => setHoveredIndex(index)}
-                    onMouseLeave={() => setHoveredIndex(-1)}
-                  />
-
-                  {/* Hover tooltip moved to HTML overlay to avoid SVG text stretch */}
-                </g>
+                <rect
+                  key={index}
+                  data-testid={EVALUATION_BAR_TEST_ID}
+                  x={x}
+                  y={y}
+                  width={Math.max(0.1, barWidth)}
+                  height={Math.max(0.5, barHeight)} // Minimum height
+                  fill={fillColor}
+                  opacity={hoveredIndex === index ? 0.8 : (isCurrentMove ? 1 : 0.7)}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(-1)}
+                  style={{ transition: 'opacity 0.1s' }}
+                />
               );
             })}
-
-            {/* Y-axis labels moved to HTML overlay to avoid SVG stretch */}
           </g>
 
-          {/* X-axis */}
+          {/* X/Y Axes Lines */}
           <line
             x1={margin.left}
             y1={viewBoxHeight - margin.bottom}
@@ -186,8 +219,6 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
           />
-
-          {/* Y-axis */}
           <line
             x1={margin.left}
             y1={margin.top}
@@ -199,51 +230,68 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
           />
         </svg>
 
-        {/* Non-stretched overlay labels */}
-        <div
-          aria-hidden
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            fontSize: '10px'
-          }}
-        >
-          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${topLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
+        {/* Labels Overlay */}
+        <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', fontSize: '10px' }}>
+          {/* Axis Labels */}
+          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${topLabelPct}%`, transform: 'translate(-110%, -50%)', whiteSpace: 'nowrap' }}>
             +{(evalRange / 100).toFixed(1)}
           </div>
-          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${zeroLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
+          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${zeroLabelPct}%`, transform: 'translate(-110%, -50%)', whiteSpace: 'nowrap' }}>
             {ZERO_LABEL_TEXT}
           </div>
-          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${bottomLabelPct}%`, transform: 'translateX(-6px) translateX(-100%) translateY(-50%)', whiteSpace: 'nowrap' }}>
+          <div style={{ position: 'absolute', left: `${axisLeftPct}%`, top: `${bottomLabelPct}%`, transform: 'translate(-110%, -50%)', whiteSpace: 'nowrap' }}>
             -{(evalRange / 100).toFixed(1)}
           </div>
 
-          {/* Hover tooltip overlay: crisp text that doesn’t stretch */}
-          {hoveredIndex >= 0 && (() => {
-            const evaluation = evaluations[hoveredIndex];
-            const x = hoveredIndex * totalBarWidth;
-            const leftPct = ((margin.left + x + barWidth / 2) / viewBoxWidth) * 100;
-            // Anchor tooltip near the x-axis (zero line) to avoid jumping with bar height
-            const axisTopPct = ((margin.top + zeroY) / viewBoxHeight) * 100;
-            const valueText = formatEvaluationText(evaluation);
+          {/* Smart Tooltip (Lichess Style) */}
+          {hoveredIndex >= 0 && evaluations[hoveredIndex] && (() => {
+            const ev = evaluations[hoveredIndex];
+            const moveIdx = ev.moveIndex !== undefined ? ev.moveIndex : hoveredIndex;
+            const moveNum = ev.moveNumber || (Math.floor(moveIdx / 2) + 1);
+
+            // X Position
+            // If move is in Left Half (< total/2), show Right. Else Left.
+            const isLeftHalf = moveIdx <= (moveCount / 2);
+
+            // Calculate bar center X in %
+            const barCenterX = ((margin.left + moveIdx * totalBarWidth + totalBarWidth / 2) / viewBoxWidth) * 100;
+
+            // Vertical Position
+            // Positive -> Top of bar. Negative -> Bottom of bar.
+            const scaledY = scaleY(ev.evaluation); // in viewBox height units
+
+            const isPositive = ev.evaluation >= 0;
+
+            // Correction:
+            // Positive eval: bar goes from scaleY(val) down to zeroY. Top is scaleY(val).
+            // Negative eval: bar goes from zeroY down to scaleY(val). Bottom is scaleY(val).
+
+            // So:
+            // If Positive: Anchor to scaleY(val) (Top of bar).
+            // If Negative: Anchor to scaleY(val) (Bottom of bar).
+            const anchorYPct = ((margin.top + scaleY(ev.evaluation)) / viewBoxHeight) * 100;
+
+            const valueText = formatEvaluationText(ev);
+
             return (
               <div
                 style={{
                   position: 'absolute',
-                  left: `${leftPct}%`,
-                  top: `${axisTopPct}%`,
-                  // Move tooltip up to avoid cursor overlap on small bars
-                  transform: 'translateX(-50%) translateY(-28px)',
+                  left: `${barCenterX}%`,
+                  top: `${anchorYPct}%`,
+                  transform: `translate(${isLeftHalf ? '10%' : '-110%'}, ${isPositive ? '-100%' : '0%'})`,
                   background: 'var(--color-bg)',
                   border: '1px solid var(--color-text-secondary)',
                   borderRadius: 3,
-                  padding: '2px 4px',
-                  color: 'var(--color-text)',
-                  whiteSpace: 'nowrap'
+                  padding: '2px 6px',
+                  zIndex: 20,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  whiteSpace: 'nowrap',
+                  marginTop: isPositive ? '-4px' : '4px'
                 }}
               >
-                Move {evaluation.moveNumber} · {valueText}
+                <span style={{ fontWeight: 600 }}>{valueText}</span>
+                <span style={{ color: 'var(--color-text-secondary)', marginLeft: '6px' }}>Move {moveNum}</span>
               </div>
             );
           })()}
@@ -251,12 +299,11 @@ export const EvaluationGraph: React.FC<EvaluationGraphProps> = ({
       </div>
 
       {!hasData && (
-        <div style={{ color: 'var(--color-text-secondary)' }}>
-          <p style={{ margin: 0 }}>{NO_DATA_TEXT}</p>
+        <div style={{ color: 'var(--color-text-secondary)', textAlign: 'center', padding: '1rem' }}>
+          {NO_DATA_TEXT}
         </div>
       )}
     </div>
   );
 };
-
 export default EvaluationGraph;
