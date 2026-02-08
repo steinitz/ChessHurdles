@@ -39,12 +39,35 @@ const SAMPLE_GAME_MOVES = [
   'e4', 'e5', 'Qh5', 'g6', 'Qxe5+', 'Qe7', 'Qxh8'
 ];
 
-export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialPGN?: string; autoAnalyze?: boolean; onHurdleSaved?: () => void }) {
+export function ChessGame({
+  initialPGN,
+  autoAnalyze,
+  onHurdleSaved,
+  title,
+  date,
+  description
+}: {
+  initialPGN?: string;
+  autoAnalyze?: boolean;
+  onHurdleSaved?: () => void;
+  title?: string;
+  date?: string;
+  description?: string;
+}) {
   const [game, setGame] = useState(() => new Chess());
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
-  const [gameTitle, setGameTitle] = useState('Kasparov vs Topalov, Wijk aan Zee 1999');
-  const [gameDescription, setGameDescription] = useState('"Kasparov\'s Immortal" - Navigate through this famous game');
+
+  // Initialize title: prop > sample default
+  const [gameTitle, setGameTitle] = useState(title || 'Kasparov vs Topalov, Wijk aan Zee 1999');
+
+  // Initialize description: prop > sample default
+  const [gameDescription, setGameDescription] = useState(() => {
+    if (description) {
+      return description + (date ? ` (${new Date(date).toLocaleDateString()})` : '');
+    }
+    return '"Kasparov\'s Immortal" - Navigate through this famous game';
+  });
   const [error, setError] = useState<string | null>(null);
 
   // Authentication
@@ -104,19 +127,32 @@ export function ChessGame({ initialPGN, autoAnalyze, onHurdleSaved }: { initialP
       setGame(new Chess()); // Start at initial position
       setCurrentMoveIndex(0);
 
-      // Try to extract game info from PGN headers
+      // Only update title/desc from PGN if we don't have explicit props (or if PGN has better info than "Unknown")
+      // But actually, if we are loading a specific game, we probably want the props to take precedence generally.
+      // However, if the user uploads a NEW PGN, we want to update.
+      // Current logic: initialPGN is passed.
+      // If we have title prop, we used it in initial state.
+      // If we are parsing initialPGN, we might overwrite it.
+      // Let's only overwrite if state is currently the "default" sample strings?
+      // Simpler: If title prop was provided, trust it for the initial load.
+      // But handlePgnLoad might be called later? No, only in useEffect.
+
       const white = result.headers?.White || 'Unknown';
       const black = result.headers?.Black || 'Unknown';
-      const event = result.headers?.Event || 'Chess Game';
-      const date = result.headers?.Date || '';
 
-      setGameTitle(`${white} vs ${black}`);
-      setGameDescription(event + (date ? `, ${date}` : ''));
+      // If we provided a title prop, don't overwrite it with "Unknown vs Unknown"
+      if (!title) {
+        setGameTitle(`${white} vs ${black}`);
+        const event = result.headers?.Event || 'Chess Game';
+        const pgnDate = result.headers?.Date || '';
+        setGameDescription(event + (pgnDate ? `, ${pgnDate}` : ''));
+      }
+
       setError(null);
     } else {
       setError(result.error || 'Invalid PGN format');
     }
-  }, []);
+  }, [title]);
 
   // Load initial PGN if provided, otherwise load sample game on mount
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeCentipawnChange, classifyCpLoss } from '../evaluation-metrics';
+import { computeCentipawnChange, classifyCpLoss, classifyWPL, WPL_THRESHOLDS } from '../evaluation-metrics';
 import { CP_LOSS_THRESHOLDS } from '../chess-constants';
 
 describe('evaluation-metrics', () => {
@@ -35,6 +35,29 @@ describe('evaluation-metrics', () => {
       expect(classifyCpLoss(100)).toBe('inaccuracy');
       expect(classifyCpLoss(200)).toBe('mistake');
       expect(classifyCpLoss(500)).toBe('blunder');
+    });
+  });
+
+  describe('classifyWPL (New Lichess Thresholds)', () => {
+    it('returns none for small WPL', () => {
+      expect(classifyWPL(0)).toBe('none');
+      expect(classifyWPL(0.05)).toBe('none'); // Below 0.09
+      expect(classifyWPL(WPL_THRESHOLDS.inaccuracy - 0.001)).toBe('none');
+    });
+
+    it('classifies inaccuracy (> 0.09)', () => {
+      expect(classifyWPL(WPL_THRESHOLDS.inaccuracy)).toBe('inaccuracy');
+      expect(classifyWPL(0.10)).toBe('inaccuracy');
+    });
+
+    it('classifies mistake (> 0.18)', () => {
+      expect(classifyWPL(WPL_THRESHOLDS.mistake)).toBe('mistake');
+      expect(classifyWPL(0.20)).toBe('mistake');
+    });
+
+    it('classifies blunder (> 0.45)', () => {
+      expect(classifyWPL(WPL_THRESHOLDS.blunder)).toBe('blunder');
+      expect(classifyWPL(0.50)).toBe('blunder');
     });
   });
 });

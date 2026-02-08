@@ -76,7 +76,8 @@ export const SignIn = () => {
             }
           }
           else {
-            alert(ctx.error.message)
+            const errorMsg = ctx.error.message || JSON.stringify(ctx.error, null, 2) || 'Unknown Error';
+            alert(`Sign-In Error: ${errorMsg}`);
           }
           console.log({ ctxError: ctx.error.message })
         },
@@ -124,7 +125,7 @@ export const SignIn = () => {
           <summary>Can't sign in?</summary>
           <p>Create an account <Link to="/auth/signup">Sign Up</Link></p>
           <p>Forgot password?&nbsp;
-            <Link to={`/auth/requestPasswordReset`}>
+            <Link to={`/ auth / requestPasswordReset`}>
               Reset Password
             </Link>
           </p>

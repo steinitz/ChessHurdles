@@ -23,6 +23,14 @@ export function ChessBoard({
   const [showPromotionDialog, setShowPromotionDialog] = useState(false);
   const [optionSquares, setOptionSquares] = useState<Record<string, any>>({});
 
+  // Highlight last move
+  const history = game.history({ verbose: true });
+  const lastMove = history.length > 0 ? history[history.length - 1] : null;
+  const lastMoveStyles = lastMove ? {
+    [lastMove.from]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' },
+    [lastMove.to]: { backgroundColor: 'rgba(255, 255, 0, 0.4)' }
+  } : {};
+
   const getMoveOptions = useCallback((square: string) => {
     const moves = game.moves({
       square: square as any,
@@ -137,7 +145,7 @@ export function ChessBoard({
             if (square) onSquareClick({ square });
           },
           boardOrientation: boardOrientation,
-          squareStyles: { ...optionSquares, ...customSquareStyles }
+          squareStyles: { ...lastMoveStyles, ...optionSquares, ...customSquareStyles }
         }}
       />
     </div>

@@ -3,6 +3,7 @@ import { CP_LOSS_THRESHOLDS } from './chess-constants';
 import { EngineEvaluation } from './stockfish-engine';
 
 export interface AnalysisResultItem {
+  index: number; // Unique ply index
   moveNumber: number;
   move: string;
   isWhiteMove: boolean;
@@ -32,11 +33,10 @@ export function processGameAnalysis(
   const results: AnalysisResultItem[] = [];
   const candidates: AnalysisResultItem[] = [];
 
+  const START_POS_EVAL = 15; // +0.15 default advantage for White
+
   moves.forEach((move, index) => {
     // ply 0 = move 1 white, ply 1 = move 1 black
-    // If startMoveNumber is in "full moves" (e.g. 1):
-    // index 0 -> 1. e4
-    // index 1 -> 1... e5
     const moveNumber = startMoveNumber + Math.floor(index / 2);
     const isWhiteMove = (index % 2) === 0;
     const result = evaluations[index];
@@ -44,6 +44,7 @@ export function processGameAnalysis(
     if (!result) return;
 
     const item: AnalysisResultItem = {
+      index, // Unique ID
       moveNumber, // This is full move number
       move,
       isWhiteMove,
@@ -58,27 +59,29 @@ export function processGameAnalysis(
     };
 
     // Calculate centipawn change
-    if (index < evaluations.length - 1) {
-      const nextResult = evaluations[index + 1];
-      if (nextResult) {
-        const cpChange = computeCentipawnChange(result.evaluation, nextResult.evaluation, isWhiteMove);
-        const wpl = calculateWPL(result.evaluation, nextResult.evaluation, isWhiteMove);
+    // Compare Current Eval (Post-Move) vs Previous Eval (Pre-Move)
+    const prevEval = index === 0
+      ? START_POS_EVAL
+      : evaluations[index - 1]?.evaluation ?? START_POS_EVAL;
 
+    // Fix: We need to compare Pre vs Post.
+    // result.evaluation is Post-Move.
+    // prevEval is Pre-Move.
 
+    const cpChange = computeCentipawnChange(prevEval, result.evaluation, isWhiteMove);
+    const wpl = calculateWPL(prevEval, result.evaluation, isWhiteMove);
 
-        item.centipawnChange = cpChange;
-        item.wpl = wpl;
+    item.centipawnChange = cpChange;
+    item.wpl = wpl;
 
-        // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
-        item.classification = classifyWPL(wpl);
+    // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
+    item.classification = classifyWPL(wpl);
 
-        // Eligibility Check
-        if (item.classification !== 'none') {
-          item.isAiWorthy = wpl >= aiWorthyThreshold;
-          if (item.isAiWorthy) {
-            candidates.push(item);
-          }
-        }
+    // Eligibility Check
+    if (item.classification !== 'none') {
+      item.isAiWorthy = wpl >= aiWorthyThreshold;
+      if (item.isAiWorthy) {
+        candidates.push(item);
       }
     }
 
@@ -90,13 +93,13 @@ export function processGameAnalysis(
 
   // Mark Top N as "willUseAI"
   const approvedCandidates = candidates.slice(0, maxAiAnalysis);
-  const approvedSet = new Set(approvedCandidates.map(c => c.moveNumber)); // Use moveNumber as unique ID
+  const approvedSet = new Set(approvedCandidates.map(c => c.index)); // Use unique index
 
   console.log(`[Analysis] Candidates: ${candidates.length}, Approved: ${approvedCandidates.length} (Max: ${maxAiAnalysis})`);
 
   results.forEach(item => {
     // If it's in the approved set, mark it
-    if (approvedSet.has(item.moveNumber) && item.classification !== 'none') {
+    if (approvedSet.has(item.index) && item.classification !== 'none') {
       item.willUseAI = true;
       item.isAiWorthy = true; // Ensure it's marked worthy if it was a candidate
     } else {

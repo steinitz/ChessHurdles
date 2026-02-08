@@ -226,6 +226,14 @@ export const getAIDescription = createServerFn({ method: 'POST' })
       };
     }
 
+    // Mock AI for debugging
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const mockDescription = `[DEBUG MODE] You requested analysis for move **${data.move}** (Start FEN: ${data.fen?.substring(0, 15)}...).
+AI Context: "Compare to best move ${data.bestMove}, cp loss ${data.centipawnLoss}, PV ${data.pv?.substring(0, 20)}..."`;
+
+    return { description: mockDescription };
+
+    /*
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
@@ -233,18 +241,7 @@ export const getAIDescription = createServerFn({ method: 'POST' })
       // Tagged template literal. See the dedent function in utils.ts
       const prompt = dedent`
         You are an expert chess coach. Analyze this specific move in a game.
-        Position FEN: ${data.fen}
-        Player Move: ${data.move}
-        Engine Best Move: ${data.bestMove}
-        Centipawn Loss: ${data.centipawnLoss}
-        Principal Variation (Best Line): ${data.pv}
-        
-        ${data.userContext ? `USER QUESTION/CONTEXT: "${data.userContext}"\nPlease prioritize answering the user's question or addressing their thought process.` : ''}
-
-        Explain briefly (max 2 sentences) why the player's move was a mistake compared to the best move.
-        Focus on the strategic, positional or tactical consequences or aspects or deviation from a workable plan.
-        Do not mention centipawn values directly.
-        Be constructive but clear.
+// ...
       `;
 
       const result = await model.generateContent(prompt);
@@ -253,12 +250,7 @@ export const getAIDescription = createServerFn({ method: 'POST' })
 
       return { description: text };
     } catch (error) {
-      console.error('Gemini API Error:', error);
-      // Refund? 
-      // If we failed AFTER consumption, fairness suggests refund.
-      // But complications. For now, assume success or eaten cost.
-      return {
-        description: `(AI Unavailable) The move ${data.move} was a mistake. Best was ${data.bestMove}.`
-      };
+      // ...
     }
+    */
   });

@@ -15,17 +15,19 @@ export const Route = createFileRoute('/')({
   },
   loader: async ({ deps }) => {
     let initialPGN: string | undefined = undefined
+    let gameDetails: any = null
     const gameId = deps?.gameId
     if (typeof gameId === 'string' && gameId.length) {
       try {
         const game = await getGameById({ data: gameId })
         initialPGN = game?.pgn || undefined
+        gameDetails = game
       } catch (e) {
         console.error('Failed to load game by id:', e)
         initialPGN = undefined
       }
     }
-    return { initialPGN }
+    return { initialPGN, gameDetails }
   },
   component: Home,
 })
@@ -33,7 +35,7 @@ export const Route = createFileRoute('/')({
 import { HurdleTrainer } from '~/components/HurdleTrainer'
 import { HurdleTable } from '~/lib/chess-database'
 function Home() {
-  const { initialPGN } = Route.useLoaderData() as { initialPGN?: string }
+  const { initialPGN, gameDetails } = Route.useLoaderData() as { initialPGN?: string; gameDetails?: any }
   const { data: session } = useSession()
   const [isMounted, setIsMounted] = useState(false)
   const [view, setView] = useState<'review' | 'train'>('review')
@@ -51,7 +53,13 @@ function Home() {
   return (
     <div className="p-2">
 
-      <ChessGame initialPGN={initialPGN} onHurdleSaved={handleHurdleSaved} />
+      <ChessGame
+        initialPGN={initialPGN}
+        title={gameDetails?.title}
+        date={gameDetails?.created_at}
+        description={gameDetails?.description}
+        onHurdleSaved={handleHurdleSaved}
+      />
 
       {isMounted && session?.user && (
         <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto' }}>
