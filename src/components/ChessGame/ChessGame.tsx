@@ -276,6 +276,7 @@ export function ChessGame({
           maxMovesToAnalyze={gameMoves.length - 1}
           autoAnalyze={autoAnalyze}
           onHurdleSaved={onHurdleSaved}
+          currentMoveIndex={currentMoveIndex}
         />
       </div>
 

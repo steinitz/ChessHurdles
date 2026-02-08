@@ -1,4 +1,7 @@
 import React from 'react';
+import { QuickAnalysisModal } from './Analysis/QuickAnalysisModal';
+import { useState } from 'react';
+import { MiniButton } from '~/components/ui/MiniButton';
 
 interface GameMove {
   position: any;
@@ -12,9 +15,6 @@ interface GameMovesProps {
   currentMoveIndex: number;
   goToMove: (moveIndex: number) => void;
 }
-
-import { QuickAnalysisModal } from './Analysis/QuickAnalysisModal';
-import { useState } from 'react';
 
 export function GameMoves({ gameMoves, currentMoveIndex, goToMove }: GameMovesProps) {
   const [quickAnalysisData, setQuickAnalysisData] = useState<{ fen: string; move: string } | null>(null);
@@ -39,20 +39,13 @@ export function GameMoves({ gameMoves, currentMoveIndex, goToMove }: GameMovesPr
       <details open>
         <summary style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>Moves</span>
-          <button
+          <MiniButton
             onClick={handleQuickAnalyze}
             title="Analyze current position"
-            style={{
-              padding: '2px 8px',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-              marginLeft: 'auto'
-            }}
+            style={{ marginLeft: 'auto' }}
           >
             Analyze Move
-          </button>
+          </MiniButton>
         </summary>
         <div style={{
           padding: '0.5rem',

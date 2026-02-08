@@ -11,6 +11,7 @@ export interface AnalysisResultItem {
   bestMove: string;
   calculationTime: number;
   principalVariation: string;
+  postMoveEvaluation?: number;
   centipawnChange?: number;
   wpl?: number;
   classification?: 'blunder' | 'mistake' | 'inaccuracy' | 'none';
@@ -25,7 +26,8 @@ export function processGameAnalysis(
   evaluations: EngineEvaluation[],
   aiWorthyThreshold: number = 0.2,
   maxAiAnalysis: number = 5,
-  startMoveNumber: number = 1
+  startMoveNumber: number = 1,
+  startWithWhite: boolean = true
 ): AnalysisResultItem[] {
   // Ensure inputs are aligned and in chronological order
   // Note: The caller is responsible for passing chronological arrays.
@@ -34,12 +36,25 @@ export function processGameAnalysis(
   const candidates: AnalysisResultItem[] = [];
 
   const START_POS_EVAL = 15; // +0.15 default advantage for White
+  // If we start analysis mid-game, assuming START_POS_EVAL for "prevEval" of the first move is dangerous
+  // if the position is already -3.0.
+  // Ideally, we should pass the "eval before the first move" if known.
+  // For now, let's keep it but ideally GameAnalysis should provide context.
 
   moves.forEach((move, index) => {
-    // ply 0 = move 1 white, ply 1 = move 1 black
-    const moveNumber = startMoveNumber + Math.floor(index / 2);
-    const isWhiteMove = (index % 2) === 0;
-    const result = evaluations[index];
+    // ply 0 = move 1 white, ply 1 = move 1 black (if startWithWhite=true)
+    // if startWithWhite=false: ply 0 = move 1 black.
+    // index 0, startWhite=T -> White (0%2==0)
+    // index 0, startWhite=F -> Black 
+    // index 1, startWhite=T -> Black (1%2!=0)
+    // index 1, startWhite=F -> White
+    // So: follows standard chess ply coloring logic.
+
+    const isWhiteMove = startWithWhite ? (index % 2 === 0) : (index % 2 !== 0);
+    const moveNumber = startMoveNumber + Math.floor((index + (startWithWhite ? 0 : 1)) / 2);
+
+    const result = evaluations[index]; // Pre-Move Analysis (Evaluation BEFORE move is played)
+    const postMoveResult = evaluations[index + 1]; // Post-Move Analysis (Evaluation AFTER move is played)
 
     if (!result) return;
 
@@ -48,8 +63,9 @@ export function processGameAnalysis(
       moveNumber, // This is full move number
       move,
       isWhiteMove,
-      evaluation: result.evaluation,
-      bestMove: result.bestMove,
+      evaluation: result.evaluation, // Pre-Move Evaluation (Best possible play from current position)
+      postMoveEvaluation: postMoveResult?.evaluation, // Post-Move Evaluation (Value of the position achieved)
+      bestMove: result.bestMove, // Best Move Suggested by Engine
       calculationTime: result.calculationTime,
       principalVariation: result.principalVariation,
       isMate: Math.abs(result.evaluation) > 5000,
@@ -59,30 +75,33 @@ export function processGameAnalysis(
     };
 
     // Calculate centipawn change
-    // Compare Current Eval (Post-Move) vs Previous Eval (Pre-Move)
-    const prevEval = index === 0
-      ? START_POS_EVAL
-      : evaluations[index - 1]?.evaluation ?? START_POS_EVAL;
+    // Compare Pre-Move Evaluation (Best possible) vs Post-Move Evaluation (Actual outcome)
+    // We only compute change if we have the Post-Move evaluation.
+    // The last move in the list might not have a Post-Move evaluation available unless we analyzed N+1 positions.
 
-    // Fix: We need to compare Pre vs Post.
-    // result.evaluation is Post-Move.
-    // prevEval is Pre-Move.
+    if (postMoveResult) {
+      const prevEval = result.evaluation;
+      const currentEval = postMoveResult.evaluation;
 
-    const cpChange = computeCentipawnChange(prevEval, result.evaluation, isWhiteMove);
-    const wpl = calculateWPL(prevEval, result.evaluation, isWhiteMove);
+      const cpChange = computeCentipawnChange(prevEval, currentEval, isWhiteMove);
+      const wpl = calculateWPL(prevEval, currentEval, isWhiteMove);
 
-    item.centipawnChange = cpChange;
-    item.wpl = wpl;
+      item.centipawnChange = cpChange;
+      item.wpl = wpl;
 
-    // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
-    item.classification = classifyWPL(wpl);
+      // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
+      item.classification = classifyWPL(wpl);
 
-    // Eligibility Check
-    if (item.classification !== 'none') {
-      item.isAiWorthy = wpl >= aiWorthyThreshold;
-      if (item.isAiWorthy) {
-        candidates.push(item);
+      // Eligibility Check
+      if (item.classification !== 'none') {
+        item.isAiWorthy = wpl >= aiWorthyThreshold;
+        if (item.isAiWorthy) {
+          candidates.push(item);
+        }
       }
+    } else {
+      // Last move logic or missing data
+      item.classification = 'none';
     }
 
     results.push(item);

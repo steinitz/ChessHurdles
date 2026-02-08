@@ -46,6 +46,11 @@ async function getEmailTransport() {
 let _auth: any = null
 
 export const authOptions: BetterAuthOptions = {
+  trustedOrigins: [
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "https://192.168.0.176:3000"
+  ],
   database: {
     db: db,
     type: "sqlite",

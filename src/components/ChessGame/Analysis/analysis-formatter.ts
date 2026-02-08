@@ -8,6 +8,7 @@ import { WPL_THRESHOLDS } from '~/lib/evaluation-metrics';
 export interface FormattedAnalysisResult {
   analysisText: string;
   missingDescriptions: MissingDescription[];
+  structuredAnalysis: AnalysisDisplayItem[];
 }
 
 export interface MissingDescription {
@@ -25,12 +26,32 @@ const getMateDistance = (evaluation: number): number => {
   return Math.abs(evaluation) - 5000;
 };
 
+export interface AnalysisDisplayItem {
+  index: number;
+  moveNumber: number;
+  moveLabel: string;
+  playerColor: 'White' | 'Black';
+  moveSan: string;
+  evaluation: number; // Pre-Move Eval
+  postMoveEvaluation?: number; // Post-Move Eval (Result of the move)
+  bestMove: string;
+  classification?: 'blunder' | 'mistake' | 'inaccuracy' | 'good' | 'none';
+  wpl?: number;
+  centipawnChange?: number;
+  aiDescription?: string;
+  isAiThrottled?: boolean;
+  mateIn?: number;
+  calculationTime: number;
+  pv?: string;
+}
+
 export function formatAnalysisText(
   displayMoves: string[],
   displayResults: EngineEvaluation[],
   displayMoveNumbers: number[],
   analysisDepth: number,
-  aiDescriptions: Record<number, string>
+  aiDescriptions: Record<number, string>,
+  startWithWhite: boolean = true
 ): FormattedAnalysisResult {
   const analysisType = 'Entire Game';
   let analysisText = `Game Analysis Results (${analysisType}) - Depth ${analysisDepth}:\n\n`;
@@ -38,21 +59,50 @@ export function formatAnalysisText(
   // --- Pass 1: Identification & Throttling ---
   // Note: displayMoveNumbers[0] corresponds to the FIRST move in the display list.
   // displayMoves, displayResults, displayMoveNumbers are all REVERSED (chronological order).
-  const gameAnalysisItems = processGameAnalysis(displayMoves, displayResults, clientEnv.AI_WORTHY_THRESHOLD, MAX_AI_ANALYSIS_PER_GAME, displayMoveNumbers[0]);
+  const gameAnalysisItems = processGameAnalysis(
+    displayMoves,
+    displayResults,
+    clientEnv.AI_WORTHY_THRESHOLD,
+    MAX_AI_ANALYSIS_PER_GAME,
+    displayMoveNumbers[0],
+    startWithWhite
+  );
 
   // --- Pass 2: Display & Queuing ---
   const missingDescriptions: MissingDescription[] = [];
+  const structuredAnalysis: AnalysisDisplayItem[] = [];
 
   displayMoves.forEach((move, index) => {
     const item = gameAnalysisItems[index];
     const { moveNumber, isWhiteMove } = item;
     const result = displayResults[index]; // Use original result for time/pv if needed
 
-    const playerColor = isWhiteMove ? 'White' : 'Black';
-    const fullMoveNum = Math.ceil(moveNumber / 2);
+    // const isWhiteMove = item.isWhiteMove; // processGameAnalysis now calculates isWhiteMove accurately.
+    const fullMoveNum = moveNumber; // Already full move number
     const moveLabel = `${fullMoveNum}${isWhiteMove ? '.' : '...'}`;
+    const playerColor = isWhiteMove ? 'White' : 'Black';
 
+    // Text formatting (keeping for backward compat or copy-paste)
     analysisText += `Move ${moveLabel} ${playerColor} ${move}\n`;
+
+    const displayItem: AnalysisDisplayItem = {
+      index,
+      moveNumber: fullMoveNum,
+      moveLabel,
+      playerColor,
+      moveSan: item.move,
+      evaluation: item.evaluation,
+      postMoveEvaluation: item.postMoveEvaluation,
+      bestMove: item.bestMove,
+      classification: item.classification || 'none',
+      wpl: item.wpl,
+      centipawnChange: item.centipawnChange,
+      aiDescription: aiDescriptions[moveNumber] || undefined,
+      isAiThrottled: item.isAiWorthy && !aiDescriptions[moveNumber] && !item.willUseAI, // Simple heuristic for now
+      mateIn: item.mateDistance,
+      calculationTime: result?.calculationTime ?? 0,
+      pv: result?.principalVariation
+    };
 
     if (result) {
       const evalStr = Math.abs(result.evaluation) > 5000
@@ -75,9 +125,15 @@ export function formatAnalysisText(
           analysisText += `  Principal Variation: ${result.principalVariation}\n`;
         }
 
+        // Populate Structured Data Details
+        displayItem.classification = item.classification;
+        displayItem.wpl = item.wpl;
+        displayItem.centipawnChange = item.centipawnChange;
+
         // AI Analysis Status
         if (aiDescriptions[moveNumber]) {
           analysisText += `  🤖 AI Analysis: ${aiDescriptions[moveNumber]}\n`;
+          displayItem.aiDescription = aiDescriptions[moveNumber];
         } else {
           if (item.willUseAI) {
             // Approved for AI
@@ -85,20 +141,6 @@ export function formatAnalysisText(
               index,
               moveNumber,
               data: {
-                // FEN is not passed in here, we need to construct the data object in component or pass FENs
-                // Wait, the component accesses `targetPositionsRef` for FEN.
-                // We should probably just return the essential data and let the component fill in FEN/context.
-                // Reducing complexity: The component has valid scopes.
-                // Let's simplify: return "items to process" and let component build the data payload?
-                // Or pass the FEN in? `displayMoves` logic in component accessed `targetPositionsRef`.
-
-                // To make this pure, we need FENs.
-                // Let's assume we can pass fens or just return indices and let component handle the heavy lifting of data construction.
-                // But `displayTextualAnalysisResults` constructs `missingDescriptions` with `data`.
-                // Let's update arguments to include `MoveContext` or similar? 
-                // Or: Just return the "instructions" to fetch AI.
-
-                // Compromise: Return enough info for component to build the payload.
                 move,
                 evaluation: result.evaluation,
                 bestMove: result.bestMove,
@@ -109,9 +151,12 @@ export function formatAnalysisText(
                 willUseAI: true
               }
             });
+            // Mark as throttled if it WAS worthy but we just haven't fetched it yet?
+            // Actually `willUseAI` means it IS approved.
           } else if (item.isAiWorthy) {
             // Eligible but Throttled
             analysisText += `  🔒 AI Analysis Throttled (Top ${MAX_AI_ANALYSIS_PER_GAME} Priority)\n`;
+            displayItem.isAiThrottled = true;
 
             // Still save as Silent Hurdle
             missingDescriptions.push({
@@ -149,11 +194,14 @@ export function formatAnalysisText(
       } else {
         // Not a hurdle
         analysisText += `  centipawnChange: ${item.centipawnChange}\n`;
+        displayItem.centipawnChange = item.centipawnChange;
       }
 
       // Mate detection
       if (isMateScore(result.evaluation)) {
         const mateDistance = getMateDistance(result.evaluation);
+        displayItem.mateIn = Math.sign(result.evaluation) * mateDistance;
+
         if (mateDistance <= 5) {
           const mateSign = result.evaluation > 0 ? '+' : '-';
           analysisText += `  🎯 MATE≤5 DETECTED: ${mateSign}M${mateDistance}\n`;
@@ -163,6 +211,8 @@ export function formatAnalysisText(
       analysisText += `  Analysis: Failed\n`;
     }
     analysisText += '\n';
+
+    structuredAnalysis.push(displayItem);
   });
 
   analysisText += 'Analysis complete!';
@@ -173,5 +223,5 @@ export function formatAnalysisText(
     analysisText += `\n\nFetching AI descriptions for ${approvedCount} priority hurdles...`;
   }
 
-  return { analysisText, missingDescriptions };
+  return { analysisText, missingDescriptions, structuredAnalysis };
 }
