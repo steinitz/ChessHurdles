@@ -58,6 +58,9 @@ export function ChessGame({
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
 
+  // Analysis Summary State for Navigation
+  const [analysisSummary, setAnalysisSummary] = useState<{ moveIndex: number; classification: string }[]>([]);
+
   // Initialize title: prop > sample default
   const [gameTitle, setGameTitle] = useState(title || 'Kasparov vs Topalov, Wijk aan Zee 1999');
 
@@ -163,8 +166,6 @@ export function ChessGame({
     }
   }, [initialPGN, handlePgnLoad, loadSampleGame]);
 
-
-
   const goToMove = useCallback((moveIndex: number) => {
     if (moveIndex >= 0 && moveIndex < gameMoves.length) {
       setCurrentMoveIndex(moveIndex);
@@ -177,6 +178,10 @@ export function ChessGame({
     // This callback could be used for interactive play in the future
   }, []);
 
+  const handleAnalysisUpdate = useCallback((summary: { moveIndex: number; classification: string }[]) => {
+    setAnalysisSummary(summary);
+  }, []);
+
   const chessboardHeight = CHESSBOARD_WIDTH // allows game nav buttons to be comfortably on screen
   const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
@@ -187,8 +192,6 @@ export function ChessGame({
         <h2>{gameTitle}</h2>
         <p>{gameDescription}</p>
       </header>
-
-
 
       <div style={{
         width: containerWidth,
@@ -219,6 +222,7 @@ export function ChessGame({
             totalMoves={gameMoves.length}
             goToMove={goToMove}
             containerHeight={chessgameTransportHeight}
+            analysisSummary={analysisSummary}
           />
         </div>
 
@@ -277,6 +281,7 @@ export function ChessGame({
           autoAnalyze={autoAnalyze}
           onHurdleSaved={onHurdleSaved}
           currentMoveIndex={currentMoveIndex}
+          onAnalysisUpdate={handleAnalysisUpdate}
         />
       </div>
 

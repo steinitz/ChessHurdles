@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import type { Chess } from 'chess.js';
 import EvaluationGraph from './EvaluationGraph';
@@ -46,6 +47,7 @@ interface GameAnalysisProps {
   autoAnalyze?: boolean;
   onHurdleSaved?: () => void;
   currentMoveIndex?: number;
+  onAnalysisUpdate?: (analysis: { moveIndex: number; classification: string }[]) => void;
 }
 
 export default function GameAnalysis({
@@ -54,7 +56,8 @@ export default function GameAnalysis({
   maxMovesToAnalyze,
   autoAnalyze,
   onHurdleSaved,
-  currentMoveIndex
+  currentMoveIndex,
+  onAnalysisUpdate
 }: GameAnalysisProps) {
   const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(DEFAULT_ANALYSIS_DEPTH);
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
@@ -101,8 +104,29 @@ export default function GameAnalysis({
         signature
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+      // Propagate analysis to parent for Navigation
+      if (onAnalysisUpdate) {
+        // We need to map structuredAnalysis items to absolute moveIndices.
+        // We can do this robustly by matching moveNumber + color to gameMoves.
+        const summary = structuredAnalysis.map(item => {
+          const matchIndex = gameMoves.findIndex(m =>
+            m.moveNumber === item.moveNumber &&
+            (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
+          );
+          return { moveIndex: matchIndex, classification: item.classification || 'none' };
+        }).filter(s => s.moveIndex !== -1);
+
+        onAnalysisUpdate(summary);
+      }
+    } else if (onAnalysisUpdate) {
+      // Clear if analysis is cleared?
+      // Only if explicitly cleared (length 0).
+      // onAnalysisUpdate([]); // Do not call blank on mount else we wipe restored data? 
+      // Actually if structuredAnalysis is state [], we shouldn't necessarily wipe unless we KNOW it was cleared.
+      // But persistent restore happens essentially on mount.
     }
-  }, [structuredAnalysis, moveAnalysisResults, aiDescriptions, gameMoves, currentEvaluations]);
+  }, [structuredAnalysis, moveAnalysisResults, aiDescriptions, gameMoves, currentEvaluations, onAnalysisUpdate]);
 
   const isCalibratingRef = useRef(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
@@ -144,34 +168,6 @@ export default function GameAnalysis({
       const displayMoves = [...displayMovesRef.current].reverse();
       const displayResults = [...results].reverse();
       const displayMoveNumbers = [...displayMoveNumbersRef.current].reverse();
-
-      // Determine starting color for the formatted batch
-      // displayMoves[0] corresponds to the first analyzed move.
-      // We need to know if it was White or Black.
-      // We can use the global `gameMoves` to find it, but we are inside a callback.
-      // `gameMoves` might be stale in closure? No, `useAnalysisEngine` deps.
-      // But simpler: `displayMoveNumbers` has the move number.
-      // If we see "1", is it White or Black?
-      // Usually "1" is White, "1..." is Black.
-      // `displayMoveNumbers` is just `[1, 1, 2, 2]`. Ambiguous.
-      // We need to pass `startWithWhite` into `startAnalysis` context or derive it?
-      // Let's rely on the fact that we analyzed `targetMoves`.
-      // `targetMoves[targetMoves.length - 1]` is the FIRST chronological move.
-      // (Because targetMoves is REVERSED).
-      // So let's look at `gameMoves`.
-      // The analyzed range is the LAST `displayMoves.length` moves of the game.
-      // So the FIRST analyzed move is at index `gameMoves.length - displayMoves.length` (considering gameMoves[0] is startpos).
-      // `gameMoves` length = N+1.
-      // Moves = N.
-      // Analyzed = K.
-      // Start Index in `moves` (0-based) = N - K.
-      // `gameMoves` access: `gameMoves[1 + (N-K)]`.
-      // Example: 2 moves (1. e4). gameMoves len 2. Analyzed 1.
-      // Start Index = 1 - 1 = 0.
-      // gameMoves[1+0] = gameMoves[1] = e4. isWhite=true.
-
-      // We need to capture this boolean before starting analysis to be safe, 
-      // but `gameMoves` prop is reliable here.
 
       const totalGameMoves = gameMoves.length - 1;
       const analyzedCount = displayMoves.length;
@@ -218,29 +214,6 @@ export default function GameAnalysis({
 
               // Save Hurdle
               if (session?.user) {
-                // Find position before move
-                // item.moveNumber is 1-based move number.
-                // lookup FEN.
-                // displayPositionsRef has REVERSE chronological positions.
-                // So we can find it by index? 
-                // item.index correponds to the formatted list (chronological).
-                // But `processGameAnalysis` in formatter returns `gameAnalysisItems` matched to CHRONOLOGICAL inputs.
-                // So item.index IS the chronological index.
-                // displayMoves[item.index] should be the move text.
-
-                // Wait. `formatted` uses `displayMoves` (chronological).
-                // `displayPositionsRef.current` is REVERSE chronological (from startAnalysis logic).
-                // So we need to reverse positions ref too? Or just use correct index.
-
-                // `startAnalysis` stored `targetPositions` (Reverse).
-                // So `displayPositionsRef.current[i]` matches `results[i]`.
-                // `results` were passed to `onComplete` in analysis order (Reverse).
-                // But we reversed `displayResults` for formatter.
-                // So `displayResults[k]` corresponds to `displayPositionsRef.current[N-1-k]`.
-
-                // `item.index` is index in `displayMoves` (chronological).
-                // So we need `displayPositionsRef.current[ (length-1) - item.index ]`.
-
                 const positionsReversed = displayPositionsRef.current;
                 const targetIndex = (positionsReversed.length - 1) - item.index;
                 const prevPos = positionsReversed[targetIndex];
@@ -342,9 +315,14 @@ export default function GameAnalysis({
       const relativeIndex = (targetFullMoveNumbers.length - 1) - i;
       const absoluteIndex = sliceStart + relativeIndex;
 
+      // absoluteIndex is index in allMoves (0-based).
+      // gameMoves has 1 extra element (start pos).
+      // So gameMoves index = absoluteIndex + 1.
+      const gameMovesIndex = absoluteIndex + 1;
+
       return {
         moveNumber: n,
-        moveIndex: absoluteIndex,
+        moveIndex: gameMovesIndex,
         evaluation: 0,
         isMate: false,
         isPlaceholder: true
@@ -371,10 +349,8 @@ export default function GameAnalysis({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Compute filtered count for display
-  // Compute filtered count for display
   const filteredCount = structuredAnalysis.filter(item => {
-    // Logic matches AnalysisList default (showAllMoves=false) and hideInaccuracies
-    if (item.classification === 'none' || item.classification === 'good') return false; // Default hidden
+    if (item.classification === 'none' || item.classification === 'good') return false;
     return true;
   }).length;
 
@@ -425,7 +401,14 @@ export default function GameAnalysis({
           evaluations={currentEvaluations.filter(e => e !== null && !e.isPlaceholder)}
           totalMoves={gameMoves.length - 1} // Pass total plys
           onMoveClick={(index) => {
-            goToMove(index);
+            // index matches currentEvaluations index.
+            const data = currentEvaluations[index];
+            if (data && typeof data.moveIndex === 'number') {
+              goToMove(data.moveIndex);
+            } else {
+              // Fallback / legacy?
+              goToMove(index + 1); // Approximate
+            }
           }}
         />
         <div style={{ height: '1rem' }} />
@@ -458,20 +441,20 @@ export default function GameAnalysis({
         }}>
           <AnalysisList
             items={structuredAnalysis}
-            onMoveClick={(index) => {
-              // Calculate absolute index in gameMoves
-              // gameMoves: [Start, Move1, Move2, ...] (Length N+1)
-              // structuredAnalysis maps to displayMoves (Length M)
-              // displayMoves is the *last* M moves of the game.
+            onMoveClick={(analysisIndex) => {
+              const item = structuredAnalysis[analysisIndex];
+              if (!item) return;
 
-              const totalMoves = gameMoves.length - 1;
-              const analyzedCount = structuredAnalysis.length;
-              const startIndex = totalMoves - analyzedCount + 1;
+              // Robust matching using moveNumber and Color to find absolute index in gameMoves
+              const matchIndex = gameMoves.findIndex(m =>
+                m.moveNumber === item.moveNumber &&
+                (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
+              );
 
-              const targetIndex = startIndex + index;
-
-              if (targetIndex >= 0 && targetIndex < gameMoves.length) {
-                goToMove(targetIndex);
+              if (matchIndex !== -1) {
+                goToMove(matchIndex);
+              } else {
+                console.warn("Could not match analysis item to game move", item);
               }
             }}
             hideInaccuracies={false}
