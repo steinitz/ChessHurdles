@@ -97,7 +97,7 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
             const isSelected = selectedId === hurdle.id;
 
             return (
-              <div key={hurdle.id} className="relative group">
+              <div key={hurdle.id} className="group">
                 <AnalysisCard
                   item={item}
                   onClick={() => {
@@ -105,14 +105,8 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
                     onSelectHurdle(hurdle);
                   }}
                   isActive={isSelected}
+                  onDelete={(e) => handleDelete(e, hurdle.id)}
                 />
-                <button
-                  onClick={(e) => handleDelete(e, hurdle.id)}
-                  className="absolute top-1 right-1 text-red-500 hover:text-red-700 bg-white/80 rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-gray-200"
-                  title="Delete Hurdle"
-                >
-                  ✕
-                </button>
               </div>
             );
           })}

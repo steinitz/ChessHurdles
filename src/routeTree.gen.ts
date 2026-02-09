@@ -12,6 +12,7 @@ import { createServerRootRoute } from '@tanstack/react-start/server'
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as PlayRouteImport } from './routes/play'
+import { Route as HurdlesRouteImport } from './routes/hurdles'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AnalysisRouteImport } from './routes/analysis'
 import { Route as AdminRouteImport } from './routes/admin'
@@ -40,6 +41,11 @@ const rootServerRouteImport = createServerRootRoute()
 const PlayRoute = PlayRouteImport.update({
   id: '/play',
   path: '/play',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HurdlesRoute = HurdlesRouteImport.update({
+  id: '/hurdles',
+  path: '/hurdles',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -160,6 +166,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
+  '/hurdles': typeof HurdlesRoute
   '/play': typeof PlayRoute
   '/auth/credits': typeof AuthCreditsRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -183,6 +190,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
+  '/hurdles': typeof HurdlesRoute
   '/play': typeof PlayRoute
   '/auth/credits': typeof AuthCreditsRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/analysis': typeof AnalysisRoute
   '/contact': typeof ContactRoute
+  '/hurdles': typeof HurdlesRoute
   '/play': typeof PlayRoute
   '/auth/credits': typeof AuthCreditsRoute
   '/auth/forRouteTroubleshooting': typeof AuthForRouteTroubleshootingRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/contact'
+    | '/hurdles'
     | '/play'
     | '/auth/credits'
     | '/auth/forRouteTroubleshooting'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/contact'
+    | '/hurdles'
     | '/play'
     | '/auth/credits'
     | '/auth/forRouteTroubleshooting'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/analysis'
     | '/contact'
+    | '/hurdles'
     | '/play'
     | '/auth/credits'
     | '/auth/forRouteTroubleshooting'
@@ -302,6 +314,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   AnalysisRoute: typeof AnalysisRoute
   ContactRoute: typeof ContactRoute
+  HurdlesRoute: typeof HurdlesRoute
   PlayRoute: typeof PlayRoute
   AuthCreditsRoute: typeof AuthCreditsRoute
   AuthForRouteTroubleshootingRoute: typeof AuthForRouteTroubleshootingRoute
@@ -353,6 +366,13 @@ declare module '@tanstack/react-router' {
       path: '/play'
       fullPath: '/play'
       preLoaderRoute: typeof PlayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/hurdles': {
+      id: '/hurdles'
+      path: '/hurdles'
+      fullPath: '/hurdles'
+      preLoaderRoute: typeof HurdlesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   AnalysisRoute: AnalysisRoute,
   ContactRoute: ContactRoute,
+  HurdlesRoute: HurdlesRoute,
   PlayRoute: PlayRoute,
   AuthCreditsRoute: AuthCreditsRoute,
   AuthForRouteTroubleshootingRoute: AuthForRouteTroubleshootingRoute,

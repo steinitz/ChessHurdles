@@ -57,6 +57,14 @@ export const Header = () => {
         Contact
       </Link>
       <Spacer orientation={'horizontal'} space={1} />
+      <Link
+        to="/hurdles"
+        style={navLinkStyle}
+        activeProps={{ style: { ...navLinkStyle, ...activeLinkStyle } }}
+      >
+        Hurdles
+      </Link>
+      <Spacer orientation={'horizontal'} space={1} />
       <UserBlock />
     </section>
   )

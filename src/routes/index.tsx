@@ -1,10 +1,11 @@
+import { HurdleTable } from '~/lib/chess-database' // Keep for type safety if needed, or remove if unused. Checking usage.. unused. Removing.
+// Actually, let's just clean it all up.
+
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { Spacer } from '~stzUtils/components/Spacer'
 import ChessGame from '../components/ChessGame/ChessGame'
 import { getGameById } from '~/lib/chess-server'
 import { GameList } from '~/components/GameList'
-import { HurdleReview } from '~/components/HurdleReview'
 import { useSession } from '~stzUser/lib/auth-client'
 import { CHESSBOARD_WIDTH } from '~/constants'
 
@@ -32,22 +33,17 @@ export const Route = createFileRoute('/')({
   component: Home,
 })
 
-import { HurdleTrainer } from '~/components/HurdleTrainer'
-import { HurdleTable } from '~/lib/chess-database'
 function Home() {
   const { initialPGN, gameDetails } = Route.useLoaderData() as { initialPGN?: string; gameDetails?: any }
   const { data: session } = useSession()
   const [isMounted, setIsMounted] = useState(false)
-  const [view, setView] = useState<'review' | 'train'>('review')
-  const [hurdlesRefreshKey, setHurdlesRefreshKey] = useState(0)
-  const [selectedHurdle, setSelectedHurdle] = useState<HurdleTable | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
   }, [])
 
   const handleHurdleSaved = () => {
-    setHurdlesRefreshKey(prev => prev + 1)
+    // No-op for now as list is gone, or maybe show toast?
   }
 
   return (
@@ -61,54 +57,7 @@ function Home() {
         onHurdleSaved={handleHurdleSaved}
       />
 
-      {isMounted && session?.user && (
-        <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto' }}>
-          <Spacer />
-          <div style={{ borderTop: '1px solid var(--color-bg-secondary)', width: '100%' }} />
-          <Spacer />
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: '1rem',
-          }}>
-            <button
-              className={`px-4 py-2 ${view === 'review' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
-              onClick={() => setView('review')}
-            >
-              Review Hurdles
-            </button>
-            <Spacer orientation="horizontal" />
-            <button
-              className={`px-4 py-2 ${view === 'train' ? 'border-b-2 border-blue-500 font-bold' : ''}`}
-              onClick={() => setView('train')}
-            >
-              Training Mode
-            </button>
-          </div>
-
-          {view === 'review' ? (
-            <HurdleReview
-              key={hurdlesRefreshKey}
-              onSelectHurdle={(hurdle) => {
-                setSelectedHurdle(hurdle)
-                setView('train')
-              }}
-            />
-          ) : (
-            <HurdleTrainer
-              hurdle={selectedHurdle || undefined}
-              onBack={() => {
-                setSelectedHurdle(null)
-                setView('review')
-              }}
-            />
-          )}
-        </div>
-      )}
-
-      <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto' }}>
+      <div style={{ width: CHESSBOARD_WIDTH, margin: '0 auto', marginTop: '2rem' }}>
         <GameList />
       </div>
     </div>

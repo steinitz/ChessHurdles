@@ -4,10 +4,12 @@ import type { AnalysisDisplayItem } from './analysis-formatter';
 export interface AnalysisCardProps {
     item: AnalysisDisplayItem;
     onClick: () => void;
-    isActive: boolean;
+    isActive?: boolean;
+    onDelete?: (e: React.MouseEvent) => void;
 }
 
-export const AnalysisCard: React.FC<AnalysisCardProps> = ({ item, onClick, isActive }) => {
+export const AnalysisCard: React.FC<AnalysisCardProps> = ({ item, onClick, isActive, onDelete }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
     const classification = item.classification || 'none';
 
     // Suffix for move annotation
@@ -35,14 +37,12 @@ export const AnalysisCard: React.FC<AnalysisCardProps> = ({ item, onClick, isAct
 
     // Text Logic (Best Move or AI Description)
     let displayText = '';
-
     if (item.aiDescription) {
         displayText = item.aiDescription;
     } else if (item.pv) {
-        // Only show PV if it's not redundant?
-        displayText = `Best: ${item.pv}`;
+        displayText = `Best: ${item.pv} `;
     } else if (item.bestMove && item.bestMove !== '?') {
-        displayText = `Best: ${item.bestMove}`;
+        displayText = `Best: ${item.bestMove} `;
     }
 
     // Truncate
@@ -52,10 +52,49 @@ export const AnalysisCard: React.FC<AnalysisCardProps> = ({ item, onClick, isAct
         : classification === 'mistake' ? 'var(--color-text)'
             : 'var(--color-text-secondary)';
 
+    // Dynamic Backgrounds using variables (with opacity via color-mix if supported, or fallbacks)
+    // Since we want to avoid hardcoded colors and support themes, uses CSS variables directly where possible.
+    // For backgrounds, we might need to rely on the fact that variables like --color-error usually contrast with --color-bg.
+    // However, widely supported `rgba` with variables isn't standard CSS syntax (e.g. rgba(var(--color), 0.1)).
+    // MVP.css usually defines --color-bg-secondary.
+    // PROPOSAL: Use borders to indicate classification instead of backgrounds to be safe with themes?
+    // User requested avoiding hardcoded backgrounds.
+    // Let's stick to the subtle left border and standard hover background.
+
+    const baseStyle: React.CSSProperties = {
+        display: 'grid',
+        gridTemplateColumns: onDelete ? '40px 60px 80px 1fr 30px' : '40px 60px 80px 1fr',
+        gap: '8px',
+        alignItems: 'center',
+        padding: '6px 8px',
+        borderBottom: '1px solid var(--color-bg-secondary)',
+        fontSize: '0.9em',
+        cursor: 'pointer',
+        lineHeight: '1.4',
+        transition: 'background-color 0.2s',
+        backgroundColor: isActive ? 'var(--color-bg-secondary)' : isHovered ? 'var(--color-bg-secondary)' : 'transparent',
+    };
+
+    // Classification specific styles (Left Border)
+    if (classification === 'blunder') {
+        baseStyle.borderLeft = '4px solid var(--color-error)';
+        // Optional: faint background if we can derive it safely. For now, trust the border.
+    } else if (classification === 'mistake') {
+        baseStyle.borderLeft = '4px solid var(--color-text)';
+    } else if (classification === 'inaccuracy') {
+        baseStyle.borderLeft = '4px solid var(--color-text-secondary)';
+    } else if (isActive) {
+        baseStyle.borderLeft = '4px solid var(--color-link)';
+    } else {
+        baseStyle.borderLeft = '4px solid transparent';
+    }
+
     return (
         <div
-            className={`analysis-card ${classification} ${isActive ? 'active' : ''}`}
+            style={baseStyle}
             onClick={(e) => { e.stopPropagation(); onClick(); }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             {/* Col 1: Move Number */}
             <span style={{ color: 'var(--color-text-secondary)', textAlign: 'right' }}>
@@ -104,6 +143,32 @@ export const AnalysisCard: React.FC<AnalysisCardProps> = ({ item, onClick, isAct
                     [{truncatedText}]
                 </span>
             </span>
+
+            {/* Optional Col 5: Delete Button */}
+            {onDelete && (
+                <button
+                    onClick={onDelete}
+                    title="Delete"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-error)',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: isHovered ? 1 : 0,
+                        transition: 'opacity 0.2s, transform 0.1s',
+                        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+                        minWidth: 'unset',
+                        height: '100%'
+                    }}
+                >
+                    ✕
+                </button>
+            )}
         </div>
     );
 };
