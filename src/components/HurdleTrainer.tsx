@@ -2,15 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import { ChessBoard } from './ChessBoard';
 import { HurdleTable } from '~/lib/chess-database';
-import { Spacer } from '~stzUtils/components/Spacer';
 import { getUserHurdles } from '~/lib/server/hurdles';
+import { CHESSBOARD_WIDTH } from '~/constants';
 
 interface HurdleTrainerProps {
   hurdle?: HurdleTable;
-  onBack?: () => void;
 }
 
-export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerProps) {
+export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
   const [hurdles, setHurdles] = useState<HurdleTable[]>([]);
   const [currentHurdleIndex, setCurrentHurdleIndex] = useState(0);
   const [game, setGame] = useState(() => new Chess());
@@ -48,8 +47,6 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
   const hintStyles = React.useMemo(() => {
     if (!showHint || !activeHurdle?.best_move) return {};
 
-    // Best move could be SAN (e.g. "Nf3") or UCI (e.g. "g1f3")
-    // We need the source square.
     let sourceSquare = '';
 
     // Try to parse as UCI first (4 chars, e.g. "e2e4")
@@ -58,11 +55,7 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
     } else {
       // Parse SAN using chess.js
       try {
-        // Clean the move string: remove move numbers (e.g. "2...", "1.") and whitespace
         const cleanMove = activeHurdle.best_move.replace(/^\d+\.+/, '').trim();
-        console.log(`💡 Parsing best move for hint: "${activeHurdle.best_move}" -> "${cleanMove}"`);
-
-        // We need a temp game to parse the SAN relative to the position
         const tempGame = new Chess(activeHurdle.fen);
         const move = tempGame.move(cleanMove);
         if (move) {
@@ -94,8 +87,7 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
 
         if (moveResult) {
           const playedMoveUci = moveResult.from + moveResult.to + (moveResult.promotion || '');
-
-          // Normalize best_move: remove move numbers (e.g. "1. ", "52... ") and trim whitespace
+          if (!activeHurdle.best_move) return prevGame;
           const cleanBestMove = activeHurdle.best_move.replace(/^\d+\.+/, '').trim();
 
           const isBestMove =
@@ -105,7 +97,6 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
           if (isBestMove) {
             setMessage('Correct. Well done');
             setIsSolved(true);
-            // TODO: Update mastery level
           } else {
             setMessage('Incorrect. Try again');
             setTimeout(() => {
@@ -127,61 +118,137 @@ export function HurdleTrainer({ hurdle: initialHurdle, onBack }: HurdleTrainerPr
     if (currentHurdleIndex < hurdles.length - 1) {
       setCurrentHurdleIndex(prev => prev + 1);
     } else {
-      // Loop back or show finished? Loop for now.
       setCurrentHurdleIndex(0);
     }
   };
 
   if (loading) return <div>Loading training...</div>;
-  if (!activeHurdle) return <div>No hurdles found for training. Go analyze some games!</div>;
+  if (!activeHurdle) return <div>No hurdles found. Go analyze some games!</div>;
+
+  const toMoveText = game.turn() === 'w' ? 'White to move' : 'Black to move';
+
+  const boardWidth = CHESSBOARD_WIDTH;
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="w-full max-w-2xl mb-4 flex justify-between items-center">
-        {onBack ? (
-          <button onClick={onBack} className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-            ← Back to Game
-          </button>
-        ) : (
-          <div className="w-[100px]"></div>
-        )}
-        <h2 className="text-xl font-bold">Hurdle Training</h2>
-        <div className="w-[100px] flex justify-end">
-          {/* Only show Next button if we have multiple hurdles and in standalone mode (no onBack) or just always? */}
-          {hurdles.length > 1 && (
-            <button onClick={handleNext} className="px-3 py-1 bg-blue-100 rounded hover:bg-blue-200 text-sm">
-              Next
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      width: '100%'
+    }}>
+
+      {/* Status Bar - Matched to board width */}
+      <div style={{
+        width: boardWidth,
+        maxWidth: '100%',
+        marginBottom: '0.25rem',
+        padding: '0.25rem',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        minHeight: '40px',
+        backgroundColor: 'transparent' // Explicitly transparent
+      }}>
+        {/* Left: To Move */}
+        <div style={{
+          flex: 1,
+          fontWeight: 600,
+          color: 'var(--color-text)',
+          textAlign: 'left',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          paddingLeft: '0.25rem',
+          paddingRight: '0.25rem'
+        }}>
+          {toMoveText}
+        </div>
+
+        {/* Center: Message */}
+        <div style={{
+          flex: 1,
+          fontWeight: 700,
+          textAlign: 'center',
+          color: isSolved ? 'var(--color-success, #166534)' : 'var(--color-link, #1e40af)', // Use CSS var
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          paddingLeft: '8px',
+          paddingRight: '8px'
+        }}>
+          {message === 'Find the best move' ? '' : message}
+        </div>
+
+        {/* Right: Hint */}
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          paddingLeft: '8px',
+          overflow: 'hidden'
+        }}>
+          {!isSolved && (
+            <button
+              onClick={() => setShowHint(true)}
+              title="Show hint highlight"
+              style={{
+                fontSize: '0.875rem',
+                color: 'var(--color-link, #2563eb)', // Use CSS var
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '0.25rem',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              <span>💡</span>
+              <span>Hint</span>
             </button>
           )}
         </div>
       </div>
 
-      <div className="mb-4 text-center">
-        <p className="text-lg">{activeHurdle.title}</p>
-        <p className="text-gray-600 italic">{activeHurdle.ai_description}</p>
-      </div>
-
-      <div className="mb-4 p-4 rounded bg-blue-50 text-center min-w-[300px] flex flex-col items-center gap-2">
-        <p className={`text-lg font-bold ${isSolved ? 'text-green-600' : 'text-blue-800'}`}>
-          {message}
-        </p>
-        {!isSolved && (
-          <button
-            onClick={() => setShowHint(true)}
-            className="text-sm text-blue-600 hover:underline flex items-center gap-1"
-            title="Show hint"
-          >
-            💡 Hint
-          </button>
-        )}
-      </div>
-
       <ChessBoard
         game={game}
         onMove={onMove}
-        boardSize="60vh"
+        boardSize={boardWidth}
         customSquareStyles={hintStyles}
       />
+
+      {/* Next Button Below Board */}
+      <div style={{
+        width: boardWidth,
+        maxWidth: '100%',
+        marginTop: '1rem',
+        display: 'flex',
+        justifyContent: 'center'
+      }}>
+        {hurdles.length > 1 && (
+          <button
+            onClick={handleNext}
+            title="Skip to next hurdle"
+            style={{
+              padding: '0.5rem 1.5rem',
+              backgroundColor: 'var(--color-bg-secondary)', // Use CSS var
+              color: 'var(--color-link)', // Use CSS var
+              borderRadius: '0.5rem',
+              fontWeight: 600,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+              transition: 'background-color 0.2s'
+            }}
+          >
+            Next Hurdle →
+          </button>
+        )}
+      </div>
     </div>
   );
 }

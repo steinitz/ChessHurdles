@@ -88,16 +88,29 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
   if (loading) return <div>Loading hurdles...</div>;
 
   return (
-    <div className="p-4 border rounded bg-gray-50 mt-4">
-      <h3>Hurdles to Review ({hurdles.length})</h3>
+
+    <div style={{
+      marginTop: '1rem',
+      padding: '1rem',
+      border: '1px solid var(--color-border)',
+      borderRadius: '0.25rem',
+      backgroundColor: 'transparent',
+    }}>
+      <h3 style={{ marginTop: 0 }}>Hurdles to Review ({hurdles.length})</h3>
       {hurdles.length === 0 ? <p style={{ color: 'var(--color-text-secondary)' }}>No hurdles found.</p> : (
-        <div className="space-y-2 max-h-[600px] overflow-y-auto">
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.5rem',
+          maxHeight: '600px',
+          overflowY: 'auto'
+        }}>
           {hurdles.map((hurdle, idx) => {
             const item = mapHurdleToDisplayItem(hurdle, idx);
             const isSelected = selectedId === hurdle.id;
 
             return (
-              <div key={hurdle.id} className="group">
+              <div key={hurdle.id} style={{ position: 'relative' }}>
                 <AnalysisCard
                   item={item}
                   onClick={() => {
@@ -114,4 +127,5 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
       )}
     </div>
   );
+
 }
