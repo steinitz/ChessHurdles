@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { ChessBoard } from '../ChessBoard';
-import { stockfishLevelToElo, calculateNewElo } from '~/lib/elo-utils';
+import { stockfishLevelToElo, eloToStockfishLevel, calculateNewElo } from '~/lib/elo-utils';
+import { clientEnv } from '~/lib/env.app';
 import { useNavigate } from '@tanstack/react-router';
 import { ChessClockDisplay } from './ChessClockDisplay';
 import { useSession } from '~stzUser/lib/auth-client';
@@ -42,7 +43,16 @@ export function PlayVsEngine() {
 
   const [userSide, setUserSide] = useState<'w' | 'b'>('w');
   const [userElo, setUserElo] = useState(1200);
-  const [engineLevel, setEngineLevel] = useState(5);
+  const [engineLevel, setEngineLevel] = useState(2);
+
+  // Adaptive Difficulty: Adjust engine level based on User Elo - Muzzle
+  useEffect(() => {
+    if (userElo > 0) {
+      const targetElo = Math.max(0, userElo - clientEnv.ENGINE_ELO_MUZZLE);
+      const recommended = eloToStockfishLevel(targetElo);
+      setEngineLevel(recommended);
+    }
+  }, [userElo]);
 
   // -- Time Control Configuration (Persisted) --
   // Default: 30m + 20s

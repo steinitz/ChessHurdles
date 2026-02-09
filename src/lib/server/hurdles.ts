@@ -16,6 +16,10 @@ const HurdleSchema = v.object({
   aiDescription: v.optional(v.string()),
   depth: v.optional(v.number()),
   difficultyLevel: v.optional(v.number()),
+  // New Metadata
+  mateIn: v.optional(v.number()),
+  calculationTime: v.optional(v.number()),
+  openingTags: v.optional(v.string()),
 });
 
 export const saveHurdle = createServerFn({ method: 'POST' })
@@ -28,11 +32,19 @@ export const saveHurdle = createServerFn({ method: 'POST' })
       throw new Error('Unauthorized');
     }
 
+    // Prepare JSON notes to store extra metadata without schema migration
+    // We store these in the 'notes' column which is a text/json field
+    const metadata = {
+      mateIn: data.mateIn,
+      calculationTime: data.calculationTime,
+      openingTags: data.openingTags
+    };
+
     const hurdleData: Omit<HurdleTable, 'id' | 'user_id' | 'created_at' | 'mastery_level' | 'practice_count'> = {
       game_id: data.gameId || null,
       fen: data.fen,
       title: data.title || null,
-      notes: null,
+      notes: JSON.stringify(metadata), // Storing new metadata in notes for now
       move_number: data.moveNumber || null,
       evaluation: data.evaluation || null,
       best_move: data.bestMove || null,

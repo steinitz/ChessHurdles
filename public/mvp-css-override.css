@@ -32,9 +32,12 @@ input {
   /* this might be extreme and mess up certain inputs */
 }
 
-textarea, textarea[readonly] {
-  background-color: var(--color-bg); /* Use normal background */
-  color: var(--color-text); /* Use text color for theme */
+textarea,
+textarea[readonly] {
+  background-color: var(--color-bg);
+  /* Use normal background */
+  color: var(--color-text);
+  /* Use text color for theme */
 }
 
 textarea[readonly] {
@@ -88,3 +91,45 @@ the validation errors are hidden and unselectable
 form {
   user-select: 'none',}
 */
+
+/* Analysis Card Component */
+.analysis-card {
+  display: grid;
+  grid-template-columns: 40px 60px 80px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-bg-secondary);
+  font-size: 0.9em;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: background-color 0.2s;
+}
+
+.analysis-card:hover {
+  background-color: var(--color-bg-secondary);
+  filter: brightness(0.95);
+}
+
+.analysis-card.active {
+  background-color: var(--color-bg-secondary);
+  border-left: 4px solid var(--color-link);
+}
+
+/* Classification Styles - Override bg/border based on class */
+.analysis-card.blunder {
+  border-left: 4px solid var(--color-error);
+  background-color: rgba(255, 0, 0, 0.05);
+}
+
+.analysis-card.mistake {
+  border-left: 4px solid var(--color-text);
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.analysis-card.inaccuracy {
+  border-left: 4px solid var(--color-text-secondary);
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+/* Good/None use default transparent border */

@@ -4,6 +4,7 @@ export type AppClientEnv = UpstreamClientEnv & {
   AI_WORTHY_THRESHOLD: number;
   COST_AI_EXPLANATION: number;
   COST_SAVE_GAME: number;
+  ENGINE_ELO_MUZZLE: number;
 };
 
 // Extend the upstream client environment with application-specific variables
@@ -14,6 +15,7 @@ export const clientEnv: AppClientEnv = {
   AI_WORTHY_THRESHOLD: Number(process.env.AI_WORTHY_THRESHOLD || '0.15'),
   COST_AI_EXPLANATION: Number(process.env.COST_AI_EXPLANATION || '15'),
   COST_SAVE_GAME: Number(process.env.COST_SAVE_GAME || '1'),
+  ENGINE_ELO_MUZZLE: Number(process.env.ENGINE_ELO_MUZZLE || '200'),
 
   // Robustness: ensure we pick up any runtime injection for these specific keys if available
   // (Note: Upstream handle generic keys, we must handle ours if they are injected via window.__ENV)
@@ -22,5 +24,6 @@ export const clientEnv: AppClientEnv = {
     AI_WORTHY_THRESHOLD: (window.__ENV as any).AI_WORTHY_THRESHOLD ?? Number(process.env.AI_WORTHY_THRESHOLD || '0.15'),
     COST_AI_EXPLANATION: (window.__ENV as any).COST_AI_EXPLANATION ?? Number(process.env.COST_AI_EXPLANATION || '15'),
     COST_SAVE_GAME: (window.__ENV as any).COST_SAVE_GAME ?? Number(process.env.COST_SAVE_GAME || '1'),
+    ENGINE_ELO_MUZZLE: (window.__ENV as any).ENGINE_ELO_MUZZLE ?? Number(process.env.ENGINE_ELO_MUZZLE || '200'),
   } : {})
 };

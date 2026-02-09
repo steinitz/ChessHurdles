@@ -150,142 +150,193 @@ export default function GameAnalysis({
     setMoveAnalysisResults(prev => (prev.includes('Comparing') ? prev : msg));
   }, []);
 
+  const handleEvaluation = useCallback((index: number, evaluation: EngineEvaluation, isCached: boolean, cacheKey: string) => {
+    // Update Graph
+    setCurrentEvaluations(prev => {
+      const updated = [...prev];
+      const displayIndex = (prev.length - 1) - index;
+      if (displayIndex >= 0 && displayIndex < updated.length) {
+        updated[displayIndex] = {
+          ...updated[displayIndex],
+          evaluation: evaluation.evaluation,
+          isMate: isMateScoreHelper(evaluation.evaluation),
+          mateIn: isMateScoreHelper(evaluation.evaluation) ? getMateDistanceHelper(evaluation.evaluation) : undefined,
+          isPlaceholder: false,
+          isCached
+        };
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleAnalysisComplete = useCallback((results: EngineEvaluation[]) => {
+    // Pass 2: Formatting
+    // Reverse everything to chronological for the formatter
+    const displayMoves = [...displayMovesRef.current].reverse();
+    const displayResults = [...results].reverse();
+    const displayMoveNumbers = [...displayMoveNumbersRef.current].reverse();
+    const displayPositions = [...displayPositionsRef.current].reverse();
+
+    const totalGameMoves = gameMoves.length - 1;
+    const analyzedCount = displayMoves.length;
+    const firstAnalyzedMoveIndex = totalGameMoves - analyzedCount + 1;
+    const startWithWhite = gameMoves[firstAnalyzedMoveIndex]?.isWhiteMove ?? true;
+
+    // Handle async book check
+    (async () => {
+      const bookIndices = new Set<number>();
+      // Only check first 12 moves (24 plies) to keep API calls reasonable
+      const limit = Math.min(displayMoves.length, 12);
+
+      const checks = displayMoves.slice(0, limit).map(async (moveSan, i) => {
+        const position = displayPositions[i];
+        if (!position) return;
+
+        // Need UCI for book check
+        const moves = position.moves({ verbose: true });
+        const match = moves.find(m => m.san === moveSan);
+        if (match) {
+          const uci = match.from + match.to + (match.promotion || '');
+          const isBook = await isBookMove(position.fen(), uci);
+          if (isBook) bookIndices.add(i);
+        }
+      });
+
+      if (checks.length > 0) {
+        await Promise.all(checks);
+      }
+
+      const formatted = formatAnalysisText(
+        displayMoves,
+        displayResults,
+        displayMoveNumbers,
+        moveAnalysisDepth,
+        aiDescriptions,
+        startWithWhite,
+        bookIndices,
+        firstAnalyzedMoveIndex
+      );
+
+      setMoveAnalysisResults(formatted.analysisText);
+      setStructuredAnalysis(formatted.structuredAnalysis);
+      setIsAnalyzingMoves(false);
+
+      // Notify parent if callback provided
+      if (onAnalysisUpdate) {
+        const summary = formatted.structuredAnalysis.map(item => ({
+          moveIndex: item.absoluteMoveIndex,
+          classification: item.classification || 'none'
+        }));
+        onAnalysisUpdate(summary);
+      }
+
+      // Trigger Hurdle Processing
+      const processingSet = processingHurdlesRef.current;
+      const newItems = formatted.missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
+
+      if (newItems.length > 0) {
+        newItems.forEach(item => processingSet.add(item.moveNumber));
+
+        for (const item of newItems) {
+          try {
+            // Fetch AI if worthy and approved
+            if (item.data.willUseAI) {
+              try {
+                const response = await getAIDescription({ data: item.data });
+                if (response?.description) {
+                  setAiDescriptions(prev => ({ ...prev, [item.moveNumber]: response.description }));
+                }
+              } catch (e: any) {
+                if (typeof e.message === 'string' && e.message.includes('Insufficient credits')) {
+                  if (typeof window !== 'undefined') window.dispatchEvent(new Event('INSUFFICIENT_CREDITS'));
+                }
+              }
+            }
+
+            // Save Hurdle
+            if (session?.user) {
+              // item.index is chronological index in displayMoves
+              const prevPos = displayPositions[item.index];
+              const fen = prevPos?.fen();
+
+              // SKIP LOGIC 1: Dead Lost Threshold
+              // If the best move still results in a heavily losing position (< -5.0), skip it.
+              // Logic: -500 centipawns. Exception: Forced mates might still be puzzles.
+              const DEAD_LOST_THRESHOLD = -500;
+              const evalVal = item.data.evaluation;
+              const isMate = Math.abs(evalVal) > 4000;
+
+              // SKIP LOGIC 2: Mate-to-Mate Noise
+              // "Changed Mate in 23 to Mate in 17" -> WHO CARES.
+              // If BOTH Pre and Post moves are forced mates for the same side, skip it.
+              // Unless we went from "Winning" to "Getting Mated" (Blunder).
+              const postEval = item.data.postMoveEvaluation; // Evaluation after user move
+
+              if (isMate && postEval !== undefined) {
+                const isPostMate = Math.abs(postEval) > 4000;
+                // If both are mates, and they have the same sign (same side winning), skip.
+                if (isPostMate && Math.sign(evalVal) === Math.sign(postEval)) {
+                  console.log(`[Analysis] Skipping Hurdle at move ${item.moveNumber}: Mate optimization (M${getMateDistanceHelper(evalVal)} -> M${getMateDistanceHelper(postEval)}) is noise.`);
+                  continue;
+                }
+              }
+
+              if (evalVal < DEAD_LOST_THRESHOLD && !isMate) {
+                console.log(`[Analysis] Skipping Hurdle at move ${item.moveNumber}: Evaluation ${evalVal} is below Dead Lost Threshold (${DEAD_LOST_THRESHOLD})`);
+                continue;
+              }
+
+              if (fen) {
+                // Determine Generic Opening Tag if isBook
+                // We don't have perfect opening names yet, but we know if it was book.
+                // Improvement: If we had the PGN tags or Eco code, we'd use them.
+                // For now, if "Analyze Entire Game" was run, we have bookIndices.
+                // If this move index is in bookIndices, mark as "Opening".
+                const isOpeningPhase = item.index < 16; // Simple heuristic
+                const tag = isOpeningPhase ? 'Opening' : 'Middlegame';
+
+                const mateInVal = isMate ? getMateDistanceHelper(evalVal) : undefined;
+                // Engine calculation time available?
+                // We need to access the raw result for calculationTime.
+                // displayResults[item.index] has it.
+                const rawResultVal = displayResults[item.index];
+                const calcTime = rawResultVal?.calculationTime;
+
+                await saveHurdleServer({
+                  data: {
+                    fen,
+                    moveNumber: item.moveNumber, // Ensure moveNumber is passed!
+                    move: item.data.move,
+                    evaluation: item.data.evaluation,
+                    bestMove: item.data.bestMove,
+                    pv: item.data.pv,
+                    centipawnLoss: item.data.centipawnLoss,
+                    wpl: item.data.wpl,
+                    isWorthy: item.data.isWorthy,
+                    willUseAI: item.data.willUseAI,
+                    aiDescription: aiDescriptions[item.moveNumber],
+                    // New Metadata passed to server wrapper
+                    mateIn: mateInVal,
+                    calculationTime: calcTime,
+                    openingTags: tag
+                  } as any
+                });
+              }
+            }
+          } catch (e) {
+            console.error('[Analysis] Failed to process hurdle:', e);
+          }
+        }
+
+        if (onHurdleSaved) onHurdleSaved();
+      }
+    })();
+  }, [gameMoves, moveAnalysisDepth, aiDescriptions, onAnalysisUpdate, onHurdleSaved, session?.user]);
+
   const { startAnalysis, cancelAnalysis, runCalibration, getResults } = useAnalysisEngine({
     onProgress,
-    onEvaluation: (index, evaluation, isCached) => {
-      // Update Graph
-      setCurrentEvaluations(prev => {
-        const updated = [...prev];
-        const displayIndex = (prev.length - 1) - index;
-        if (displayIndex >= 0 && displayIndex < updated.length) {
-          updated[displayIndex] = {
-            ...updated[displayIndex],
-            evaluation: evaluation.evaluation,
-            isMate: isMateScoreHelper(evaluation.evaluation),
-            mateIn: isMateScoreHelper(evaluation.evaluation) ? getMateDistanceHelper(evaluation.evaluation) : undefined,
-            isPlaceholder: false,
-            isCached
-          };
-        }
-        return updated;
-      });
-    },
-    onComplete: (results) => {
-      // Pass 2: Formatting
-      // Reverse everything to chronological for the formatter
-      const displayMoves = [...displayMovesRef.current].reverse();
-      const displayResults = [...results].reverse();
-      const displayMoveNumbers = [...displayMoveNumbersRef.current].reverse();
-      const displayPositions = [...displayPositionsRef.current].reverse();
-
-      const totalGameMoves = gameMoves.length - 1;
-      const analyzedCount = displayMoves.length;
-      const firstAnalyzedMoveIndex = totalGameMoves - analyzedCount + 1;
-      const startWithWhite = gameMoves[firstAnalyzedMoveIndex]?.isWhiteMove ?? true;
-
-      // Handle async book check
-      (async () => {
-        const bookIndices = new Set<number>();
-        // Only check first 12 moves (24 plies) to keep API calls reasonable
-        const limit = Math.min(displayMoves.length, 12);
-
-        const checks = displayMoves.slice(0, limit).map(async (moveSan, i) => {
-          const position = displayPositions[i];
-          if (!position) return;
-
-          // Need UCI for book check
-          const moves = position.moves({ verbose: true });
-          const match = moves.find(m => m.san === moveSan);
-          if (match) {
-            const uci = match.from + match.to + (match.promotion || '');
-            const isBook = await isBookMove(position.fen(), uci);
-            if (isBook) bookIndices.add(i);
-          }
-        });
-
-        if (checks.length > 0) {
-          await Promise.all(checks);
-        }
-
-        const formatted = formatAnalysisText(
-          displayMoves,
-          displayResults,
-          displayMoveNumbers,
-          moveAnalysisDepth,
-          aiDescriptions,
-          startWithWhite,
-          bookIndices,
-          firstAnalyzedMoveIndex
-        );
-
-        setMoveAnalysisResults(formatted.analysisText);
-        setStructuredAnalysis(formatted.structuredAnalysis);
-        setIsAnalyzingMoves(false);
-
-        // Notify parent if callback provided
-        if (onAnalysisUpdate) {
-          const summary = formatted.structuredAnalysis.map(item => ({
-            moveIndex: item.absoluteMoveIndex,
-            classification: item.classification || 'none'
-          }));
-          onAnalysisUpdate(summary);
-        }
-
-        // Trigger Hurdle Processing
-        const processingSet = processingHurdlesRef.current;
-        const newItems = formatted.missingDescriptions.filter(item => !processingSet.has(item.moveNumber));
-
-        if (newItems.length > 0) {
-          newItems.forEach(item => processingSet.add(item.moveNumber));
-
-          for (const item of newItems) {
-            try {
-              // Fetch AI if worthy and approved
-              if (item.data.willUseAI) {
-                try {
-                  const response = await getAIDescription({ data: item.data });
-                  if (response?.description) {
-                    setAiDescriptions(prev => ({ ...prev, [item.moveNumber]: response.description }));
-                  }
-                } catch (e: any) {
-                  if (typeof e.message === 'string' && e.message.includes('Insufficient credits')) {
-                    if (typeof window !== 'undefined') window.dispatchEvent(new Event('INSUFFICIENT_CREDITS'));
-                  }
-                }
-              }
-
-              // Save Hurdle
-              if (session?.user) {
-                // item.index is chronological index in displayMoves
-                const prevPos = displayPositions[item.index];
-                const fen = prevPos?.fen();
-
-                if (fen) {
-                  await saveHurdleServer({
-                    data: {
-                      fen,
-                      move: item.data.move,
-                      evaluation: item.data.evaluation,
-                      bestMove: item.data.bestMove,
-                      pv: item.data.pv,
-                      centipawnLoss: item.data.centipawnLoss,
-                      wpl: item.data.wpl,
-                      isWorthy: item.data.isWorthy,
-                      willUseAI: item.data.willUseAI,
-                      aiDescription: aiDescriptions[item.moveNumber]
-                    } as any
-                  });
-                }
-              }
-            } catch (e) {
-              console.error('[Analysis] Failed to process hurdle:', e);
-            }
-          }
-
-          if (onHurdleSaved) onHurdleSaved();
-        }
-      })();
-    },
+    onEvaluation: handleEvaluation,
+    onComplete: handleAnalysisComplete,
     onAnalysisStatusChange: setIsAnalyzingMoves
   });
 
