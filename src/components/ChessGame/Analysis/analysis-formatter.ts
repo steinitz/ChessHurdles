@@ -43,6 +43,7 @@ export interface AnalysisDisplayItem {
   isAiThrottled?: boolean;
   mateIn?: number;
   calculationTime: number;
+  isWhiteMove: boolean;
   pv?: string;
 }
 
@@ -107,6 +108,7 @@ export function formatAnalysisText(
       isAiThrottled: item.isAiWorthy && !aiDescriptions[moveNumber] && !item.willUseAI, // Simple heuristic for now
       mateIn: item.mateDistance,
       calculationTime: result?.calculationTime ?? 0,
+      isWhiteMove,
       pv: result?.principalVariation
     };
 

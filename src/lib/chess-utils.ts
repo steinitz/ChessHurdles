@@ -48,8 +48,15 @@ export function pgnToGameMoves(pgnString: string): {
         const moveNumber = Math.floor(i / 2) + 1;
         const isWhiteMove = i % 2 === 0;
 
+        // Clone the game state but keep it "advanced" to this point
+        const positionClone = new Chess();
+        const historySoFar = game.history();
+        for (const h of historySoFar) {
+          positionClone.move(h);
+        }
+
         gameMoves.push({
-          position: new Chess(game.fen()),
+          position: positionClone,
           move: moveResult.san,
           moveNumber,
           isWhiteMove

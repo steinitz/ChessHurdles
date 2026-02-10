@@ -2,7 +2,7 @@
 
 ## 🎨 Layout & UI
 - **HUD Layout**: "Aligned Vertical Sandwich" in `PlayVsEngine.tsx`. Rows must match board `width` with `space-between` justification.
-- **Styling**: `mvp.css` + inline flexbox. **NO TAILWIND** unless explicitly requested.
+- **Styling**: `mvp.css` + inline flexbox. **NO TAILWIND** note tailwind is not installed.
 
 ## ⚠️ Development Gotchas
 - **package.json**: Avoid single quotes in script names.
@@ -23,3 +23,5 @@
 - **Signal-to-Noise**: Avoid trivial suggestions just to fill space. Only suggest improvements if they are "low hanging fruit" with clear value.
 
 npm is disabled. Use pnpm.
+
+"the user"'s name is Steve

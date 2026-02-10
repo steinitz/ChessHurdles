@@ -5,7 +5,8 @@ interface GameNavigationProps {
   totalMoves: number;
   goToMove: (moveIndex: number) => void;
   containerHeight?: string;
-  analysisSummary?: { moveIndex: number; classification: string }[];
+  analysisSummary?: { moveIndex: number; classification: string; isWhiteMove: boolean }[];
+  playerSide?: 'w' | 'b' | null;
 }
 
 export default function GameNavigation({
@@ -13,7 +14,8 @@ export default function GameNavigation({
   totalMoves,
   goToMove,
   containerHeight = '8vh',
-  analysisSummary
+  analysisSummary,
+  playerSide
 }: GameNavigationProps) {
 
   const goToPreviousMove = useCallback(() => {
@@ -38,18 +40,16 @@ export default function GameNavigation({
 
   const nextMistakeIndex = useMemo(() => {
     if (!analysisSummary || analysisSummary.length === 0) return null;
+
     // Find first item with index > current AND classification != 'none'/'good'
-    // Actually typically we want to skip 'inaccuracy' too if strictly "Mistake"?
-    // User said "Next Mistake". Usually implies Mistake/Blunder.
-    // But let's include Inaccuracy for now as it's "Analysis Navigation".
-    // Or strictly Mistake/Blunder? 
-    // Let's stick to "Not Good/None" for now (Any Hurdle).
-    const target = analysisSummary.find(item =>
-      item.moveIndex > currentMoveIndex &&
-      (item.classification !== 'none' && item.classification !== 'good')
-    );
+    // AND moves made by the player (if playerSide is known)
+    const target = analysisSummary.find(item => {
+      const isMistake = item.classification !== 'none' && item.classification !== 'good';
+      const isPlayerMove = playerSide ? (item.isWhiteMove === (playerSide === 'w')) : true;
+      return item.moveIndex > currentMoveIndex && isMistake && isPlayerMove;
+    });
     return target ? target.moveIndex : null;
-  }, [analysisSummary, currentMoveIndex]);
+  }, [analysisSummary, currentMoveIndex, playerSide]);
 
   const goToNextMistake = useCallback(() => {
     if (nextMistakeIndex !== null) {

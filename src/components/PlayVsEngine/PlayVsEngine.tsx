@@ -60,7 +60,7 @@ export function PlayVsEngine() {
   const [userTimeConfig, setUserTimeConfig] = useState(DEFAULT_CONFIG);
   const [engineTimeConfig, setEngineTimeConfig] = useState(DEFAULT_CONFIG);
 
-  // Load from LocalStorage on mount
+  // Load from LocalStorage on mount (Time controls)
   useEffect(() => {
     try {
       const storedUser = localStorage.getItem('chess_time_user');
@@ -93,7 +93,11 @@ export function PlayVsEngine() {
   const [showResignConfirm, setShowResignConfirm] = useState(false);
   const processedRef = useRef(false);
 
-  const isGameActive = !gameResult && game.history().length > 0;
+  // Auth & Stats
+  const { data: session } = useSession();
+  const userId = session?.user.id;
+
+  const isGameActive = !gameResult && (game.history().length > 0 || (userSide === 'b' && game.history().length === 0));
 
   // -- HOOKS --
 
@@ -110,6 +114,7 @@ export function PlayVsEngine() {
     blackInitialTimeMs: blackConfig.time,
     whiteIncrementMs: whiteConfig.inc,
     blackIncrementMs: blackConfig.inc,
+    userSide: userSide || 'w',
     onTimeout: (winner) => {
       setGameResult({ winner, reason: 'Timeout' });
     }
@@ -199,10 +204,13 @@ export function PlayVsEngine() {
   // -- Handlers --
 
   const startNewGame = useCallback((overrideSide?: 'w' | 'b') => {
+    // If no override provided, toggle from current userSide (alternating games)
+    const side = overrideSide || (userSide === 'w' ? 'b' : 'w');
+    if (side !== userSide) setUserSide(side);
+
     setGame(new Chess());
 
     // Explicitly set times based on current configs and side
-    const side = overrideSide || userSide;
     const pWhite = side === 'w' ? userTimeConfig : engineTimeConfig;
     const pBlack = side === 'b' ? userTimeConfig : engineTimeConfig;
 
@@ -214,10 +222,6 @@ export function PlayVsEngine() {
     setGameResult(null);
     setSavedGameId(null);
     setShowAbandonConfirm(false);
-
-    if (overrideSide) {
-      setUserSide(overrideSide);
-    }
   }, [userSide, userTimeConfig, engineTimeConfig, setWhiteTime, setBlackTime, resetEngineState]);
 
   // Handle Clock Click -> Open Modal
@@ -285,16 +289,14 @@ export function PlayVsEngine() {
     }
   };
 
-
   // -- Game Logic continued --
-
-  // Auth & Stats
-  const { data: session } = useSession();
-  const userId = session?.user.id;
 
   useEffect(() => {
     if (userId) {
-      getUserStats().then(stats => setUserElo(stats.elo)).catch(console.error);
+      getUserStats().then(stats => {
+        if (stats.elo) setUserElo(stats.elo);
+        if (stats.last_user_side) setUserSide(stats.last_user_side);
+      }).catch(console.error);
     }
   }, [userId]);
 
@@ -314,6 +316,20 @@ export function PlayVsEngine() {
       else if (gameResult.winner === 'Draw') score = 0.5;
 
       const newElo = calculateNewElo(userElo, engineElo, score);
+
+      // Set PGN headers before saving for data integrity
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0].replace(/-/g, '.');
+      game.header(
+        'Event', 'Play vs Stockfish',
+        'Site', window.location.origin,
+        'Date', dateStr,
+        'White', userSide === 'w' ? (session?.user?.name || 'User') : `Stockfish Lvl ${engineLevel}`,
+        'Black', userSide === 'b' ? (session?.user?.name || 'User') : `Stockfish Lvl ${engineLevel}`,
+        'Result', score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1',
+        'UserSide', userSide || 'w'
+      );
+
       Promise.all([
         updateUserStats({ data: { elo: newElo } }),
         savePlayedGame({
@@ -481,7 +497,7 @@ export function PlayVsEngine() {
                 : (gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`) + ` by ${gameResult.reason}`
               }
             </div>
-            <button onClick={() => startNewGame(userSide)}>New Game</button>
+            <button onClick={() => startNewGame()}>New Game</button>
             {savedGameId ? (
               <button onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}>Analyze Game</button>
             ) : (
@@ -503,21 +519,22 @@ export function PlayVsEngine() {
         marginTop: '10px'
       }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {!isGameActive && (
-            <button
-              onClick={() => startNewGame(userSide === 'w' ? 'b' : 'w')}
-              style={{ padding: '0.4rem 0.8rem' }}
-              title="Switch Side"
-            >
-              {userSide === 'w' ? <i className="fas fa-chess-king" /> : <i className="fas fa-chess-pawn" />}
-              {userSide === 'w' ? " Play as Black" : " Play as White"}
-            </button>
-          )}
+          <button
+            onClick={() => {
+              const nextSide = userSide === 'w' ? 'b' : 'w';
+              setUserSide(nextSide);
+              // Persistence removed per user request: "Flip board should act as a one-off override"
+            }}
+            style={{ padding: '0.4rem 0.8rem' }}
+            title="Flip Board"
+          >
+            <i className="fas fa-sync-alt" /> Flip Board
+          </button>
 
           <button
             onClick={() => {
               if (isGameActive) setShowAbandonConfirm(true);
-              else startNewGame(userSide);
+              else startNewGame();
             }}
             title={isGameActive ? "Abandon Game" : "New Game"}
             style={{ padding: '0.4rem 0.8rem' }}
@@ -598,6 +615,6 @@ export function PlayVsEngine() {
           </div>
         </div>
       </Dialog>
-    </div>
+    </div >
   );
 }

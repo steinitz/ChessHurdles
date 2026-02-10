@@ -7,11 +7,12 @@ interface UseGameClockOptions {
   whiteIncrementMs: number;
   blackIncrementMs: number;
   onTimeout: (winner: 'White' | 'Black') => void;
+  userSide: 'w' | 'b';
 }
 
 export function useGameClock(
   game: Chess,
-  { whiteInitialTimeMs, blackInitialTimeMs, whiteIncrementMs, blackIncrementMs, onTimeout }: UseGameClockOptions
+  { whiteInitialTimeMs, blackInitialTimeMs, whiteIncrementMs, blackIncrementMs, onTimeout, userSide }: UseGameClockOptions
 ) {
   const [whiteTime, setWhiteTime] = useState(whiteInitialTimeMs);
   const [blackTime, setBlackTime] = useState(blackInitialTimeMs);

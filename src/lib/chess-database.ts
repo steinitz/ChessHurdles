@@ -56,6 +56,7 @@ export interface UserStatsTable {
   wins: number;
   losses: number;
   draws: number;
+  last_user_side: 'w' | 'b' | null;
   updated_at: string;
 }
 
@@ -350,6 +351,7 @@ export class ChessGameDatabase {
         wins: 0,
         losses: 0,
         draws: 0,
+        last_user_side: null,
         updated_at: now
       })
       .returningAll()

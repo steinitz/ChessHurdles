@@ -1,12 +1,14 @@
 :root {
   --color-error: darkred;
+  --color-move-highlight: rgba(255, 220, 0, 0.25);
 }
 
 @media (prefers-color-scheme: dark) {
   :root[color-mode="user"] {
     --color-bg: #222;
     /* darker background for better readability */
-    --color-error: red
+    --color-error: red;
+    --color-move-highlight: rgba(255, 215, 0, 0.2);
   }
 
   input,

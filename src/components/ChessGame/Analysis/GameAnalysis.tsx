@@ -125,7 +125,11 @@ export default function GameAnalysis({
           m.moveNumber === item.moveNumber &&
           (item.playerColor === 'White' ? m.isWhiteMove : !m.isWhiteMove)
         );
-        return { moveIndex: matchIndex, classification: item.classification || 'none' };
+        return {
+          moveIndex: matchIndex,
+          classification: item.classification || 'none',
+          isWhiteMove: item.isWhiteMove
+        };
       }).filter(s => s.moveIndex !== -1);
 
       const syncKey = JSON.stringify(summary);
@@ -225,7 +229,8 @@ export default function GameAnalysis({
       if (onAnalysisUpdate) {
         const summary = formatted.structuredAnalysis.map(item => ({
           moveIndex: item.absoluteMoveIndex,
-          classification: item.classification || 'none'
+          classification: item.classification || 'none',
+          isWhiteMove: item.isWhiteMove
         }));
         onAnalysisUpdate(summary);
       }

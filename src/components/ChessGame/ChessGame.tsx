@@ -59,7 +59,7 @@ export function ChessGame({
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
 
   // Analysis Summary State for Navigation
-  const [analysisSummary, setAnalysisSummary] = useState<{ moveIndex: number; classification: string }[]>([]);
+  const [analysisSummary, setAnalysisSummary] = useState<{ moveIndex: number; classification: string; isWhiteMove: boolean }[]>([]);
 
   // Initialize title: prop > sample default
   const [gameTitle, setGameTitle] = useState(title || 'Kasparov vs Topalov, Wijk aan Zee 1999');
@@ -71,6 +71,7 @@ export function ChessGame({
     }
     return '"Kasparov\'s Immortal" - Navigate through this famous game';
   });
+  const [playerSide, setPlayerSide] = useState<'w' | 'b' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Authentication
@@ -142,6 +143,22 @@ export function ChessGame({
 
       const white = result.headers?.White || 'Unknown';
       const black = result.headers?.Black || 'Unknown';
+      const userSideHeader = result.headers?.UserSide; // 'w' or 'b'
+
+      // Determine player side from headers
+      if (userSideHeader === 'w' || userSideHeader === 'b') {
+        setPlayerSide(userSideHeader as 'w' | 'b');
+      } else if (session?.user?.name) {
+        if (white === session.user.name) setPlayerSide('w');
+        else if (black === session.user.name) setPlayerSide('b');
+        else {
+          // Heuristic fallback: detect engine
+          const isWhiteEngine = /stockfish|engine|level/i.test(white);
+          const isBlackEngine = /stockfish|engine|level/i.test(black);
+          if (isWhiteEngine && !isBlackEngine) setPlayerSide('b');
+          else if (isBlackEngine && !isWhiteEngine) setPlayerSide('w');
+        }
+      }
 
       // If we provided a title prop, don't overwrite it with "Unknown vs Unknown"
       if (!title) {
@@ -178,7 +195,7 @@ export function ChessGame({
     // This callback could be used for interactive play in the future
   }, []);
 
-  const handleAnalysisUpdate = useCallback((summary: { moveIndex: number; classification: string }[]) => {
+  const handleAnalysisUpdate = useCallback((summary: { moveIndex: number; classification: string; isWhiteMove: boolean }[]) => {
     setAnalysisSummary(summary);
   }, []);
 
@@ -213,6 +230,7 @@ export function ChessGame({
                 onMove={onMove}
                 boardSize={chessboardHeight}
                 showCoordinates={true}
+                boardOrientation={playerSide === 'b' ? 'black' : 'white'}
               />
             )}
           </div>
@@ -223,6 +241,7 @@ export function ChessGame({
             goToMove={goToMove}
             containerHeight={chessgameTransportHeight}
             analysisSummary={analysisSummary}
+            playerSide={playerSide}
           />
         </div>
 
