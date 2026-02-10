@@ -312,7 +312,7 @@ export default function GameAnalysis({
                     fen,
                     side: item.data.side,
                     moveNumber: item.moveNumber, // Ensure moveNumber is passed!
-                    move: item.data.move,
+                    playedMove: item.data.move,
                     evaluation: item.data.evaluation,
                     bestMove: item.data.bestMove,
                     pv: item.data.pv,

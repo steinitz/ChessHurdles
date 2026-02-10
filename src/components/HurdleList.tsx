@@ -15,6 +15,11 @@ export function HurdleList({ onSelect, selectedId }: HurdleListProps) {
 
   useEffect(() => {
     getUserHurdles().then((fetched) => {
+      console.log('DEBUG: Fetched all hurdles:', fetched);
+      if (fetched && fetched.length > 0) {
+        console.log('DEBUG: First hurdle keys:', Object.keys(fetched[0]));
+        console.log('DEBUG: First hurdle content:', fetched[0]);
+      }
       setHurdles(fetched);
       if (fetched.length > 0 && !selectedId) {
         onSelect(fetched[0]);
@@ -28,7 +33,9 @@ export function HurdleList({ onSelect, selectedId }: HurdleListProps) {
       try {
         await deleteHurdle({ data: id });
         setHurdles(prev => prev.filter(h => h.id !== id));
-        if (selectedId === id) setSelectedId(null);
+        // Note: selectedId is a prop, we can't set it here. 
+        // We'd need an onSelect(null) if we wanted to deselect, 
+        // but typically the parent will handle this if the hurdle is gone.
       } catch (error) {
         console.error('Failed to delete hurdle:', error);
         alert('Failed to delete hurdle');
@@ -56,14 +63,14 @@ export function HurdleList({ onSelect, selectedId }: HurdleListProps) {
     } catch { }
 
     const isWhiteMove = playerColor === 'White';
-    const moveNum = hurdle.move_number || 0;
+    const moveNum = (hurdle as any).move_number ?? (hurdle as any).moveNumber ?? 0;
     const moveLabel = `${moveNum}${isWhiteMove ? '.' : '...'}`;
 
     // Determine classification from centipawn loss if available
     // or default to 'blunder' if loss is high?
     // Hurdle implies a mistake, so let's default to 'blunder' or 'mistake' based on loss.
     let classification: any = 'none';
-    const loss = hurdle.centipawn_loss || 0;
+    const loss = (hurdle as any).centipawn_loss ?? (hurdle as any).centipawnLoss ?? 0;
     if (loss > 200) classification = 'blunder';
     else if (loss > 100) classification = 'mistake';
     else if (loss > 50) classification = 'inaccuracy';
@@ -74,15 +81,16 @@ export function HurdleList({ onSelect, selectedId }: HurdleListProps) {
       moveNumber: moveNum,
       moveLabel,
       playerColor,
+      isWhiteMove,
       absoluteMoveIndex: (moveNum * 2) - (isWhiteMove ? 2 : 1), // Approx ply
-      moveSan: hurdle.played_move || '?',
-      evaluation: hurdle.evaluation || 0,
-      postMoveEvaluation: (hurdle.evaluation || 0) - (loss), // Rough estimate
-      bestMove: hurdle.best_move || '?',
+      moveSan: (hurdle as any).played_move ?? (hurdle as any).playedMove ?? '?',
+      evaluation: (hurdle as any).evaluation ?? 0,
+      postMoveEvaluation: ((hurdle as any).evaluation ?? 0) - (loss), // Rough estimate
+      bestMove: (hurdle as any).best_move ?? (hurdle as any).bestMove ?? '?',
       classification,
-      wpl: undefined, // Not stored
+      wpl: (hurdle as any).wpl,
       centipawnChange: loss,
-      aiDescription: hurdle.ai_description || undefined,
+      aiDescription: (hurdle as any).ai_description ?? (hurdle as any).aiDescription ?? undefined,
       isAiThrottled: false,
       mateIn: metadata.mateIn,
       calculationTime: metadata.calculationTime || 0,

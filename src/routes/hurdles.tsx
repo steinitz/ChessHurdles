@@ -28,9 +28,46 @@ function HurdlesPage() {
             setGame(new Chess(selectedHurdle.fen))
             setMessage('Find the best move')
             setIsSolved(false)
-            setCustomSquareStyles({})
+
+            // Highlight the hurdle move if we are in list mode
+            const playedMove = (selectedHurdle as any).played_move ?? (selectedHurdle as any).playedMove;
+
+            if (view === 'list' && playedMove) {
+                console.log('DEBUG: Highlighting hurdle move:', playedMove);
+                try {
+                    const tempGame = new Chess(selectedHurdle.fen)
+                    const move = tempGame.move(playedMove)
+                    if (move) {
+                        const highlightStyle = { backgroundColor: 'rgba(255, 255, 0, 0.5)' }
+                        setCustomSquareStyles({
+                            [move.from]: highlightStyle,
+                            [move.to]: highlightStyle
+                        })
+                    } else {
+                        // If SAN fails, try as UCI
+                        const from = playedMove.substring(0, 2)
+                        const to = playedMove.substring(2, 4)
+                        if (from.match(/^[a-h][1-8]$/) && to.match(/^[a-h][1-8]$/)) {
+                            console.log('DEBUG: Highlighting via UCI fallback:', from, to);
+                            const highlightStyle = { backgroundColor: 'rgba(255, 255, 0, 0.5)' }
+                            setCustomSquareStyles({
+                                [from]: highlightStyle,
+                                [to]: highlightStyle
+                            })
+                        } else {
+                            console.warn('DEBUG: Could not parse move for highlight:', playedMove);
+                            setCustomSquareStyles({})
+                        }
+                    }
+                } catch (e) {
+                    console.error('DEBUG: Error parsing hurdle move:', e);
+                    setCustomSquareStyles({})
+                }
+            } else {
+                setCustomSquareStyles({})
+            }
         }
-    }, [selectedHurdle])
+    }, [selectedHurdle, view])
 
     const handleHurdleSelect = (hurdle: HurdleTable) => {
         setSelectedHurdle(hurdle)
@@ -84,8 +121,8 @@ function HurdlesPage() {
                 }}>
                     <div style={{
                         display: 'flex',
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        padding: '6px',
+                        backgroundColor: 'var(--color-link)',
+                        padding: '6px 16px',
                         borderRadius: '10px',
                         width: '100%',
                         maxWidth: '460px'
@@ -101,7 +138,7 @@ function HurdlesPage() {
                                 fontSize: '0.95em',
                                 fontWeight: '600',
                                 backgroundColor: view === 'list' ? 'var(--color-bg)' : 'transparent',
-                                color: view === 'list' ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                                color: view === 'list' ? 'var(--color-text)' : 'var(--color-text)', // Changed from secondary
                                 boxShadow: view === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                                 transition: 'all 0.2s ease',
                                 whiteSpace: 'nowrap'
@@ -120,7 +157,7 @@ function HurdlesPage() {
                                 fontSize: '0.95em',
                                 fontWeight: '600',
                                 backgroundColor: view === 'train' ? 'var(--color-bg)' : 'transparent',
-                                color: view === 'train' ? 'var(--color-text)' : 'var(--color-text-secondary)',
+                                color: view === 'train' ? 'var(--color-text)' : 'var(--color-text)', // Changed from secondary
                                 boxShadow: view === 'train' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                                 transition: 'all 0.2s ease',
                                 whiteSpace: 'nowrap'
