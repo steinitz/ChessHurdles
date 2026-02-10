@@ -36,6 +36,8 @@ export async function ensureChessTables(): Promise<void> {
       .ifNotExists()
       .addColumn('id', 'text', (col) => col.primaryKey())
       .addColumn('user_id', 'text', (col) => col.notNull())
+      .addColumn('white_id', 'text')
+      .addColumn('black_id', 'text')
       .addColumn('title', 'text')
       .addColumn('description', 'text')
       .addColumn('pgn', 'text', (col) => col.notNull())
@@ -57,6 +59,7 @@ export async function ensureChessTables(): Promise<void> {
       .addColumn('user_id', 'text', (col) => col.notNull())
       .addColumn('game_id', 'text') // Optional reference to parent game
       .addColumn('fen', 'text', (col) => col.notNull())
+      .addColumn('side', 'text') // 'w' or 'b'
       .addColumn('title', 'text')
       .addColumn('notes', 'text')
       .addColumn('move_number', 'integer')
@@ -113,6 +116,7 @@ export async function ensureChessTables(): Promise<void> {
 
     // Ensure new columns exist (migration)
     await ensureHurdleColumns();
+    await ensureGameIdentityColumns();
     await ensureUserStatsColumns();
 
   } catch (error) {
@@ -146,7 +150,8 @@ async function ensureHurdleColumns(): Promise<void> {
       { name: 'played_move', type: 'text' },
       { name: 'centipawn_loss', type: 'integer' },
       { name: 'ai_description', type: 'text' },
-      { name: 'depth', type: 'integer' }
+      { name: 'depth', type: 'integer' },
+      { name: 'side', type: 'text' }
     ];
 
     for (const col of newColumns) {
@@ -163,6 +168,43 @@ async function ensureHurdleColumns(): Promise<void> {
   } catch (error) {
     console.error('❌ Error ensuring hurdle columns:', error);
     // Don't throw here, as it might block app startup if something minor fails
+  }
+}
+
+/**
+ * Ensures game table has the correct identity columns (Migration)
+ */
+async function ensureGameIdentityColumns(): Promise<void> {
+  try {
+    console.log('🔄 Checking for missing game identity columns...');
+
+    const tables = await chessDb.introspection.getTables();
+    const gamesTable = tables.find(t => t.name === 'games');
+
+    if (!gamesTable) {
+      console.log('⚠️ Games table missing during column check');
+      return;
+    }
+
+    const existingColumns = gamesTable.columns.map(c => c.name);
+    const newColumns = [
+      { name: 'white_id', type: 'text' },
+      { name: 'black_id', type: 'text' }
+    ];
+
+    for (const col of newColumns) {
+      if (!existingColumns.includes(col.name)) {
+        console.log(`➕ Adding missing column: ${col.name}`);
+        await chessDb.schema
+          .alterTable('games')
+          .addColumn(col.name, col.type as any)
+          .execute();
+      }
+    }
+
+    console.log('✅ Game identity columns verification complete');
+  } catch (error) {
+    console.error('❌ Error ensuring game identity columns:', error);
   }
 }
 

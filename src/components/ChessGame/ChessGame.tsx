@@ -45,7 +45,9 @@ export function ChessGame({
   onHurdleSaved,
   title,
   date,
-  description
+  description,
+  whiteId,
+  blackId
 }: {
   initialPGN?: string;
   autoAnalyze?: boolean;
@@ -53,6 +55,8 @@ export function ChessGame({
   title?: string;
   date?: string;
   description?: string;
+  whiteId?: string | null;
+  blackId?: string | null;
 }) {
   const [game, setGame] = useState(() => new Chess());
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
@@ -145,12 +149,22 @@ export function ChessGame({
       const black = result.headers?.Black || 'Unknown';
       const userSideHeader = result.headers?.UserSide; // 'w' or 'b'
 
-      // Determine player side from headers
-      if (userSideHeader === 'w' || userSideHeader === 'b') {
+      // Determine player side
+      // PRIORITY 1: Explicit Props (from Database)
+      if (whiteId && session?.user?.id && whiteId === session.user.id) {
+        setPlayerSide('w');
+      } else if (blackId && session?.user?.id && blackId === session.user.id) {
+        setPlayerSide('b');
+      }
+      // PRIORITY 2: PGN Header (Backward Compat)
+      else if (userSideHeader === 'w' || userSideHeader === 'b') {
         setPlayerSide(userSideHeader as 'w' | 'b');
-      } else if (session?.user?.name) {
-        if (white === session.user.name) setPlayerSide('w');
-        else if (black === session.user.name) setPlayerSide('b');
+      }
+      // PRIORITY 3: Name Matching (Heuristic Fallback)
+      else if (session?.user?.name) {
+        const userName = session.user.name;
+        if (white === userName) setPlayerSide('w');
+        else if (black === userName) setPlayerSide('b');
         else {
           // Heuristic fallback: detect engine
           const isWhiteEngine = /stockfish|engine|level/i.test(white);
@@ -172,7 +186,7 @@ export function ChessGame({
     } else {
       setError(result.error || 'Invalid PGN format');
     }
-  }, [title]);
+  }, [title, whiteId, blackId, session?.user?.id]);
 
   // Load initial PGN if provided, otherwise load sample game on mount
   useEffect(() => {

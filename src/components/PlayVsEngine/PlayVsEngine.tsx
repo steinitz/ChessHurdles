@@ -336,6 +336,8 @@ export function PlayVsEngine() {
           data: {
             pgn: game.pgn(),
             game_type: 'game',
+            white_id: userSide === 'w' ? userId : `stockfish-lvl-${engineLevel}`,
+            black_id: userSide === 'b' ? userId : `stockfish-lvl-${engineLevel}`,
             difficulty_rating: engineElo,
             is_favorite: false,
             title: `${session?.user?.name || 'Player'} vs Stockfish (Level ${engineLevel})`,

@@ -156,7 +156,8 @@ export function formatAnalysisText(
                 centipawnLoss: item.centipawnChange,
                 wpl: item.wpl,
                 isWorthy: true,
-                willUseAI: true
+                willUseAI: true,
+                side: isWhiteMove ? 'w' : 'b'
               }
             });
             // Mark as throttled if it WAS worthy but we just haven't fetched it yet?
@@ -178,7 +179,8 @@ export function formatAnalysisText(
                 centipawnLoss: item.centipawnChange,
                 wpl: item.wpl,
                 isWorthy: true,
-                willUseAI: false
+                willUseAI: false,
+                side: isWhiteMove ? 'w' : 'b'
               }
             });
           } else {
@@ -194,7 +196,8 @@ export function formatAnalysisText(
                 centipawnLoss: item.centipawnChange,
                 wpl: item.wpl,
                 isWorthy: false,
-                willUseAI: false
+                willUseAI: false,
+                side: isWhiteMove ? 'w' : 'b'
               }
             });
           }

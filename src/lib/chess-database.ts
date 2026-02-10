@@ -11,6 +11,8 @@ import { libsqlClient, Database } from '~stzUser/lib/database';
 export interface GameTable {
   id: string;
   user_id: string;
+  white_id: string | null;
+  black_id: string | null;
   title: string | null;
   description: string | null;
   pgn: string;
@@ -27,6 +29,7 @@ export interface HurdleTable {
   user_id: string;
   game_id: string | null; // Optional reference to parent game
   fen: string;
+  side: 'w' | 'b' | null; // Objective side to move/train
   title: string | null;
   notes: string | null;
   move_number: number | null;

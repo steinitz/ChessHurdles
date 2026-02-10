@@ -7,6 +7,7 @@ import * as v from 'valibot';
 const HurdleSchema = v.object({
   gameId: v.optional(v.string()),
   fen: v.string(),
+  side: v.optional(v.union([v.literal('w'), v.literal('b')])),
   title: v.optional(v.string()),
   moveNumber: v.optional(v.number()),
   evaluation: v.optional(v.number()),
@@ -43,6 +44,7 @@ export const saveHurdle = createServerFn({ method: 'POST' })
     const hurdleData: Omit<HurdleTable, 'id' | 'user_id' | 'created_at' | 'mastery_level' | 'practice_count'> = {
       game_id: data.gameId || null,
       fen: data.fen,
+      side: data.side || null,
       title: data.title || null,
       notes: JSON.stringify(metadata), // Storing new metadata in notes for now
       move_number: data.moveNumber || null,

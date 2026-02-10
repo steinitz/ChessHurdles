@@ -310,6 +310,7 @@ export default function GameAnalysis({
                 await saveHurdleServer({
                   data: {
                     fen,
+                    side: item.data.side,
                     moveNumber: item.moveNumber, // Ensure moveNumber is passed!
                     move: item.data.move,
                     evaluation: item.data.evaluation,

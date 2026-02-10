@@ -16,19 +16,24 @@ export const Route = createFileRoute('/analysis')({
     if (deps.gameId) {
       try {
         const game = await getGameById({ data: deps.gameId })
-        return { initialPGN: game?.pgn, gameId: deps.gameId }
+        return {
+          initialPGN: game?.pgn,
+          gameId: deps.gameId,
+          whiteId: game?.white_id,
+          blackId: game?.black_id
+        }
       } catch (e) {
         console.error('Failed to load game:', e)
-        return { initialPGN: undefined, gameId: deps.gameId }
+        return { initialPGN: undefined, gameId: deps.gameId, whiteId: undefined, blackId: undefined }
       }
     }
-    return { initialPGN: undefined, gameId: undefined }
+    return { initialPGN: undefined, gameId: undefined, whiteId: undefined, blackId: undefined }
   },
   component: AnalysisPage,
 })
 
 function AnalysisPage() {
-  const { initialPGN, gameId } = Route.useLoaderData()
+  const { initialPGN, gameId, whiteId, blackId } = Route.useLoaderData()
   // Lift state for PGN so manual loading works
   const [currentPGN, setCurrentPGN] = useState(initialPGN)
 
@@ -59,7 +64,11 @@ function AnalysisPage() {
         </div>
       )}
 
-      <ChessGame initialPGN={currentPGN} />
+      <ChessGame
+        initialPGN={currentPGN}
+        whiteId={whiteId}
+        blackId={blackId}
+      />
     </div>
   )
 }
