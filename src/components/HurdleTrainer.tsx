@@ -7,45 +7,59 @@ import { CHESSBOARD_WIDTH } from '~/constants';
 
 interface HurdleTrainerProps {
   hurdle?: HurdleTable;
+  game: Chess;
+  message: string;
+  isSolved: boolean;
+  setCustomSquareStyles: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  onHurdleChange: (hurdle: HurdleTable) => void;
 }
 
-export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
+export function HurdleTrainer({
+  hurdle: activeHurdle,
+  game,
+  message,
+  isSolved,
+  setCustomSquareStyles,
+  onHurdleChange
+}: HurdleTrainerProps) {
   const [hurdles, setHurdles] = useState<HurdleTable[]>([]);
   const [currentHurdleIndex, setCurrentHurdleIndex] = useState(0);
-  const [game, setGame] = useState(() => new Chess());
-  const [message, setMessage] = useState<string>('Find the best move');
-  const [isSolved, setIsSolved] = useState(false);
-  const [loading, setLoading] = useState(!initialHurdle);
+  const [loading, setLoading] = useState(!activeHurdle);
   const [showHint, setShowHint] = useState(false);
 
   // Load hurdles if not provided
   useEffect(() => {
-    if (!initialHurdle) {
-      getUserHurdles().then(fetchedHurdles => {
-        setHurdles(fetchedHurdles);
-        setLoading(false);
-      });
-    } else {
-      setHurdles([initialHurdle]);
+    getUserHurdles().then(fetchedHurdles => {
+      setHurdles(fetchedHurdles);
       setLoading(false);
-    }
-  }, [initialHurdle]);
+      // If we don't have an active hurdle yet, pick the first one
+      if (!activeHurdle && fetchedHurdles.length > 0) {
+        onHurdleChange(fetchedHurdles[0]);
+        setCurrentHurdleIndex(0);
+      } else if (activeHurdle) {
+        const idx = fetchedHurdles.findIndex(h => h.id === activeHurdle.id);
+        if (idx !== -1) setCurrentHurdleIndex(idx);
+      }
+    });
+  }, []);
 
-  const activeHurdle = hurdles[currentHurdleIndex];
-
-  // Reset game when active hurdle changes
+  // Sync index when activeHurdle changes from parent
   useEffect(() => {
-    if (activeHurdle) {
-      setGame(new Chess(activeHurdle.fen));
-      setMessage('Find the best move');
-      setIsSolved(false);
-      setShowHint(false);
+    if (activeHurdle && hurdles.length > 0) {
+      const idx = hurdles.findIndex(h => h.id === activeHurdle.id);
+      if (idx !== -1) {
+        setCurrentHurdleIndex(idx);
+        setShowHint(false);
+      }
     }
-  }, [activeHurdle]);
+  }, [activeHurdle, hurdles]);
 
-  // Calculate hint styles
-  const hintStyles = React.useMemo(() => {
-    if (!showHint || !activeHurdle?.best_move) return {};
+  // Calculate and apply hint styles to parent
+  useEffect(() => {
+    if (!showHint || !activeHurdle?.best_move) {
+      setCustomSquareStyles({});
+      return;
+    }
 
     let sourceSquare = '';
 
@@ -66,67 +80,28 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
       }
     }
 
-    if (!sourceSquare) return {};
-
-    return {
-      [sourceSquare]: {
-        backgroundColor: 'rgba(255, 170, 0, 0.4)',
-        boxShadow: 'inset 0 0 0 4px rgba(255, 170, 0, 0.8)',
-        borderRadius: '50%'
-      }
-    };
-  }, [showHint, activeHurdle]);
-
-  const onMove = useCallback((moveSan: string) => {
-    if (isSolved || !activeHurdle) return;
-
-    setGame(prevGame => {
-      const newGame = new Chess(prevGame.fen());
-      try {
-        const moveResult = newGame.move(moveSan);
-
-        if (moveResult) {
-          const playedMoveUci = moveResult.from + moveResult.to + (moveResult.promotion || '');
-          if (!activeHurdle.best_move) return prevGame;
-          const cleanBestMove = activeHurdle.best_move.replace(/^\d+\.+/, '').trim();
-
-          const isBestMove =
-            moveSan === cleanBestMove ||
-            playedMoveUci === cleanBestMove;
-
-          if (isBestMove) {
-            setMessage('Correct. Well done');
-            setIsSolved(true);
-          } else {
-            setMessage('Incorrect. Try again');
-            setTimeout(() => {
-              setGame(new Chess(activeHurdle.fen));
-              setMessage('Try again...');
-            }, 1000);
-            return prevGame;
-          }
+    if (sourceSquare) {
+      setCustomSquareStyles({
+        [sourceSquare]: {
+          backgroundColor: 'rgba(255, 170, 0, 0.4)',
+          boxShadow: 'inset 0 0 0 4px rgba(255, 170, 0, 0.8)',
+          borderRadius: '50%'
         }
-        return newGame;
-      } catch (e) {
-        return prevGame;
-      }
-    });
-
-  }, [activeHurdle, isSolved]);
+      });
+    }
+  }, [showHint, activeHurdle, setCustomSquareStyles]);
 
   const handleNext = () => {
-    if (currentHurdleIndex < hurdles.length - 1) {
-      setCurrentHurdleIndex(prev => prev + 1);
-    } else {
-      setCurrentHurdleIndex(0);
-    }
+    if (hurdles.length === 0) return;
+    const nextIndex = (currentHurdleIndex + 1) % hurdles.length;
+    setCurrentHurdleIndex(nextIndex);
+    onHurdleChange(hurdles[nextIndex]);
   };
 
   if (loading) return <div>Loading training...</div>;
   if (!activeHurdle) return <div>No hurdles found. Go analyze some games!</div>;
 
   const toMoveText = game.turn() === 'w' ? 'White to move' : 'Black to move';
-
   const boardWidth = CHESSBOARD_WIDTH;
 
   return (
@@ -148,7 +123,7 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
         alignItems: 'center',
         justifyContent: 'space-between',
         minHeight: '40px',
-        backgroundColor: 'transparent' // Explicitly transparent
+        backgroundColor: 'transparent'
       }}>
         {/* Left: To Move */}
         <div style={{
@@ -170,7 +145,7 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
           flex: 1,
           fontWeight: 700,
           textAlign: 'center',
-          color: isSolved ? 'var(--color-success, #166534)' : 'var(--color-link, #1e40af)', // Use CSS var
+          color: isSolved ? 'var(--color-success, #166534)' : 'var(--color-link, #1e40af)',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -194,7 +169,7 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
               title="Show hint highlight"
               style={{
                 fontSize: '0.875rem',
-                color: 'var(--color-link, #2563eb)', // Use CSS var
+                color: 'var(--color-link, #2563eb)',
                 fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
@@ -214,13 +189,6 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
         </div>
       </div>
 
-      <ChessBoard
-        game={game}
-        onMove={onMove}
-        boardSize={boardWidth}
-        customSquareStyles={hintStyles}
-      />
-
       {/* Next Button Below Board */}
       <div style={{
         width: boardWidth,
@@ -235,8 +203,8 @@ export function HurdleTrainer({ hurdle: initialHurdle }: HurdleTrainerProps) {
             title="Skip to next hurdle"
             style={{
               padding: '0.5rem 1.5rem',
-              backgroundColor: 'var(--color-bg-secondary)', // Use CSS var
-              color: 'var(--color-link)', // Use CSS var
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-link)',
               borderRadius: '0.5rem',
               fontWeight: 600,
               border: 'none',

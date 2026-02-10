@@ -1,35 +1,26 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { HurdleTrainer } from './HurdleTrainer';
 import { HurdleTable } from '~/lib/chess-database';
-import { vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { Chess } from 'chess.js';
 
 // Mock dependencies
 vi.mock('~/lib/server/hurdles', () => ({
-  getUserHurdles: vi.fn(),
+  getUserHurdles: vi.fn().mockResolvedValue([]),
 }));
 
-// Mock ChessBoard to avoid canvas issues and simplify interaction
-vi.mock('./ChessBoard', () => ({
-  ChessBoard: ({ onMove, customSquareStyles }: any) => (
-    <div data-testid="chess-board">
-      <button onClick={() => onMove('e4')} data-testid="move-e4">Move e4</button>
-      <button onClick={() => onMove('Nf3')} data-testid="move-Nf3">Move Nf3</button>
-      <div data-testid="hint-styles">{JSON.stringify(customSquareStyles)}</div>
-    </div>
-  ),
-}));
-
-describe('HurdleTrainer Validation', () => {
+describe('HurdleTrainer Display', () => {
   const baseHurdle: HurdleTable = {
     id: '1',
     user_id: 'user1',
     game_id: null,
+    side: 'w',
     fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
     title: 'Test Hurdle',
     notes: null,
     move_number: 1,
     evaluation: 0.5,
-    best_move: 'e4', // Clean UCI/SAN
+    best_move: 'e4',
     played_move: null,
     centipawn_loss: null,
     ai_description: 'Test Description',
@@ -41,27 +32,45 @@ describe('HurdleTrainer Validation', () => {
     created_at: new Date().toISOString(),
   };
 
-  it('validates correct move with clean SAN', () => {
-    render(<HurdleTrainer hurdle={baseHurdle} />);
-    fireEvent.click(screen.getByTestId('move-e4'));
-    expect(screen.getByText('Correct. Well done')).toBeInTheDocument();
+  const mockGame = new Chess(baseHurdle.fen);
+
+  it('renders status message from props', () => {
+    const { rerender } = render(
+      <HurdleTrainer
+        hurdle={baseHurdle}
+        game={mockGame}
+        message="Test Message"
+        isSolved={false}
+        setCustomSquareStyles={vi.fn()}
+        onHurdleChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Test Message')).toBeInTheDocument();
+
+    rerender(
+      <HurdleTrainer
+        hurdle={baseHurdle}
+        game={mockGame}
+        message="Solved!"
+        isSolved={true}
+        setCustomSquareStyles={vi.fn()}
+        onHurdleChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText('Solved!')).toBeInTheDocument();
   });
 
-  it('validates correct move when best_move has move number prefix (e.g. "1. e4")', () => {
-    const dirtyHurdle = { ...baseHurdle, best_move: '1. e4' };
-    render(<HurdleTrainer hurdle={dirtyHurdle} />);
-    fireEvent.click(screen.getByTestId('move-e4'));
-
-    // Expect Success (Fix Verification)
-    expect(screen.getByText('Correct. Well done')).toBeInTheDocument();
-  });
-
-  it('validates correct move when best_move has extra whitespace (e.g. " e4 ")', () => {
-    const dirtyHurdle = { ...baseHurdle, best_move: ' e4 ' };
-    render(<HurdleTrainer hurdle={dirtyHurdle} />);
-    fireEvent.click(screen.getByTestId('move-e4'));
-
-    // Expect Success (Fix Verification)
-    expect(screen.getByText('Correct. Well done')).toBeInTheDocument();
+  it('shows turn text correctly', () => {
+    render(
+      <HurdleTrainer
+        hurdle={baseHurdle}
+        game={mockGame}
+        message=""
+        isSolved={false}
+        setCustomSquareStyles={vi.fn()}
+        onHurdleChange={vi.fn()}
+      />
+    );
+    expect(screen.getByText('White to move')).toBeInTheDocument();
   });
 });

@@ -4,17 +4,22 @@ import { HurdleTable } from '~/lib/chess-database';
 import { AnalysisCard } from './ChessGame/Analysis/AnalysisCard';
 import { AnalysisDisplayItem } from './ChessGame/Analysis/analysis-formatter';
 
-interface HurdleReviewProps {
-  onSelectHurdle: (hurdle: HurdleTable) => void;
+interface HurdleListProps {
+  onSelect: (hurdle: HurdleTable) => void;
+  selectedId: string | null;
 }
 
-export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
+export function HurdleList({ onSelect, selectedId }: HurdleListProps) {
   const [hurdles, setHurdles] = useState<HurdleTable[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
-    getUserHurdles().then(setHurdles).finally(() => setLoading(false));
+    getUserHurdles().then((fetched) => {
+      setHurdles(fetched);
+      if (fetched.length > 0 && !selectedId) {
+        onSelect(fetched[0]);
+      }
+    }).finally(() => setLoading(false));
   }, []);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
@@ -114,8 +119,7 @@ export function HurdleReview({ onSelectHurdle }: HurdleReviewProps) {
                 <AnalysisCard
                   item={item}
                   onClick={() => {
-                    setSelectedId(hurdle.id);
-                    onSelectHurdle(hurdle);
+                    onSelect(hurdle);
                   }}
                   isActive={isSelected}
                   onDelete={(e) => handleDelete(e, hurdle.id)}
