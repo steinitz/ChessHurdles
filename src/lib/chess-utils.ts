@@ -5,6 +5,8 @@ interface GameMove {
   move?: string;
   moveNumber?: number;
   isWhiteMove?: boolean;
+  from?: string;
+  to?: string;
 }
 
 /**
@@ -59,7 +61,9 @@ export function pgnToGameMoves(pgnString: string): {
           position: positionClone,
           move: moveResult.san,
           moveNumber,
-          isWhiteMove
+          isWhiteMove,
+          from: moveResult.from,
+          to: moveResult.to
         });
       }
     } catch (error) {

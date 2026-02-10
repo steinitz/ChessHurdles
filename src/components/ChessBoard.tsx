@@ -8,6 +8,7 @@ interface ChessBoardProps {
   boardSize?: string;
   showCoordinates?: boolean;
   customSquareStyles?: Record<string, any>;
+  boardOrientation?: 'white' | 'black';
 }
 
 export function ChessBoard({

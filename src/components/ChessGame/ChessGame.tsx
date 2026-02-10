@@ -19,6 +19,8 @@ interface GameMove {
   move?: string;
   moveNumber?: number;
   isWhiteMove?: boolean;
+  from?: string;
+  to?: string;
 }
 
 // Famous game: Kasparov vs Topalov, Wijk aan Zee 1999 (Kasparov's Immortal)
@@ -105,7 +107,9 @@ export function ChessGame({
             position: new Chess(newGame.fen()),
             move: moveResult.san,
             moveNumber,
-            isWhiteMove
+            isWhiteMove,
+            from: moveResult.from,
+            to: moveResult.to
           });
 
           if (!isWhiteMove) {
@@ -245,6 +249,14 @@ export function ChessGame({
                 boardSize={chessboardHeight}
                 showCoordinates={true}
                 boardOrientation={playerSide === 'b' ? 'black' : 'white'}
+                customSquareStyles={
+                  gameMoves[currentMoveIndex]?.from && gameMoves[currentMoveIndex]?.to
+                    ? {
+                      [gameMoves[currentMoveIndex].from!]: { backgroundColor: 'var(--color-move-highlight)' },
+                      [gameMoves[currentMoveIndex].to!]: { backgroundColor: 'var(--color-move-highlight)' }
+                    }
+                    : {}
+                }
               />
             )}
           </div>
