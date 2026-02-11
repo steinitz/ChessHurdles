@@ -193,6 +193,31 @@ export function PlayVsEngine() {
     };
   }, [isGameActive]);
 
+  // Keyboard Support: Enter key for primary overlay action
+  useEffect(() => {
+    if (!gameResult) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        if (gameResult.reason === 'Aborted') {
+          setGame(new Chess());
+          resetEngineState();
+          setGameResult(null);
+        } else {
+          // Primary action for completed: Analyze (or Sign In if not logged in)
+          if (savedGameId) {
+            navigate({ to: '/analysis', search: { gameId: savedGameId, autoAnalyze: true } });
+          } else if (!userId) {
+            navigate({ to: '/auth/signin' });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [gameResult, savedGameId, userId, navigate, resetEngineState]);
+
   // -- Modal State --
   const timeDialogRef = makeDialogRef();
   const [modalRole, setModalRole] = useState<'User' | 'Engine'>('User');
@@ -455,14 +480,14 @@ export function PlayVsEngine() {
         {/* Dialogs */}
         {showAbandonConfirm && (
           <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', zIndex: 20 }}>
-            <h3>Abandon current game?</h3>
+            <h3>Abandon</h3>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <button
                 onClick={() => {
                   setGameResult({ winner: 'Draw', reason: 'Aborted' });
                   setShowAbandonConfirm(false);
                 }}
-                style={{ backgroundColor: 'var(--color-error)' }}
+                style={{ backgroundColor: 'var(--color-error)', borderColor: 'var(--color-error)' }}
               >
                 Yes, Abandon
               </button>
@@ -480,7 +505,7 @@ export function PlayVsEngine() {
                   setGameResult({ winner: userSide === 'w' ? 'Black' : 'White', reason: 'Resignation' });
                   setShowResignConfirm(false);
                 }}
-                style={{ backgroundColor: 'var(--color-error)' }}
+                style={{ backgroundColor: 'var(--color-error)', borderColor: 'var(--color-error)' }}
               >Yes, Resign</button>
               <button onClick={() => setShowResignConfirm(false)}>Cancel</button>
             </div>
@@ -497,15 +522,43 @@ export function PlayVsEngine() {
                 : (gameResult.winner === 'Draw' ? 'Draw' : `${gameResult.winner} wins`) + ` by ${gameResult.reason}`
               }
             </div>
-            <button onClick={() => startNewGame()}>New Game</button>
-            {savedGameId ? (
-              <button onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId ?? undefined, autoAnalyze: true } })}>Analyze Game</button>
-            ) : (
-              // Only show sign in if NOT aborted (aborted doesn't save anyway)
-              (!session?.user && gameResult.reason !== 'Aborted') && (
-                <a href="/auth/signin" style={{ color: 'white', marginTop: '10px' }}>Sign In to Save</a>
-              )
-            )}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
+              {gameResult.reason === 'Aborted' ? (
+                <button
+                  onClick={() => {
+                    setGame(new Chess());
+                    resetEngineState();
+                    setGameResult(null);
+                  }}
+                  style={{ backgroundColor: 'var(--color-link)' }}
+                >OK</button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => startNewGame()}
+                    style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-link)', color: 'var(--color-text)' }}
+                  >Rematch</button>
+                  <button
+                    onClick={() => setGameResult(null)}
+                    style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-link)', color: 'var(--color-text)' }}
+                  >Close</button>
+                  {savedGameId ? (
+                    <button
+                      id="game-over-analyze-button"
+                      onClick={() => navigate({ to: '/analysis', search: { gameId: savedGameId, autoAnalyze: true } })}
+                      style={{ backgroundColor: 'var(--color-link)' }}
+                    >Analyze</button>
+                  ) : (
+                    !userId && (
+                      <button
+                        onClick={() => navigate({ to: '/auth/signin' })}
+                        style={{ backgroundColor: 'var(--color-link)' }}
+                      >Sign In to Analyze</button>
+                    )
+                  )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>
