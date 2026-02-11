@@ -79,9 +79,9 @@ export type WplClass = 'none' | 'inaccuracy' | 'mistake' | 'blunder';
 
 // WPL Thresholds
 export const WPL_THRESHOLDS = {
-  inaccuracy: 0.15, // Relaxed from 0.09
-  mistake: 0.25,    // Relaxed from 0.18
-  blunder: 0.45     // Kept same (high impact)
+  inaccuracy: 0.09,
+  mistake: 0.18,
+  blunder: 0.45
 };
 
 /** Classify move based on Win Probability Loss. */

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import ChessBoard from '~/components/ChessBoard';
 import { Spacer } from '~stzUtils/components/Spacer'
-import { pgnToGameMoves } from '~/lib/chess-utils';
+import { pgnToGameMoves, formatNiceDate } from '~/lib/chess-utils';
 import {
   initializeStockfishWorker,
   cleanupWorker
@@ -73,9 +73,9 @@ export function ChessGame({
   // Initialize description: prop > sample default
   const [gameDescription, setGameDescription] = useState(() => {
     if (description) {
-      return description + (date ? ` (${new Date(date).toLocaleDateString()})` : '');
+      return description + (date ? ` ${formatNiceDate(date)}` : '');
     }
-    return '"Kasparov\'s Immortal" - Navigate through this famous game';
+    return '"Kasparov\'s Immortal" Navigate through this famous game';
   });
   const [playerSide, setPlayerSide] = useState<'w' | 'b' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -180,10 +180,14 @@ export function ChessGame({
 
       // If we provided a title prop, don't overwrite it with "Unknown vs Unknown"
       if (!title) {
-        setGameTitle(`${white} vs ${black}`);
+        // Strip parentheses from engine levels if present (e.g. "(Level 5)" -> "Level 5")
+        const cleanWhite = white.replace(/^\((.+)\)$/, '$1');
+        const cleanBlack = black.replace(/^\((.+)\)$/, '$1');
+        setGameTitle(`${cleanWhite} vs ${cleanBlack}`);
+
         const event = result.headers?.Event || 'Chess Game';
         const pgnDate = result.headers?.Date || '';
-        setGameDescription(event + (pgnDate ? `, ${pgnDate}` : ''));
+        setGameDescription(event + (pgnDate ? ` ${formatNiceDate(pgnDate)}` : ''));
       }
 
       setError(null);
@@ -222,10 +226,19 @@ export function ChessGame({
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
 
   return (
-    <div className="flex flex-col md:flex-row gap-4 p-4 max-w-7xl mx-auto">
-      <header>
-        <h2>{gameTitle}</h2>
-        <p>{gameDescription}</p>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '0',
+      padding: '2rem 1rem 1rem 1rem',
+      maxWidth: '80rem',
+      margin: '0 auto'
+    }}>
+      {/* Negative margin pulls the board closer to the header text; exact cause of the persistent gap is unknown */}
+      <header style={{ marginBottom: '-2.0rem' }}>
+        <p style={{ margin: 0, fontWeight: 500 }}>
+          {gameTitle} {gameDescription}
+        </p>
       </header>
 
       <div style={{
@@ -234,13 +247,13 @@ export function ChessGame({
       }}>
         <div style={{
           display: 'flex',
-          gap: '1rem',
+          gap: '0',
           flexWrap: 'wrap',
           alignItems: 'flex-start',
           height: `calc(${chessboardHeight} + ${chessgameTransportHeight})`,
           overflow: 'hidden'
         }}>
-          <div>
+          <div style={{ margin: 0, padding: 0 }}>
             {isMounted && (
               <ChessBoard
                 key={currentMoveIndex}

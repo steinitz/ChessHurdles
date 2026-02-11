@@ -453,16 +453,16 @@ export default function GameAnalysis({
   }).length;
 
   return (
-    <div className="game-analysis-container">
-      <h3>Game Analysis</h3>
+    <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)', marginTop: '2rem' }}>
+      <h3 style={{ marginTop: 0 }}>Game Analysis</h3>
 
       {/* ... controls ... */}
-      <div className="analysis-controls mb-4">
+      <div style={{ marginBottom: '1rem' }}>
         {/* ... depth slider ... */}
-        <label htmlFor="depth-slider" className="block text-sm font-medium mb-1">
+        <label htmlFor="depth-slider" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem' }}>
           Analysis Depth used for "Analyze Entire Game": {moveAnalysisDepth}
         </label>
-        <div className="flex items-center gap-4">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <input
             id="depth-slider"
             type="range"
@@ -471,7 +471,14 @@ export default function GameAnalysis({
             value={moveAnalysisDepth}
             onChange={(e) => setMoveAnalysisDepth(Number(e.target.value))}
             disabled={isAnalyzingMoves || isCalibrating}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            className="depth-slider-input"
+            style={{
+              width: '100%',
+              height: '0.5rem',
+              backgroundColor: 'var(--color-bg-secondary)',
+              borderRadius: '0.5rem',
+              cursor: 'pointer'
+            }}
           />
         </div>
       </div>
@@ -479,7 +486,14 @@ export default function GameAnalysis({
       <div className="analysis-buttons" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'nowrap' }}>
         <button
           onClick={handleAnalyzeEntireGame}
-          className="btn-primary"
+          style={{
+            backgroundColor: 'var(--color-link)',
+            color: 'white',
+            border: 'none',
+            padding: '0.5rem 1rem',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
           disabled={isAnalyzingMoves || isCalibrating || gameMoves.length <= 1}
         >
           Analyze Game
@@ -490,11 +504,23 @@ export default function GameAnalysis({
         </button>
         <HelpTooltip content="Calibration adjusts the engine depth to match your device's speed for optimal analysis. You usually only need to run this once." />
         {(isAnalyzingMoves || isCalibrating) && (
-          <button onClick={cancelAnalysis} className="btn-danger">Stop</button>
+          <button
+            onClick={cancelAnalysis}
+            style={{
+              backgroundColor: '#ef4444',
+              color: 'white',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Stop
+          </button>
         )}
       </div>
 
-      <div className="analysis-output">
+      <div style={{ marginTop: '1rem' }}>
         <EvaluationGraph
           evaluations={currentEvaluations.filter(e => e !== null && !e.isPlaceholder)}
           totalMoves={gameMoves.length - 1} // Pass total plys
@@ -513,7 +539,18 @@ export default function GameAnalysis({
 
         {/* Analysis Progress Log */}
         {isAnalyzingMoves && moveAnalysisResults && (
-          <div className="analysis-progress mb-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono whitespace-pre-wrap max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700">
+          <div style={{
+            marginBottom: '0.5rem',
+            padding: '0.5rem',
+            backgroundColor: 'var(--color-bg-secondary)',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontFamily: 'monospace',
+            whiteSpace: 'pre-wrap',
+            maxHeight: '10rem',
+            overflowY: 'auto',
+            border: '1px solid var(--color-border)'
+          }}>
             {moveAnalysisResults}
           </div>
         )}

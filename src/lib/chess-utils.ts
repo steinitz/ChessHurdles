@@ -10,6 +10,16 @@ interface GameMove {
 }
 
 /**
+ * Formats a date string or Date object into a "nice" format: "10 Feb 2026"
+ */
+export function formatNiceDate(date: string | Date | undefined | null): string {
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
  * Parses a PGN string and returns GameMove objects with positions and moves
  * @param pgnString - PGN string to parse
  * @returns Object with gameMoves array, headers, and validation status

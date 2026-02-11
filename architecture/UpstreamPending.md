@@ -1,0 +1,1 @@
+allow user to change their name in the profile page

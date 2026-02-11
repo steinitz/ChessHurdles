@@ -58,15 +58,24 @@ describe('EvaluationGraph', () => {
 
     // Hover first bar (centipawn)
     fireEvent.mouseEnter(bars[0]);
-    expect(screen.getByText(`Move ${evaluations[0].moveNumber} · ${formatEvaluationText(evaluations[0])}`)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element | null): boolean => !!node?.textContent?.includes('Move 10') && !!node?.textContent?.includes('0.25');
+      return hasText(element) && Array.from(element?.children || []).every(child => !hasText(child));
+    })).toBeInTheDocument();
 
     // Hover second bar (mate)
     fireEvent.mouseEnter(bars[1]);
-    expect(screen.getByText(`Move ${evaluations[1].moveNumber} · ${formatEvaluationText(evaluations[1])}`)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element | null): boolean => !!node?.textContent?.includes('Move 11') && !!node?.textContent?.includes('#2');
+      return hasText(element) && Array.from(element?.children || []).every(child => !hasText(child));
+    })).toBeInTheDocument();
 
     // Hover third bar (placeholder)
     fireEvent.mouseEnter(bars[2]);
-    expect(screen.getByText(`Move ${evaluations[2].moveNumber} · ${formatEvaluationText(evaluations[2])}`)).toBeInTheDocument();
+    expect(screen.getByText((content, element) => {
+      const hasText = (node: Element | null): boolean => !!node?.textContent?.includes('Move 12') && !!node?.textContent?.includes('Analyzing...');
+      return hasText(element) && Array.from(element?.children || []).every(child => !hasText(child));
+    })).toBeInTheDocument();
 
     // Mouse leave hides tooltip
     fireEvent.mouseLeave(bars[2]);

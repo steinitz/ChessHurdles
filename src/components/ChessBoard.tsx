@@ -134,7 +134,9 @@ export function ChessBoard({
         width: boardSize,
         height: boardSize,
         maxWidth: '100%',
-        maxHeight: '80vh'
+        maxHeight: '80vh',
+        margin: 0,
+        padding: 0
       }}
     >
       <Chessboard

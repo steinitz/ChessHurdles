@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { getUserGames, deleteGameById } from '~/lib/server/games';
 import { GameTable } from '~/lib/chess-database';
+import { formatNiceDate } from '~/lib/chess-utils';
 
 interface GameListProps {
   initialGames?: GameTable[];
@@ -51,23 +52,29 @@ export function GameList({
   ];
 
   return (
-    <div className="p-4 border rounded bg-gray-50 mt-4">
+    <div style={{
+      padding: '1rem',
+      border: '1px solid var(--color-bg-secondary)',
+      borderRadius: '4px',
+      backgroundColor: 'var(--color-bg-secondary)',
+      marginTop: '1rem'
+    }}>
       {showReferenceGames && (
         <>
           {showTitle && <h3>Reference Games</h3>}
-          <ul className="list-disc pl-5 mb-4">
+          <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem', marginBottom: '1rem' }}>
             {REFERENCE_GAMES.map(game => (
-              <li key={game.id} className="mb-2">
-                <div className="flex justify-between items-center">
+              <li key={game.id} style={{ marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <strong>
-                      <a href={game.link} className="text-blue-600 hover:underline">
+                      <a href={game.link} style={{ color: 'var(--color-link)' }}>
                         {game.title}
                       </a>
                     </strong>
-                    {' '}- {new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {' '}- {formatNiceDate(game.created_at)}
                     <br />
-                    <span className="text-sm text-gray-600">{game.description}</span>
+                    <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>{game.description}</span>
                   </div>
                 </div>
               </li>
@@ -78,25 +85,32 @@ export function GameList({
 
       {showTitle && <h3>Saved Games</h3>}
       {games.length === 0 ? <p style={{ color: 'var(--color-text-secondary)' }}>No saved games.</p> : (
-        <ul className="list-disc pl-5">
+        <ul style={{ listStyleType: 'disc', paddingLeft: '1.25rem' }}>
           {games.map(game => (
-            <li key={game.id} className="mb-2">
-              <div className="flex justify-between items-center group">
+            <li key={game.id} style={{ marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                   <strong>
-                    <a href={`/?gameId=${game.id}`} className="text-blue-600 hover:underline">
+                    <a href={`/?gameId=${game.id}`} style={{ color: 'var(--color-link)' }}>
                       {game.title || 'Untitled Game'}
                     </a>
                   </strong>
-                  {' '}- {new Date(game.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {' '}- {formatNiceDate(game.created_at)}
                   <br />
-                  <span className="text-sm text-gray-600">
+                  <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
                     {game.description?.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}
                   </span>
                 </div>
                 <button
                   onClick={(e) => handleDelete(e, game.id)}
-                  className="ml-2 text-red-500 hover:text-red-700 px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{
+                    marginLeft: '0.5rem',
+                    color: '#ef4444',
+                    padding: '0.25rem 0.5rem',
+                    border: 'none',
+                    background: 'none',
+                    cursor: 'pointer'
+                  }}
                   title="Delete Game"
                 >
                   ✕

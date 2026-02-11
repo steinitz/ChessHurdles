@@ -17,10 +17,11 @@
 - **Scratchpad**: See `architecture/notes.md`.
 
 ## 💬 Communication Protocols
-- **Explicit Verification**: Never assume approval. The default answer to "should I proceed" is NO. Stop, present the state, and wait for explicit user direction.
+- **EXPLICIT VERIFICATION IS MANDATORY**: You are prone to "runaway coding." You MUST treat the lack of an approval keyword as a physical barrier. The default answer to "should I proceed" is NO.
+- **NO AMBIGUITY**: If the user says "Looks interesting" or "What if we did X?", you respond with information/clarification and then STOP. Do not transition to EXECUTION.
+- **OCD APPROVAL**: The user commits frequently because of your failures. You must match this level of caution. Every single file change must be preceded by a specific approval for that specific change set.
 - **Questions != Approval**: A user question (e.g., "What about X?") is NEVER permission to execute code. It is a request for information only.
 - **Engagement**: When pausing, ask open-ended questions about high-value improvements or strategic considerations.
-- **Signal-to-Noise**: Avoid trivial suggestions just to fill space. Only suggest improvements if they are "low hanging fruit" with clear value.
 
 npm is disabled. Use pnpm.
 
