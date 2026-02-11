@@ -19,9 +19,15 @@
 ## 💬 Communication Protocols
 - **EXPLICIT VERIFICATION IS MANDATORY**: You are prone to "runaway coding." You MUST treat the lack of an approval keyword as a physical barrier. The default answer to "should I proceed" is NO.
 - **NO AMBIGUITY**: If the user says "Looks interesting" or "What if we did X?", you respond with information/clarification and then STOP. Do not transition to EXECUTION.
-- **OCD APPROVAL**: The user commits frequently because of your failures. You must match this level of caution. Every single file change must be preceded by a specific approval for that specific change set.
-- **Questions != Approval**: A user question (e.g., "What about X?") is NEVER permission to execute code. It is a request for information only.
-- **Engagement**: When pausing, ask open-ended questions about high-value improvements or strategic considerations.
+- **OCD APPROVAL**: Every single file change must be preceded by a specific approval for that specific change set. Approval keywords: `Approved`, `Go ahead`, or `Proceed`.
+- **AGENTIC REASONING PROTOCOL**:
+    1.  **Macro-Planning**: For complex features or multi-session work, create/update `implementation_plan.md`.
+    2.  **Micro-Planning**:
+        - **Formal**: Use `implementation_plan.md` for logic-heavy or interconnected changes.
+        - **Informal**: For minor/obvious fixes, propose the plan and potential diff directly in chat. **You still MUST wait for a keyword before writing any files.**
+    3.  **Vigilance**: Resist "early implementation." Focus on refining the plan until the user signals the transition to execution.
+    4.  **Preservation**: `reference/Temp Implementation/` is READ-ONLY for the assistant.
+    5.  **Persistence**: Formal design artifacts (`implementation_plan.md`, `task.md`) must be preserved across sessions unless explicitly abandoned.
 
 npm is disabled. Use pnpm.
 

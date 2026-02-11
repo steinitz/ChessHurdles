@@ -130,19 +130,18 @@ export function PlayVsEngine() {
 
   // 2. Engine Hook
   const onEngineMove = useCallback(({ from, to, promotion }: { from: string; to: string; promotion?: string }) => {
-    setGame(prev => {
-      const next = cloneGame(prev);
-      try {
-        next.move({ from, to, promotion: promotion || 'q' });
-        // Engine played. If User is White (Engine Black), add Black increment.
-        if (userSide === 'w') addIncrement('b');
-        else addIncrement('w');
-      } catch (e) {
-        console.error('Failed to apply engine move:', from, to, e);
-      }
-      return next;
-    });
-  }, [userSide, addIncrement]);
+    try {
+      const next = cloneGame(game);
+      next.move({ from, to, promotion: promotion || 'q' });
+      setGame(next);
+
+      // Engine played. If User is White (Engine Black), add Black increment.
+      if (userSide === 'w') addIncrement('b');
+      else addIncrement('w');
+    } catch (e) {
+      console.error('Failed to apply engine move:', from, to, e);
+    }
+  }, [game, userSide, addIncrement]);
 
   const {
     lastMoveSource,
@@ -363,17 +362,16 @@ export function PlayVsEngine() {
 
   const onMove = useCallback((moveSan: string) => {
     if (game.turn() !== userSide || gameResult) return;
-    setGame((prevGame) => {
-      try {
-        const newGame = cloneGame(prevGame);
-        if (newGame.move(moveSan)) {
-          if (userSide === 'w') addIncrement('w');
-          else addIncrement('b');
-          return newGame;
-        }
-        return prevGame;
-      } catch (e) { return prevGame; }
-    });
+    try {
+      const next = cloneGame(game);
+      if (next.move(moveSan)) {
+        setGame(next);
+        if (userSide === 'w') addIncrement('w');
+        else addIncrement('b');
+      }
+    } catch (e) {
+      console.error('Failed to apply move:', moveSan, e);
+    }
   }, [game, gameResult, userSide, addIncrement]);
 
   const toggleZenMode = useCallback(() => {
@@ -441,7 +439,7 @@ export function PlayVsEngine() {
           timeMs={userSide === 'w' ? blackTime : whiteTime}
           isActive={game.turn() === (userSide === 'w' ? 'b' : 'w') && !gameResult}
           side={userSide === 'w' ? "Black" : "White"}
-          onClick={() => handleClockClick(userSide === 'w' ? 'Black' : 'White')}
+          onClick={!isGameActive ? () => handleClockClick(userSide === 'w' ? 'Black' : 'White') : undefined}
         />
       </div>
 
@@ -569,7 +567,7 @@ export function PlayVsEngine() {
           isActive={game.turn() === userSide && !gameResult}
           side={userSide === 'w' ? "White" : "Black"}
           isLowTime={(userSide === 'w' ? whiteTime : blackTime) < 60000}
-          onClick={() => handleClockClick(userSide === 'w' ? 'White' : 'Black')}
+          onClick={!isGameActive ? () => handleClockClick(userSide === 'w' ? 'White' : 'Black') : undefined}
         />
       </div>
 
