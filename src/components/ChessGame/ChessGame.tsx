@@ -48,6 +48,9 @@ export function ChessGame({
   title,
   date,
   description,
+  result,
+  userEloBefore,
+  userEloAfter,
   whiteId,
   blackId
 }: {
@@ -57,6 +60,9 @@ export function ChessGame({
   title?: string;
   date?: string;
   description?: string;
+  result?: string | null;
+  userEloBefore?: number | null;
+  userEloAfter?: number | null;
   whiteId?: string | null;
   blackId?: string | null;
 }) {
@@ -90,8 +96,19 @@ export function ChessGame({
     }
   }, [title, formatGameTitle]);
 
-  // Initialize description: prop > sample default
+  // Initialize description: prop > sample default (Step 2b: support structured fields)
   const [gameDescription, setGameDescription] = useState(() => {
+    // New structured fields take precedence
+    if (result || (userEloBefore !== null && userEloBefore !== undefined)) {
+      const parts: string[] = [];
+      if (result) parts.push(result);
+      if (userEloBefore !== null && userEloBefore !== undefined && userEloAfter !== null && userEloAfter !== undefined) {
+        parts.push(`Elo: ${userEloBefore} → ${userEloAfter}`);
+      }
+      if (date) parts.push(formatNiceDate(date));
+      return parts.join(' • ');
+    }
+    // Fallback to description for old games
     if (description) {
       return description + (date ? ` ${formatNiceDate(date)}` : '');
     }

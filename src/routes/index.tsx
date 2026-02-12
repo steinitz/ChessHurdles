@@ -54,6 +54,9 @@ function Home() {
         title={gameDetails?.title}
         date={gameDetails?.created_at}
         description={gameDetails?.description}
+        result={gameDetails?.result}
+        userEloBefore={gameDetails?.user_elo_before}
+        userEloAfter={gameDetails?.user_elo_after}
         whiteId={gameDetails?.white_id}
         blackId={gameDetails?.black_id}
         onHurdleSaved={handleHurdleSaved}
