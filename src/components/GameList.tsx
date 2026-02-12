@@ -95,7 +95,20 @@ export function GameList({
                   {' '}- {formatNiceDate(game.created_at)}
                   <br />
                   <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                    {game.description?.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}
+                    {/* New structured fields (Step 2a) */}
+                    {game.result && (
+                      <>
+                        <strong>{game.result}</strong>
+                        {game.user_elo_before !== null && game.user_elo_after !== null && ' • '}
+                      </>
+                    )}
+                    {game.user_elo_before !== null && game.user_elo_after !== null && (
+                      <span>Elo: {game.user_elo_before} → {game.user_elo_after}</span>
+                    )}
+                    {/* Fallback for old games with only description */}
+                    {!game.result && game.description && (
+                      <span>{game.description.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}</span>
+                    )}
                   </span>
                 </div>
                 <button
