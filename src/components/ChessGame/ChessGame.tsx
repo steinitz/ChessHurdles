@@ -69,8 +69,26 @@ export function ChessGame({
   // Analysis Summary State for Navigation
   const [analysisSummary, setAnalysisSummary] = useState<{ moveIndex: number; classification: string; isWhiteMove: boolean }[]>([]);
 
+  // Helper to format title (strip parens, capitalize)
+  const formatGameTitle = useCallback((rawTitle: string) => {
+    // Strip parentheses from "Stockfish (Level N)" -> "Stockfish Level N"
+    let formatted = rawTitle.replace(/\((Level\s+\d+)\)/gi, ' $1').trim();
+    // Capitalize first letter
+    if (formatted.length > 0) {
+      formatted = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+    return formatted;
+  }, []);
+
   // Initialize title: prop > sample default
-  const [gameTitle, setGameTitle] = useState(title || 'Kasparov vs Topalov, Wijk aan Zee 1999');
+  const [gameTitle, setGameTitle] = useState(formatGameTitle(title || 'Kasparov vs Topalov, Wijk aan Zee 1999'));
+
+  // Sync title prop if it changes
+  useEffect(() => {
+    if (title) {
+      setGameTitle(formatGameTitle(title));
+    }
+  }, [title, formatGameTitle]);
 
   // Initialize description: prop > sample default
   const [gameDescription, setGameDescription] = useState(() => {
@@ -182,10 +200,15 @@ export function ChessGame({
 
       // If we provided a title prop, don't overwrite it with "Unknown vs Unknown"
       if (!title) {
-        // Strip parentheses from engine levels if present (e.g. "(Level 5)" -> "Level 5")
-        const cleanWhite = white.replace(/^\((.+)\)$/, '$1');
-        const cleanBlack = black.replace(/^\((.+)\)$/, '$1');
-        setGameTitle(`${cleanWhite} vs ${cleanBlack}`);
+        // Strip parentheses from engine levels if present (e.g. "Stockfish (Level 5)" -> "Stockfish Level 5")
+        const cleanWhite = white.replace(/\((Level\s+\d+)\)/gi, '$1').trim();
+        const cleanBlack = black.replace(/\((Level\s+\d+)\)/gi, '$1').trim();
+
+        let rawTitle = `${cleanWhite} vs ${cleanBlack}`;
+        // Capitalize the first letter of the title
+        rawTitle = rawTitle.charAt(0).toUpperCase() + rawTitle.slice(1);
+
+        setGameTitle(rawTitle);
 
         const event = result.headers?.Event || 'Chess Game';
         const pgnDate = result.headers?.Date || '';
@@ -302,7 +325,7 @@ export function ChessGame({
             textOverflow: 'ellipsis',
             minWidth: 0,
           }}>
-            <span>{gameTitle.charAt(0).toUpperCase() + gameTitle.slice(1)}</span>
+            <span>{gameTitle}</span>
             <span style={{ display: 'inline-block', width: '1.5rem' }}></span>
             <span style={{ fontWeight: 400, opacity: 0.8 }}>{gameDescription}</span>
           </p>
