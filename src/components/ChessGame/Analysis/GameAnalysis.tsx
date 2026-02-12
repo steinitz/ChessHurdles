@@ -454,11 +454,78 @@ export default function GameAnalysis({
 
   return (
     <div style={{ padding: '1rem', borderTop: '1px solid var(--color-border)', marginTop: '2rem' }}>
-      <h3 style={{ marginTop: 0 }}>Game Analysis</h3>
 
-      {/* ... controls ... */}
+      {/* Controls for Analysis List */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <span style={{ color: 'var(--color-text-secondary)' }}>
+          {filteredCount} {filteredCount === 1 ? 'inaccuracy' : 'inaccuracies'} found
+        </span>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <MiniButton
+            onClick={() => setIsExpanded(!isExpanded)}
+            title="Toggle Full Height"
+          >
+            {isExpanded ? 'Collapse' : 'Expand'}
+          </MiniButton>
+        </div>
+      </div>
+
+      <div style={{
+        height: isExpanded ? '70vh' : '300px',
+        minHeight: '150px',
+        maxHeight: '80vh',
+        overflowY: 'auto',
+        resize: 'vertical',
+        border: '1px solid var(--color-border)',
+        borderRadius: '4px',
+        transition: 'height 0.2s ease-in-out',
+        marginBottom: '1rem'
+      }}>
+        <AnalysisList
+          items={structuredAnalysis}
+          onMoveClick={(analysisIndex) => {
+            const item = structuredAnalysis[analysisIndex];
+            if (!item) {
+              console.warn("[Analysis] No item at index", analysisIndex);
+              return;
+            }
+
+            const matchIndex = item.absoluteMoveIndex;
+
+            console.log("[Analysis] Clicked:", item.moveLabel, item.moveSan, "AbsoluteIndex:", matchIndex, "CurrentIndex:", currentMoveIndex);
+
+            if (matchIndex >= 0 && matchIndex < gameMoves.length) {
+              goToMove(matchIndex);
+            } else {
+              console.warn("[Analysis] absoluteMoveIndex out of bounds", item);
+            }
+          }}
+          hideInaccuracies={false}
+          currentMoveIndex={currentMoveIndex}
+        />
+      </div>
+
+      {/* Analysis Progress Log */}
+      {isAnalyzingMoves && moveAnalysisResults && (
+        <div style={{
+          marginBottom: '0.5rem',
+          padding: '0.5rem',
+          backgroundColor: 'var(--color-bg-secondary)',
+          borderRadius: '4px',
+          fontSize: '0.75rem',
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap',
+          maxHeight: '10rem',
+          overflowY: 'auto',
+          border: '1px solid var(--color-border)'
+        }}>
+          {moveAnalysisResults}
+        </div>
+      )}
+
+      {/* Depth Slider */}
       <div style={{ marginBottom: '1rem' }}>
-        {/* ... depth slider ... */}
         <label htmlFor="depth-slider" style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.25rem' }}>
           Analysis Depth used for "Analyze Entire Game": {moveAnalysisDepth}
         </label>
@@ -486,14 +553,6 @@ export default function GameAnalysis({
       <div className="analysis-buttons" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'nowrap' }}>
         <button
           onClick={handleAnalyzeEntireGame}
-          style={{
-            backgroundColor: 'var(--color-link)',
-            color: 'white',
-            border: 'none',
-            padding: '0.5rem 1rem',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
           disabled={isAnalyzingMoves || isCalibrating || gameMoves.length <= 1}
         >
           Analyze Game
@@ -536,78 +595,6 @@ export default function GameAnalysis({
           }}
         />
         <div style={{ height: '1rem' }} />
-
-        {/* Analysis Progress Log */}
-        {isAnalyzingMoves && moveAnalysisResults && (
-          <div style={{
-            marginBottom: '0.5rem',
-            padding: '0.5rem',
-            backgroundColor: 'var(--color-bg-secondary)',
-            borderRadius: '4px',
-            fontSize: '0.75rem',
-            fontFamily: 'monospace',
-            whiteSpace: 'pre-wrap',
-            maxHeight: '10rem',
-            overflowY: 'auto',
-            border: '1px solid var(--color-border)'
-          }}>
-            {moveAnalysisResults}
-          </div>
-        )}
-
-        {/* Controls for Analysis List */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-          <span style={{ color: 'var(--color-text-secondary)' }}>
-            {filteredCount} {filteredCount === 1 ? 'inaccuracy' : 'inaccuracies'} found
-          </span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <MiniButton
-              onClick={() => setIsExpanded(!isExpanded)}
-              title="Toggle Full Height"
-            >
-              {isExpanded ? 'Collapse' : 'Expand'}
-            </MiniButton>
-          </div>
-        </div>
-
-        <div style={{
-          height: isExpanded ? '70vh' : '300px',
-          minHeight: '150px',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          resize: 'vertical',
-          border: '1px solid var(--color-border)',
-          borderRadius: '4px',
-          transition: 'height 0.2s ease-in-out'
-        }}>
-          <AnalysisList
-            items={structuredAnalysis}
-            onMoveClick={(analysisIndex) => {
-              const item = structuredAnalysis[analysisIndex];
-              if (!item) {
-                console.warn("[Analysis] No item at index", analysisIndex);
-                return;
-              }
-
-              const matchIndex = item.absoluteMoveIndex;
-
-              console.log("[Analysis] Clicked:", item.moveLabel, item.moveSan, "AbsoluteIndex:", matchIndex, "CurrentIndex:", currentMoveIndex);
-
-              if (matchIndex >= 0 && matchIndex < gameMoves.length) {
-                goToMove(matchIndex);
-              } else {
-                console.warn("[Analysis] absoluteMoveIndex out of bounds", item);
-              }
-            }}
-            hideInaccuracies={false}
-            currentMoveIndex={currentMoveIndex}
-          />
-        </div>
-
-        {/* Hidden debug text area (or removed entirely?) 
-            User replaced it. I'll remove it.
-        */}
       </div>
     </div >
   );

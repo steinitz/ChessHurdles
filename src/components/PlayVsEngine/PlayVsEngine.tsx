@@ -364,7 +364,7 @@ export function PlayVsEngine() {
             black_id: userSide === 'b' ? userId : `stockfish-lvl-${engineLevel}`,
             difficulty_rating: engineElo,
             is_favorite: false,
-            title: `${session?.user?.name || 'Player'} vs Stockfish (Level ${engineLevel})`,
+            title: `${session?.user?.name || 'Player'} vs Stockfish Level ${engineLevel}`,
             description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'}  Elo: ${userElo} -> ${newElo}`,
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
@@ -454,7 +454,7 @@ export function PlayVsEngine() {
             {!zenMode && "Play vs Stockfish"}
             {lastMoveSource && (
               <small style={{ marginLeft: '8px', fontWeight: 'normal', opacity: 0.8 }}>
-                {lastMoveSource === 'Book' ? '(Book Move)' : `(Engine Lvl ${engineLevel})`}
+                {lastMoveSource === 'Book' ? 'Book Move' : `Engine Level ${engineLevel}`}
               </small>
             )}
           </h2>

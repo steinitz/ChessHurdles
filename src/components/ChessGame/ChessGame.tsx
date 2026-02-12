@@ -10,8 +10,8 @@ import {
 import { useSession } from '~stzUser/lib/auth-client';
 import GameAnalysis from './Analysis/GameAnalysis';
 import GameMoves from './GameMoves';
-import GameSaver from './GameSaver';
 import GameNavigation from './GameNavigation';
+import { saveHurdle as saveHurdleServer } from '~/lib/server/hurdles';
 import { CHESSBOARD_WIDTH } from '~/constants';
 
 interface GameMove {
@@ -63,6 +63,8 @@ export function ChessGame({
   const [game, setGame] = useState(() => new Chess());
   const [gameMoves, setGameMoves] = useState<GameMove[]>([{ position: new Chess() }]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   // Analysis Summary State for Navigation
   const [analysisSummary, setAnalysisSummary] = useState<{ moveIndex: number; classification: string; isWhiteMove: boolean }[]>([]);
@@ -221,6 +223,49 @@ export function ChessGame({
     setAnalysisSummary(summary);
   }, []);
 
+  const handleSaveHurdle = useCallback(async () => {
+    if (!session?.user?.id) {
+      setSaveMessage('Please sign in to save hurdles');
+      setTimeout(() => setSaveMessage(null), 3000);
+      return;
+    }
+
+    if (currentMoveIndex === 0) {
+      setSaveMessage('Cannot save starting position as hurdle');
+      setTimeout(() => setSaveMessage(null), 3000);
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const preMovePosition = gameMoves[currentMoveIndex - 1]?.position.fen();
+      const currentMove = gameMoves[currentMoveIndex]?.move;
+
+      if (!preMovePosition) return;
+
+      await saveHurdleServer({
+        data: {
+          fen: preMovePosition,
+          title: `${gameTitle} - Move ${currentMoveIndex}`,
+          moveNumber: currentMoveIndex,
+          playedMove: currentMove,
+          aiDescription: `Position after ${currentMove}`,
+        } as any
+      });
+
+      setSaveMessage('Hurdle saved!');
+      setTimeout(() => setSaveMessage(null), 3000);
+    } catch (error) {
+      console.error('Error saving hurdle:', error);
+      setSaveMessage('Failed to save hurdle');
+      setTimeout(() => setSaveMessage(null), 5000);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [session?.user?.id, currentMoveIndex, gameMoves, gameTitle]);
+
   const chessboardHeight = CHESSBOARD_WIDTH // allows game nav buttons to be comfortably on screen
   const containerWidth = `${chessboardHeight}` // wrapping avoids a typescript error - better way to fix?
   const chessgameTransportHeight = '8vh' // tall enough for the mvp.css default buttons
@@ -235,10 +280,46 @@ export function ChessGame({
       margin: '0 auto'
     }}>
       {/* Negative margin pulls the board closer to the header text; exact cause of the persistent gap is unknown */}
-      <header style={{ marginBottom: '-2.0rem' }}>
-        <p style={{ margin: 0, fontWeight: 500 }}>
-          {gameTitle} {gameDescription}
-        </p>
+      <header style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        width: containerWidth,
+        margin: '0 auto -2.0rem auto',
+      }}>
+        <div style={{
+          display: 'flex',
+          flex: 1,
+          overflow: 'hidden',
+          marginRight: '1rem',
+          justifyContent: 'flex-start'
+        }}>
+          <p style={{
+            margin: 0,
+            textAlign: 'left',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            minWidth: 0,
+          }}>
+            <span>{gameTitle.charAt(0).toUpperCase() + gameTitle.slice(1)}</span>
+            <span style={{ display: 'inline-block', width: '1.5rem' }}></span>
+            <span style={{ fontWeight: 400, opacity: 0.8 }}>{gameDescription}</span>
+          </p>
+        </div>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          flex: '0 0 auto',
+          marginLeft: 'auto',
+        }}>
+          <p style={{
+            margin: 0,
+            whiteSpace: 'nowrap'
+          }}>
+            Move {currentMoveIndex} of {gameMoves.length - 1}
+          </p>
+        </div>
       </header>
 
       <div style={{
@@ -281,57 +362,22 @@ export function ChessGame({
             containerHeight={chessgameTransportHeight}
             analysisSummary={analysisSummary}
             playerSide={playerSide}
+            onSaveHurdle={handleSaveHurdle}
+            isSaving={isSaving}
           />
         </div>
 
-        {/* Save functionality section - moved below board */}
-        {isMounted && session?.user && (
+        {saveMessage && (
           <div style={{
-            marginTop: '1rem',
-            marginBottom: '1rem',
+            textAlign: 'center',
             padding: '0.5rem',
-            border: '1px solid var(--color-bg-secondary)',
-            borderRadius: '4px',
-            width: '100%'
+            color: saveMessage.includes('Failed') || saveMessage.includes('sign in') ? 'var(--color-error)' : 'var(--color-success)',
+            fontSize: '0.9rem',
+            fontWeight: 500
           }}>
-            <GameSaver
-              game={game}
-              gameMoves={gameMoves}
-              gameTitle={gameTitle}
-              gameDescription={gameDescription}
-              currentMoveIndex={currentMoveIndex}
-            />
+            {saveMessage}
           </div>
         )}
-
-        {isMounted && !session?.user && (
-          <div style={{
-            marginTop: '1rem',
-            marginBottom: '1rem',
-            padding: '0.5rem',
-            border: '1px solid var(--color-bg-secondary)',
-            borderRadius: '4px',
-            width: '100%',
-            textAlign: 'center'
-          }}>
-            <p style={{ margin: '0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
-              <a href="/auth/signin">Sign in</a> to save games and positions
-            </p>
-          </div>
-        )}
-
-        <p>Move {currentMoveIndex} of {gameMoves.length - 1}</p>
-
-        <GameMoves
-          gameMoves={gameMoves}
-          currentMoveIndex={currentMoveIndex}
-          goToMove={goToMove}
-        />
-
-        {/* PositionAnalysis removed to prioritize Game Analysis visibility */}
-
-        {/* Game Analysis Section - constrained to chessboard container width */}
-        {/* Game Analysis Section - constrained to chessboard container width */}
         <GameAnalysis
           gameMoves={gameMoves}
           goToMove={goToMove}
@@ -341,10 +387,16 @@ export function ChessGame({
           currentMoveIndex={currentMoveIndex}
           onAnalysisUpdate={handleAnalysisUpdate}
         />
+
+        <GameMoves
+          gameMoves={gameMoves}
+          currentMoveIndex={currentMoveIndex}
+          goToMove={goToMove}
+        />
       </div>
 
 
-    </div>
+    </div >
   );
 }
 

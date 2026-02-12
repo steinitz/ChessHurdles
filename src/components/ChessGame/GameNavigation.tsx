@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
+import { HelpTooltip } from '~/components/ui/HelpTooltip';
 
 interface GameNavigationProps {
   currentMoveIndex: number;
@@ -7,6 +8,8 @@ interface GameNavigationProps {
   containerHeight?: string;
   analysisSummary?: { moveIndex: number; classification: string; isWhiteMove: boolean }[];
   playerSide?: 'w' | 'b' | null;
+  onSaveHurdle?: () => void;
+  isSaving?: boolean;
 }
 
 export default function GameNavigation({
@@ -15,7 +18,9 @@ export default function GameNavigation({
   goToMove,
   containerHeight = '8vh',
   analysisSummary,
-  playerSide
+  playerSide,
+  onSaveHurdle,
+  isSaving
 }: GameNavigationProps) {
 
   const goToPreviousMove = useCallback(() => {
@@ -123,6 +128,25 @@ export default function GameNavigation({
         >
           ⏭
         </button>
+
+        {/* Hurdle + */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '0.5rem' }}>
+          <button
+            onClick={onSaveHurdle}
+            disabled={isSaving || currentMoveIndex === 0}
+            style={{
+              padding: '0.5rem',
+              whiteSpace: 'nowrap',
+              backgroundColor: 'var(--color-bg)',
+              borderColor: 'var(--color-link)',
+              color: 'var(--color-text)',
+              minWidth: 'auto'
+            }}
+          >
+            {isSaving ? '...' : 'Hurdle +'}
+          </button>
+          <HelpTooltip content="Save this specific position as a Hurdle to review later." />
+        </div>
       </div>
     </div>
   );

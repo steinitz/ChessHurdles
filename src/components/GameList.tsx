@@ -54,9 +54,6 @@ export function GameList({
   return (
     <div style={{
       padding: '1rem',
-      border: '1px solid var(--color-bg-secondary)',
-      borderRadius: '4px',
-      backgroundColor: 'var(--color-bg-secondary)',
       marginTop: '1rem'
     }}>
       {showReferenceGames && (

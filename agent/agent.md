@@ -25,9 +25,10 @@
     2.  **Micro-Planning**:
         - **Formal**: Use `implementation_plan.md` for logic-heavy or interconnected changes.
         - **Informal**: For minor/obvious fixes, propose the plan and potential diff directly in chat. **You still MUST wait for a keyword before writing any files.**
-    3.  **Vigilance**: Resist "early implementation." Focus on refining the plan until the user signals the transition to execution.
-    4.  **Preservation**: `reference/Temp Implementation/` is READ-ONLY for the assistant.
-    5.  **Persistence**: Formal design artifacts (`implementation_plan.md`, `task.md`) must be preserved across sessions unless explicitly abandoned.
+    3.  **NO PARALLEL EXECUTION**: You are strictly forbidden from calling any code-modifying tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) in the same response where you have updated a plan (formal or informal) or received a new requirement. You MUST use `notify_user` to request approval and wait for the next turn. This ensures a Mandatory Human-in-the-Loop checkpoint that you cannot bypass in a single "runaway" thought process.
+    4.  **Vigilance**: Resist "early implementation." Focus on refining the plan until the user signals the transition to execution.
+    5.  **Preservation**: `reference/Temp Implementation/` is READ-ONLY for the assistant.
+    6.  **Persistence**: Formal design artifacts (`implementation_plan.md`, `task.md`) must be preserved across sessions unless explicitly abandoned.
 
 npm is disabled. Use pnpm.
 
