@@ -14,7 +14,7 @@ export interface GameTable {
   white_id: string | null;
   black_id: string | null;
   title: string | null;
-  description: string | null; // DEPRECATED: Keep during migration for backwards compatibility (Step 1d)
+  // description: string | null; // DEPRECATED: Ghost column for backwards compatibility (Step 2c)
   pgn: string;
   game_type: 'game' | 'study' | 'analysis';
   difficulty_rating: number | null;

@@ -101,14 +101,14 @@ export function ChessGame({
     // New structured fields take precedence
     if (result || (userEloBefore !== null && userEloBefore !== undefined)) {
       const parts: string[] = [];
-      if (result) parts.push(result);
+      if (result) parts.push(`Result ${result}`);
       if (userEloBefore !== null && userEloBefore !== undefined && userEloAfter !== null && userEloAfter !== undefined) {
-        parts.push(`Elo: ${userEloBefore} → ${userEloAfter}`);
+        parts.push(`Elo ${userEloBefore} → ${userEloAfter}`);
       }
       if (date) parts.push(formatNiceDate(date));
-      return parts.join(' • ');
+      return parts.join(' \u00A0 \u00A0 '); // this makes a space of maybe 3 or 4 ems
     }
-    // Fallback to description for old games
+    // Fallback to description for old games - this may be no longer needed since the migration script updates the database
     if (description) {
       return description + (date ? ` ${formatNiceDate(date)}` : '');
     }

@@ -106,8 +106,8 @@ export function GameList({
                       <span>Elo: {game.user_elo_before} → {game.user_elo_after}</span>
                     )}
                     {/* Fallback for old games with only description */}
-                    {!game.result && game.description && (
-                      <span>{game.description.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}</span>
+                    {!game.result && (game as any).description && (
+                      <span>{(game as any).description.replace(/\s*\((White|Black|Draw)\)/g, '').replace(/\.\s*Elo:/, '\u00A0Elo:')}</span>
                     )}
                   </span>
                 </div>

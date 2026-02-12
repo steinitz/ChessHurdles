@@ -376,8 +376,6 @@ export function PlayVsEngine() {
             user_elo_before: userElo,
             user_elo_after: newElo,
             result: score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1',
-            // Legacy field (backwards compatibility during migration)
-            description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'}  Elo: ${userElo} -> ${newElo}`,
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }
         })
