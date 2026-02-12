@@ -14,12 +14,15 @@ export interface GameTable {
   white_id: string | null;
   black_id: string | null;
   title: string | null;
-  description: string | null;
+  description: string | null; // DEPRECATED: Keep during migration for backwards compatibility (Step 1d)
   pgn: string;
   game_type: 'game' | 'study' | 'analysis';
   difficulty_rating: number | null;
   tags: string | null; // JSON array of tags
   is_favorite: boolean;
+  user_elo_before: number | null;
+  user_elo_after: number | null;
+  result: string | null; // '1-0', '0-1', '1/2-1/2'
   created_at: string;
   updated_at: string;
 }

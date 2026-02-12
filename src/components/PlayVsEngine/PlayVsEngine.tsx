@@ -130,9 +130,16 @@ export function PlayVsEngine() {
 
   // 2. Engine Hook
   const onEngineMove = useCallback(({ from, to, promotion }: { from: string; to: string; promotion?: string }) => {
+    // Guard: Ignore engine moves if game is over
+    if (gameResult) {
+      console.log('Ignoring engine move - game already ended');
+      return;
+    }
+
     try {
       const next = cloneGame(game);
-      next.move({ from, to, promotion: promotion || 'q' });
+      // Only include promotion if actually provided (fixes knight move bug)
+      next.move({ from, to, ...(promotion && { promotion }) });
       setGame(next);
 
       // Engine played. If User is White (Engine Black), add Black increment.
@@ -141,7 +148,7 @@ export function PlayVsEngine() {
     } catch (e) {
       console.error('Failed to apply engine move:', from, to, e);
     }
-  }, [game, userSide, addIncrement]);
+  }, [game, userSide, addIncrement, gameResult]);
 
   const {
     lastMoveSource,
@@ -365,6 +372,11 @@ export function PlayVsEngine() {
             difficulty_rating: engineElo,
             is_favorite: false,
             title: `${session?.user?.name || 'Player'} vs Stockfish Level ${engineLevel}`,
+            // New structured fields (Step 1d)
+            user_elo_before: userElo,
+            user_elo_after: newElo,
+            result: score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1',
+            // Legacy field (backwards compatibility during migration)
             description: `Result: ${score === 1 ? '1-0' : score === 0.5 ? '1/2-1/2' : '0-1'}  Elo: ${userElo} -> ${newElo}`,
             tags: JSON.stringify({ engineLevel, result: gameResult.winner })
           }

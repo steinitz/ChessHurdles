@@ -1,5 +1,6 @@
 import { chessDb } from './chess-database';
 import { sql } from 'kysely';
+import { parseGameDescription } from './chess-migration-parser';
 
 /**
  * Chess Database Migration System
@@ -39,12 +40,15 @@ export async function ensureChessTables(): Promise<void> {
       .addColumn('white_id', 'text')
       .addColumn('black_id', 'text')
       .addColumn('title', 'text')
-      .addColumn('description', 'text')
+      // .addColumn('description', 'text') // Removed for new databases
       .addColumn('pgn', 'text', (col) => col.notNull())
       .addColumn('game_type', 'text', (col) => col.notNull().defaultTo('game'))
       .addColumn('difficulty_rating', 'integer')
       .addColumn('tags', 'text') // JSON array
       .addColumn('is_favorite', 'boolean', (col) => col.notNull().defaultTo(false))
+      .addColumn('user_elo_before', 'integer')
+      .addColumn('user_elo_after', 'integer')
+      .addColumn('result', 'text')
       .addColumn('created_at', 'text', (col) => col.notNull())
       .addColumn('updated_at', 'text', (col) => col.notNull())
       .execute();
@@ -118,6 +122,10 @@ export async function ensureChessTables(): Promise<void> {
     await ensureHurdleColumns();
     await ensureGameIdentityColumns();
     await ensureUserStatsColumns();
+
+    // New migrations for "First Class Description Fields" refactor
+    await ensureGameColumns();
+    await backfillGameData();
 
   } catch (error) {
     console.error('❌ Error ensuring chess tables:', error);
@@ -256,6 +264,100 @@ async function ensureUserStatsColumns(): Promise<void> {
     console.log('✅ user_stats schema verification complete');
   } catch (error) {
     console.error('❌ Error ensuring user_stats columns:', error);
+  }
+}
+
+/**
+ * Ensures game table has the new first-class columns (Migration)
+ */
+async function ensureGameColumns(): Promise<void> {
+  try {
+    console.log('🔄 Checking for missing game columns (elo, result)...');
+
+    const tables = await chessDb.introspection.getTables();
+    const gamesTable = tables.find(t => t.name === 'games');
+
+    if (!gamesTable) {
+      console.log('⚠️ Games table missing during column check');
+      return;
+    }
+
+    const existingColumns = gamesTable.columns.map(c => c.name);
+    const newColumns = [
+      { name: 'user_elo_before', type: 'integer' },
+      { name: 'user_elo_after', type: 'integer' },
+      { name: 'result', type: 'text' }
+    ];
+
+    for (const col of newColumns) {
+      if (!existingColumns.includes(col.name)) {
+        console.log(`➕ Adding missing column: ${col.name}`);
+        await chessDb.schema
+          .alterTable('games')
+          .addColumn(col.name, col.type as any)
+          .execute();
+      }
+    }
+
+    console.log('✅ Game columns verification complete');
+  } catch (error) {
+    console.error('❌ Error ensuring game columns:', error);
+  }
+}
+
+/**
+ * Backfills game data from legacy description string into new columns
+ * Idempotent: Only runs for games where 'result' is NULL
+ */
+async function backfillGameData(): Promise<void> {
+  try {
+    // Check if there are any games that need migration
+    // We check for games where result IS NULL but description IS NOT NULL
+    const gamesToMigrate = await chessDb
+      .selectFrom('games')
+      .selectAll() // We need invalid/ghost columns too if kysely allows
+      .where('result', 'is', null)
+      .execute();
+
+    // Note: Kysely types might hide 'description' now that we removed it from interface.
+    // But at runtime, for existing games, it comes back in the result row.
+
+    if (gamesToMigrate.length === 0) {
+      return; // Nothing to do
+    }
+
+    console.log(`🔄 Backfilling ${gamesToMigrate.length} games...`);
+
+    let successCount = 0;
+
+    for (const game of gamesToMigrate) {
+      // Unsafe cast to access the "ghost" description column
+      const description = (game as any).description as string | null;
+
+      if (!description) continue;
+
+      const parsed = parseGameDescription(description);
+
+      if (parsed.result) {
+        await chessDb
+          .updateTable('games')
+          .set({
+            result: parsed.result,
+            user_elo_before: parsed.user_elo_before,
+            user_elo_after: parsed.user_elo_after
+          })
+          .where('id', '=', game.id)
+          .execute();
+        successCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      console.log(`✅ Successfully backfilled ${successCount} games.`);
+    }
+
+  } catch (error) {
+    console.error('❌ Error backfilling game data:', error);
   }
 }
 

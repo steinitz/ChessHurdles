@@ -28,7 +28,13 @@
     3.  **NO PARALLEL EXECUTION**: You are strictly forbidden from calling any code-modifying tools (`write_to_file`, `replace_file_content`, `multi_replace_file_content`) in the same response where you have updated a plan (formal or informal) or received a new requirement. You MUST use `notify_user` to request approval and wait for the next turn. This ensures a Mandatory Human-in-the-Loop checkpoint that you cannot bypass in a single "runaway" thought process.
     4.  **Vigilance**: Resist "early implementation." Focus on refining the plan until the user signals the transition to execution.
     5.  **Preservation**: `reference/Temp Implementation/` is READ-ONLY for the assistant.
-    6.  **Persistence**: Formal design artifacts (`implementation_plan.md`, `task.md`) must be preserved across sessions unless explicitly abandoned.
+    6.  **Persistence & Restoration**:
+        - **Context**: Formal design artifacts (`implementation_plan.md`, `task.md`) persist across sessions.
+        - **Restoration Protocol**: When restoring a plan:
+            1. **Locate & Read** the artifact.
+            2. **Verify State**: Check if code matches the plan (don't re-implement existing files).
+            3. **STOP**: State the restored status and request explicit approval for the *next* step.
+
 
 npm is disabled. Use pnpm.
 
