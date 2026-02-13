@@ -388,6 +388,8 @@ export function PlayVsEngine() {
 
   useEffect(() => { if (!gameResult) processedRef.current = false; }, [gameResult]);
 
+  // Auto-detect game-over conditions (checkmate, draw)
+  // Note: Runs whenever game state changes. Close button must reset game to prevent re-detection.
   useEffect(() => {
     if (game.isGameOver() && !gameResult) {
       if (game.isCheckmate()) setGameResult({ winner: game.turn() === 'w' ? 'Black' : 'White', reason: 'Checkmate' });
@@ -548,8 +550,14 @@ export function PlayVsEngine() {
                     onClick={() => startNewGame()}
                     style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-link)', color: 'var(--color-text)' }}
                   >Rematch</button>
+                  {/* Close: Reset game state to prevent game-over detection loop */}
                   <button
-                    onClick={() => setGameResult(null)}
+                    onClick={() => {
+                      setGame(new Chess());
+                      resetEngineState();
+                      setGameResult(null);
+                      setSavedGameId(null);
+                    }}
                     style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-link)', color: 'var(--color-text)' }}
                   >Close</button>
                   {savedGameId ? (
