@@ -91,6 +91,8 @@ export function PlayVsEngine() {
   const [savedGameId, setSavedGameId] = useState<string | null>(null);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [pauseAfterEngineMove, setPauseAfterEngineMove] = useState(false);
   const processedRef = useRef(false);
 
   // Auth & Stats
@@ -106,9 +108,10 @@ export function PlayVsEngine() {
   // White: Clock starts when they make first move (history.length > 0)
   // Black: Clock starts after they make reply move (history.length >= 2)
   //   This prevents Black's clock from starting during engine's opening move
-  const isClockActive = userSide === 'w'
+  // Pause: Clock stops when isPaused is true
+  const isClockActive = !isPaused && (userSide === 'w'
     ? game.history().length > 0
-    : game.history().length >= 2;
+    : game.history().length >= 2);
 
   const {
     whiteTime,
@@ -151,13 +154,18 @@ export function PlayVsEngine() {
       next.move({ from, to, ...(promotion && { promotion }) });
       setGame(next);
 
-      // Engine played. If User is White (Engine Black), add Black increment.
-      if (userSide === 'w') addIncrement('b');
-      else addIncrement('w');
+      // Add increment to engine's side (opposite of user's side)
+      addIncrement(userSide === 'w' ? 'b' : 'w');
+
+      // Check if pause was requested during engine's turn
+      if (pauseAfterEngineMove) {
+        setIsPaused(true);
+        setPauseAfterEngineMove(false);
+      }
     } catch (e) {
       console.error('Failed to apply engine move:', from, to, e);
     }
-  }, [game, userSide, addIncrement, gameResult]);
+  }, [game, userSide, addIncrement, gameResult, pauseAfterEngineMove]);
 
   const {
     lastMoveSource,
@@ -262,6 +270,8 @@ export function PlayVsEngine() {
     setGameResult(null);
     setSavedGameId(null);
     setShowAbandonConfirm(false);
+    setIsPaused(false); // Ensure game is not paused on new game
+    setPauseAfterEngineMove(false);
   }, [userSide, userTimeConfig, engineTimeConfig, setWhiteTime, setBlackTime, resetEngineState]);
 
   // Handle Clock Click -> Open Modal
@@ -329,6 +339,21 @@ export function PlayVsEngine() {
     }
   };
 
+  const handlePause = useCallback(() => {
+    if (game.turn() !== userSide) {
+      // Engine's turn - wait for engine to complete its move, then pause
+      setPauseAfterEngineMove(true);
+    } else {
+      // User's turn - pause immediately
+      setIsPaused(true);
+    }
+  }, [game, userSide]);
+
+  const handleResume = useCallback(() => {
+    setIsPaused(false);
+    setPauseAfterEngineMove(false); // Cancel any pending pause
+  }, []);
+
   // -- Game Logic continued --
 
   useEffect(() => {
@@ -393,7 +418,7 @@ export function PlayVsEngine() {
         setUserElo(newElo);
       }).catch(console.error);
     }
-  }, [gameResult, userId, userElo, engineLevel, game]);
+  }, [gameResult, userId, userElo, engineLevel, game, session?.user?.name, userSide]);
 
   useEffect(() => { if (!gameResult) processedRef.current = false; }, [gameResult]);
 
@@ -408,17 +433,26 @@ export function PlayVsEngine() {
 
   const onMove = useCallback((moveSan: string) => {
     if (game.turn() !== userSide || gameResult) return;
+
+    // Auto-unpause when user makes a move
+    if (isPaused) {
+      setIsPaused(false);
+    }
+    // Cancel any pending pause if user moves before engine completes
+    if (pauseAfterEngineMove) {
+      setPauseAfterEngineMove(false);
+    }
+
     try {
       const next = cloneGame(game);
       if (next.move(moveSan)) {
         setGame(next);
-        if (userSide === 'w') addIncrement('w');
-        else addIncrement('b');
+        addIncrement(userSide);
       }
     } catch (e) {
       console.error('Failed to apply move:', moveSan, e);
     }
-  }, [game, gameResult, userSide, addIncrement]);
+  }, [game, gameResult, userSide, addIncrement, isPaused, pauseAfterEngineMove]);
 
   const toggleZenMode = useCallback(() => {
     setZenMode(prev => {
@@ -459,7 +493,7 @@ export function PlayVsEngine() {
   };
 
   const boardSize = zenMode ? '100vmin' : '60vh';
-
+  const navigationButtonPaddingString = '0.4rem 0.8rem'
   return (
     <div style={containerStyles}>
       {/* Top Row: Engine Info (Left) and Engine Clock (Right) */}
@@ -605,10 +639,10 @@ export function PlayVsEngine() {
               setUserSide(nextSide);
               // Persistence removed per user request: "Flip board should act as a one-off override"
             }}
-            style={{ padding: '0.4rem 0.8rem' }}
+            style={{ padding: navigationButtonPaddingString }}
             title="Flip Board"
           >
-            <i className="fas fa-sync-alt" /> Flip Board
+            <i className="fas fa-sync-alt" /> Flip
           </button>
 
           <button
@@ -617,7 +651,7 @@ export function PlayVsEngine() {
               else startNewGame();
             }}
             title={isGameActive ? "Abandon Game" : "New Game"}
-            style={{ padding: '0.4rem 0.8rem' }}
+            style={{ padding: navigationButtonPaddingString }}
           >
             {isGameActive ? <i className="fas fa-times-circle" /> : <i className="fas fa-redo" />}
             {isGameActive ? " Abandon" : " New Game"}
@@ -627,18 +661,31 @@ export function PlayVsEngine() {
             onClick={() => setShowResignConfirm(true)}
             disabled={!!gameResult}
             title="Resign"
-            style={{ padding: '0.4rem 0.8rem' }}
+            style={{ padding: navigationButtonPaddingString }}
           >
             <i className="fas fa-flag" /> Resign
           </button>
 
           <button
+            onClick={isPaused ? handleResume : handlePause}
+            disabled={!!gameResult || !isGameActive}
+            title={isPaused ? "Resume Game" : "Pause Game"}
+            style={{
+              padding: navigationButtonPaddingString,
+              minWidth: '110px', // min to hold Resume and Pause
+            }}
+          >
+            {isPaused ? <i className="fas fa-play" /> : <i className="fas fa-pause" />}
+            {isPaused ? " Resume" : " Pause"}
+          </button>
+
+          <button
             onClick={toggleZenMode}
             title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
-            style={{ padding: '0.4rem 0.8rem' }}
+            style={{ padding: navigationButtonPaddingString }}
           >
             {zenMode ? <i className="fas fa-compress" /> : <i className="fas fa-expand" />}
-            {zenMode ? " Exit Zen" : " Zen Mode"}
+            {" Zen"}
           </button>
         </div>
 
