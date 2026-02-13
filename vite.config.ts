@@ -31,14 +31,15 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: [
-        // Exclude reference directory from build
+        // Exclude reference and agent directories from build
         /^\/reference\//,
+        /^\/agent\//,
       ],
     },
   },
-  // Exclude reference directory from file watching and processing
+  // Exclude reference and agent directories from file watching and processing
   optimizeDeps: {
-    exclude: ['reference'],
+    exclude: ['reference', 'agent'],
   },
   ssr: {
     noExternal: ['better-auth', 'kysely-libsql', '@libsql/client'],

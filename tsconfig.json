@@ -8,12 +8,19 @@
     "strictNullChecks": true,
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./src/*"],
-      "~stzUtils/*": ["./stzUtils/*"],
-      "~stzUser/*": ["./stzUser/*"]
+      "~/*": [
+        "./src/*"
+      ],
+      "~stzUtils/*": [
+        "./stzUtils/*"
+      ],
+      "~stzUser/*": [
+        "./stzUser/*"
+      ]
     }
   },
   "exclude": [
-    "reference/**/*"
+    "reference/**/*",
+    "agent/**/*"
   ]
 }
