@@ -102,6 +102,14 @@ export function PlayVsEngine() {
   // -- HOOKS --
 
   // 1. Clock Hook
+  // Determine when clock should be active
+  // White: Clock starts when they make first move (history.length > 0)
+  // Black: Clock starts after they make reply move (history.length >= 2)
+  //   This prevents Black's clock from starting during engine's opening move
+  const isClockActive = userSide === 'w'
+    ? game.history().length > 0
+    : game.history().length >= 2;
+
   const {
     whiteTime,
     blackTime,
@@ -115,6 +123,7 @@ export function PlayVsEngine() {
     whiteIncrementMs: whiteConfig.inc,
     blackIncrementMs: blackConfig.inc,
     userSide: userSide || 'w',
+    isActive: isClockActive,
     onTimeout: (winner) => {
       setGameResult({ winner, reason: 'Timeout' });
     }

@@ -22,14 +22,15 @@ describe('useGameClock', () => {
 
   it('adds the correct increment when addIncrement is called', () => {
     const game = new Chess();
-    const { result } = renderHook(() => 
+    const { result } = renderHook(() =>
       useGameClock(game, {
         whiteInitialTimeMs: whiteInitial,
         blackInitialTimeMs: blackInitial,
         whiteIncrementMs: whiteInc,
         blackIncrementMs: blackInc,
         onTimeout,
-        userSide: 'w'
+        userSide: 'w',
+        isActive: true
       })
     );
 
@@ -46,14 +47,15 @@ describe('useGameClock', () => {
 
   it('reproduces double increment if triggered by turn change (hypothetically)', () => {
     const game = new Chess();
-    const { result, rerender } = renderHook(({ g }) => 
+    const { result, rerender } = renderHook(({ g }) =>
       useGameClock(g, {
         whiteInitialTimeMs: whiteInitial,
         blackInitialTimeMs: blackInitial,
         whiteIncrementMs: whiteInc,
         blackIncrementMs: blackInc,
         onTimeout,
-        userSide: 'w'
+        userSide: 'w',
+        isActive: true
       }),
       { initialProps: { g: game } }
     );

@@ -8,11 +8,12 @@ interface UseGameClockOptions {
   blackIncrementMs: number;
   onTimeout: (winner: 'White' | 'Black') => void;
   userSide: 'w' | 'b';
+  isActive: boolean;
 }
 
 export function useGameClock(
   game: Chess,
-  { whiteInitialTimeMs, blackInitialTimeMs, whiteIncrementMs, blackIncrementMs, onTimeout, userSide }: UseGameClockOptions
+  { whiteInitialTimeMs, blackInitialTimeMs, whiteIncrementMs, blackIncrementMs, onTimeout, userSide, isActive }: UseGameClockOptions
 ) {
   const [whiteTime, setWhiteTime] = useState(whiteInitialTimeMs);
   const [blackTime, setBlackTime] = useState(blackInitialTimeMs);
@@ -49,6 +50,13 @@ export function useGameClock(
       return;
     }
 
+    // Parent controls clock activation based on game context
+    // This allows pausing the clock for scenarios like waiting for user's first move
+    if (!isActive) {
+      setLastTick(null);
+      return;
+    }
+
     const timer = setInterval(() => {
       const now = Date.now();
       const delta = lastTick ? now - lastTick : 0;
@@ -78,7 +86,7 @@ export function useGameClock(
     }, 100);
 
     return () => clearInterval(timer);
-  }, [game, game.turn(), game.isGameOver(), lastTick, onTimeout]);
+  }, [game, game.turn(), game.isGameOver(), lastTick, onTimeout, isActive]);
 
   return {
     whiteTime,
