@@ -106,11 +106,6 @@ export function processGameAnalysis(
       // We must strip ONLY the leading number and dots, preserving rank digits in the move (e.g. "c3")
       const bestMoveSan = result.bestMove.replace(/^\d+\.+/, '').trim().toLowerCase();
 
-      // DEBUG PROBE: Log potential mismatches for Identical Move filtering
-      if (item.classification !== 'none' && playedMoveSan.includes(bestMoveSan)) {
-        console.log(`[Identical Check] Mismatch? Played: "${playedMoveSan}", Best: "${bestMoveSan}" (Original: "${result.bestMove}")`);
-      }
-
       if (playedMoveSan === bestMoveSan) {
         // Player chose the best move - any CP change is just eval noise, not a real inaccuracy
         item.classification = 'none';
