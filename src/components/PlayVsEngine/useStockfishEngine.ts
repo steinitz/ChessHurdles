@@ -112,9 +112,22 @@ export function useStockfishEngine({
           console.log('Playing Book Move:', bookMoveUci);
           setLastMoveSource('Book');
 
-          const from = bookMoveUci.substring(0, 2);
-          const to = bookMoveUci.substring(2, 4);
+          let from = bookMoveUci.substring(0, 2);
+          let to = bookMoveUci.substring(2, 4);
           const promotion = bookMoveUci.length > 4 ? bookMoveUci.substring(4, 5) : undefined;
+
+          // FIX: Convert UCI castling notation to chess.js notation
+          // UCI uses king-to-rook squares (e8h8, e8a8, e1h1, e1a1)
+          // chess.js expects king-to-destination (e8g8, e8c8, e1g1, e1c1)
+          if (from === 'e8' && to === 'h8') {
+            to = 'g8'; // Black kingside castle
+          } else if (from === 'e8' && to === 'a8') {
+            to = 'c8'; // Black queenside castle
+          } else if (from === 'e1' && to === 'h1') {
+            to = 'g1'; // White kingside castle
+          } else if (from === 'e1' && to === 'a1') {
+            to = 'c1'; // White queenside castle
+          }
 
           // We don't catch errors here, we expect the parent onMove to handle it or it's a valid book move
           try {

@@ -426,6 +426,7 @@ export function ChessGame({
           onHurdleSaved={onHurdleSaved}
           currentMoveIndex={currentMoveIndex}
           onAnalysisUpdate={handleAnalysisUpdate}
+          playerSide={playerSide}
         />
 
         <GameMoves

@@ -228,7 +228,7 @@ export const getAIDescription = createServerFn({ method: 'POST' })
 
     // Mock AI for debugging
     await new Promise(resolve => setTimeout(resolve, 800));
-    const mockDescription = `[DEBUG MODE] You requested analysis for move **${data.move}** (Start FEN: ${data.fen?.substring(0, 15)}...).
+    const mockDescription = `[DEBUG MODE] You requested AI analysis for move **${data.move}** (Start FEN: ${data.fen?.substring(0, 15)}...).
 AI Context: "Compare to best move ${data.bestMove}, cp loss ${data.centipawnLoss}, PV ${data.pv?.substring(0, 20)}..."`;
 
     return { description: mockDescription };

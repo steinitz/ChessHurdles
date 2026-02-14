@@ -48,7 +48,8 @@ interface GameAnalysisProps {
   autoAnalyze?: boolean;
   onHurdleSaved?: () => void;
   currentMoveIndex?: number;
-  onAnalysisUpdate?: (analysis: { moveIndex: number; classification: string }[]) => void;
+  onAnalysisUpdate?: (analysis: { moveIndex: number; classification: string; isWhiteMove: boolean }[]) => void;
+  playerSide?: 'w' | 'b' | null;  // NEW: For filtering book checks to user's moves only
 }
 
 export default function GameAnalysis({
@@ -58,7 +59,8 @@ export default function GameAnalysis({
   autoAnalyze,
   onHurdleSaved,
   currentMoveIndex,
-  onAnalysisUpdate
+  onAnalysisUpdate,
+  playerSide
 }: GameAnalysisProps) {
   const [moveAnalysisDepth, setMoveAnalysisDepth] = useState(DEFAULT_ANALYSIS_DEPTH);
   const [isAnalyzingMoves, setIsAnalyzingMoves] = useState(false);
@@ -189,12 +191,21 @@ export default function GameAnalysis({
     // Handle async book check
     (async () => {
       const bookIndices = new Set<number>();
-      // Only check first 12 moves (24 plies) to keep API calls reasonable
-      const limit = Math.min(displayMoves.length, 12);
+      // OPTIMIZATION: Check first 21 USER plies only (not engine moves)
+      // This halves API calls while still catching opening book moves that matter for the user
+      const limit = Math.min(displayMoves.length, 21);
 
       const checks = displayMoves.slice(0, limit).map(async (moveSan, i) => {
         const position = displayPositions[i];
         if (!position) return;
+
+        // NEW: Filter to only check user's moves (skip engine moves)
+        // Calculate whether this move was played by white or black
+        const isWhiteMove = startWithWhite ? (i % 2 === 0) : (i % 2 !== 0);
+        // Check if this is the user's move (if playerSide is known)
+        const isUserMove = playerSide ? (isWhiteMove === (playerSide === 'w')) : true;
+
+        if (!isUserMove) return; // Skip engine moves
 
         // Need UCI for book check
         const moves = position.moves({ verbose: true });

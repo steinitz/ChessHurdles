@@ -95,6 +95,12 @@ export function PlayVsEngine() {
   const [pauseAfterEngineMove, setPauseAfterEngineMove] = useState(false);
   const processedRef = useRef(false);
 
+  // FIX: Keep ref to latest game state to avoid stale closures in callbacks
+  const gameRef = useRef(game);
+  useEffect(() => {
+    gameRef.current = game;
+  }, [game]);
+
   // Auth & Stats
   const { data: session } = useSession();
   const userId = session?.user.id;
@@ -149,9 +155,25 @@ export function PlayVsEngine() {
     }
 
     try {
-      const next = cloneGame(game);
+      // FIX: Use gameRef.current to get latest state, not stale closure
+      const next = cloneGame(gameRef.current);
       // Only include promotion if actually provided (fixes knight move bug)
-      next.move({ from, to, ...(promotion && { promotion }) });
+      const moveResult = next.move({ from, to, ...(promotion && { promotion }) });
+
+      if (!moveResult) {
+        // Move was rejected by chess.js - log diagnostic info
+        console.error('❌ Engine move rejected by chess.js');
+        console.error('Move:', from, to, promotion);
+        console.error('Current FEN:', gameRef.current.fen());
+        console.error('Current turn:', gameRef.current.turn());
+        console.error('Piece at from square:', gameRef.current.get(from as any));
+        console.error('Legal moves:', gameRef.current.moves({ verbose: true }).map(m => `${m.from}${m.to}`));
+
+        // DEFENSIVE: Don't freeze the game - just log and return
+        // User can continue or abandon the game
+        return;
+      }
+
       setGame(next);
 
       // Add increment to engine's side (opposite of user's side)
@@ -163,9 +185,17 @@ export function PlayVsEngine() {
         setPauseAfterEngineMove(false);
       }
     } catch (e) {
-      console.error('Failed to apply engine move:', from, to, e);
+      console.error('❌ Exception applying engine move:', from, to, e);
+      // Try to log state safely - each call wrapped in try-catch
+      try { console.error('Current FEN:', gameRef.current.fen()); } catch { }
+      try { console.error('Current turn:', gameRef.current.turn()); } catch { }
+      try { console.error('Legal moves:', gameRef.current.moves()); } catch { }
+      try { console.error('Move history:', gameRef.current.history()); } catch { }
+
+      // DEFENSIVE: Don't freeze - return gracefully
+      return;
     }
-  }, [game, userSide, addIncrement, gameResult, pauseAfterEngineMove]);
+  }, [userSide, addIncrement, gameResult, pauseAfterEngineMove]);
 
   const {
     lastMoveSource,

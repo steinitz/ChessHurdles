@@ -98,8 +98,26 @@ export function processGameAnalysis(
       item.centipawnChange = cpChange;
       item.wpl = wpl;
 
-      // We can use either classification. For now, let's use WPL classification if available, or CP loss fallback
-      item.classification = classifyWPL(wpl);
+      // IDENTICAL MOVE FILTER: Skip classification if played move matches best move
+      // This prevents evaluation noise between analyses from flagging the best move as an inaccuracy
+      // (e.g., "1.d4 best d4" or "7...O-O best O-O" caused by slight eval differences at different depths/times)
+      const playedMoveSan = move.trim().toLowerCase();
+      // CLEANUP: Search tree results often include move numbers (e.g., "1.d4", "2...Nf6")
+      // We must strip ONLY the leading number and dots, preserving rank digits in the move (e.g. "c3")
+      const bestMoveSan = result.bestMove.replace(/^\d+\.+/, '').trim().toLowerCase();
+
+      // DEBUG PROBE: Log potential mismatches for Identical Move filtering
+      if (item.classification !== 'none' && playedMoveSan.includes(bestMoveSan)) {
+        console.log(`[Identical Check] Mismatch? Played: "${playedMoveSan}", Best: "${bestMoveSan}" (Original: "${result.bestMove}")`);
+      }
+
+      if (playedMoveSan === bestMoveSan) {
+        // Player chose the best move - any CP change is just eval noise, not a real inaccuracy
+        item.classification = 'none';
+      } else {
+        // Different move played - proceed with normal WPL classification
+        item.classification = classifyWPL(wpl);
+      }
 
       // --- OVERRIDE IF BOOK MOVE ---
       if (isBook && (item.classification === 'inaccuracy' || item.classification === 'mistake')) {
